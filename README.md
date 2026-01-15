@@ -2,6 +2,19 @@
 
 这是一个基于 Next.js 和 Go 的 Project Sekai 查看器项目。
 
+> ⚠️ **注意 / Note**
+>
+> 作者能力有限，本项目仅作为个人练习与探索。代码中可能存在大量非最佳实践，敬请包涵。
+> The author has limited capabilities; this project is for personal practice and exploration. Please be aware that the code may contain non-optimal practices.
+
+## 参考与致谢 / Credits
+
+本项目参考了 [Sekai Viewer](https://github.com/Sekai-World/sekai-viewer) 的设计与实现。
+Sekai Viewer 采用 **GPLv3** 开源协议。
+
+This project is inspired by and references [Sekai Viewer](https://github.com/Sekai-World/sekai-viewer).
+Sekai Viewer is licensed under **GPLv3**.
+
 ## 免责声明 / Disclaimer
 
 **本项目包含大量由人工智能（AI）辅助生成的代码。**
@@ -18,4 +31,5 @@
 
 ## License
 
+本项目的开源协议遵循所参考项目的要求（如适用），当前采用 AGPL-3.0。
 AGPL-3.0
