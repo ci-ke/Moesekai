@@ -6,10 +6,7 @@ import CardGrid from "@/components/cards/CardGrid";
 import CardFilters from "@/components/cards/CardFilters";
 import { ICardInfo, CardRarityType, CardAttribute, getRarityNumber, SupportUnit } from "@/types/types";
 import { useTheme } from "@/contexts/ThemeContext";
-
-// Master data URL (Japanese server)
-const CARDS_DATA_URL = "https://sekaimaster.exmeaning.com/master/cards.json";
-const CARD_SUPPLIES_URL = "https://sekaimaster.exmeaning.com/master/cardSupplies.json";
+import { fetchMasterData } from "@/lib/fetch";
 
 interface ICardSupply {
     id: number;
@@ -141,31 +138,17 @@ function CardsContent() {
             try {
                 setIsLoading(true);
 
-                // Fetch both cards and supplies in parallel
-                const [cardsResponse, suppliesResponse] = await Promise.all([
-                    fetch(CARDS_DATA_URL),
-                    fetch(CARD_SUPPLIES_URL)
+                // Fetch both cards and supplies in parallel with compression headers
+                const [cardsData, suppliesData] = await Promise.all([
+                    fetchMasterData<ICardInfo[]>("cards.json"),
+                    fetchMasterData<ICardSupply[]>("cardSupplies.json").catch(() => [] as ICardSupply[])
                 ]);
-
-                if (!cardsResponse.ok) {
-                    throw new Error("Failed to fetch cards data");
-                }
-
-                // Supplies are optional, but we need them for filtering
-                let suppliesData: ICardSupply[] = [];
-                if (suppliesResponse.ok) {
-                    suppliesData = await suppliesResponse.json();
-                } else {
-                    console.warn("Failed to fetch card supplies");
-                }
 
                 // Create a map of supply ID to supply type
                 const supplyTypeMap = new Map<number, string>();
                 suppliesData.forEach(supply => {
                     supplyTypeMap.set(supply.id, supply.cardSupplyType);
                 });
-
-                const cardsData: ICardInfo[] = await cardsResponse.json();
 
                 // Enhance card data with mapped supply type
                 const enhancedCards = cardsData.map(card => ({

@@ -23,14 +23,7 @@ import {
 import { CHARACTER_NAMES } from "@/types/types";
 import { useTheme, AssetSourceType } from "@/contexts/ThemeContext";
 import { getCharacterIconUrl, getEventBannerUrl } from "@/lib/assets";
-
-// Master data URLs
-const MUSICS_DATA_URL = "https://sekaimaster.exmeaning.com/master/musics.json";
-const MUSIC_TAGS_URL = "https://sekaimaster.exmeaning.com/master/musicTags.json";
-const MUSIC_DIFFICULTIES_URL = "https://sekaimaster.exmeaning.com/master/musicDifficulties.json";
-const MUSIC_VOCALS_URL = "https://sekaimaster.exmeaning.com/master/musicVocals.json";
-const EVENTS_DATA_URL = "https://sekaimaster.exmeaning.com/master/events.json";
-const EVENT_MUSICS_URL = "https://sekaimaster.exmeaning.com/master/eventMusics.json";
+import { fetchMasterData } from "@/lib/fetch";
 
 // Difficulty order for tabs
 const DIFFICULTY_ORDER: MusicDifficultyType[] = ["easy", "normal", "hard", "expert", "master", "append"];
@@ -68,23 +61,14 @@ export default function MusicDetailPage() {
         async function fetchData() {
             try {
                 setIsLoading(true);
-                const [musicsRes, tagsRes, diffisRes, vocalsRes, eventsRes, eventMusicsRes] = await Promise.all([
-                    fetch(MUSICS_DATA_URL),
-                    fetch(MUSIC_TAGS_URL),
-                    fetch(MUSIC_DIFFICULTIES_URL),
-                    fetch(MUSIC_VOCALS_URL),
-                    fetch(EVENTS_DATA_URL),
-                    fetch(EVENT_MUSICS_URL),
+                const [musicsData, tagsData, diffisData, vocalsData, eventsData, eventMusicsData] = await Promise.all([
+                    fetchMasterData<IMusicInfo[]>("musics.json"),
+                    fetchMasterData<IMusicTagInfo[]>("musicTags.json"),
+                    fetchMasterData<IMusicDifficultyInfo[]>("musicDifficulties.json"),
+                    fetchMasterData<any[]>("musicVocals.json"),
+                    fetchMasterData<any[]>("events.json"),
+                    fetchMasterData<any[]>("eventMusics.json"),
                 ]);
-
-                if (!musicsRes.ok) throw new Error("Failed to fetch music data");
-
-                const musicsData: IMusicInfo[] = await musicsRes.json();
-                const tagsData: IMusicTagInfo[] = await tagsRes.json();
-                const diffisData: IMusicDifficultyInfo[] = await diffisRes.json();
-                const vocalsData: any[] = await vocalsRes.json();
-                const eventsData: any[] = await eventsRes.json();
-                const eventMusicsData: any[] = await eventMusicsRes.json();
 
                 const foundMusic = musicsData.find(m => m.id === musicId);
                 if (!foundMusic) {

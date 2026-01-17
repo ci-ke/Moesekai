@@ -2,9 +2,9 @@ import { MetadataRoute } from 'next';
 import { ICardInfo, IGachaInfo } from '@/types/types';
 import { IMusicInfo } from '@/types/music';
 import { IEventInfo } from '@/types/events';
+import { fetchMasterData } from '@/lib/fetch';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://snowyviewer.exmeaning.com';
-const MASTER_BASE_URL = 'https://sekaimaster.exmeaning.com/master';
 
 interface ITipInfo {
     id: number;
@@ -35,11 +35,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     try {
         const [cards, musics, events, gachas, tips] = await Promise.all([
-            fetch(`${MASTER_BASE_URL}/cards.json`).then(res => res.json() as Promise<ICardInfo[]>),
-            fetch(`${MASTER_BASE_URL}/musics.json`).then(res => res.json() as Promise<IMusicInfo[]>),
-            fetch(`${MASTER_BASE_URL}/events.json`).then(res => res.json() as Promise<IEventInfo[]>),
-            fetch(`${MASTER_BASE_URL}/gachas.json`).then(res => res.json() as Promise<IGachaInfo[]>),
-            fetch(`${MASTER_BASE_URL}/tips.json`).then(res => res.json() as Promise<ITipInfo[]>),
+            fetchMasterData<ICardInfo[]>('cards.json'),
+            fetchMasterData<IMusicInfo[]>('musics.json'),
+            fetchMasterData<IEventInfo[]>('events.json'),
+            fetchMasterData<IGachaInfo[]>('gachas.json'),
+            fetchMasterData<ITipInfo[]>('tips.json'),
         ]);
 
         const cardRoutes = cards.map((card) => ({

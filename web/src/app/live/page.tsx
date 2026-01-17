@@ -6,9 +6,7 @@ import VirtualLiveGrid from "@/components/live/VirtualLiveGrid";
 import VirtualLiveFilters from "@/components/live/VirtualLiveFilters";
 import { IVirtualLiveInfo, VirtualLiveType } from "@/types/virtualLive";
 import { useTheme } from "@/contexts/ThemeContext";
-
-// Master data URL
-const VIRTUAL_LIVES_DATA_URL = "https://sekaimaster.exmeaning.com/master/virtualLives.json";
+import { fetchMasterData } from "@/lib/fetch";
 
 function VirtualLiveContent() {
     const router = useRouter();
@@ -98,11 +96,7 @@ function VirtualLiveContent() {
         async function fetchVirtualLives() {
             try {
                 setIsLoading(true);
-                const response = await fetch(VIRTUAL_LIVES_DATA_URL);
-                if (!response.ok) {
-                    throw new Error("Failed to fetch virtual lives data");
-                }
-                const data: IVirtualLiveInfo[] = await response.json();
+                const data = await fetchMasterData<IVirtualLiveInfo[]>("virtualLives.json");
                 setVirtualLives(data);
                 setError(null);
             } catch (err) {

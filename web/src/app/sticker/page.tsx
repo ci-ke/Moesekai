@@ -7,9 +7,7 @@ import BaseFilters, { FilterSection } from "@/components/common/BaseFilters";
 import { useTheme } from "@/contexts/ThemeContext";
 import { CHARACTER_NAMES } from "@/types/types";
 import { getStampUrl } from "@/lib/assets";
-
-// Master data URL
-const STAMPS_DATA_URL = "https://sekaimaster.exmeaning.com/master/stamps.json";
+import { fetchMasterData } from "@/lib/fetch";
 
 interface IStampInfo {
     id: number;
@@ -47,13 +45,7 @@ function StickerContent() {
         async function fetchStamps() {
             try {
                 setIsLoading(true);
-                const response = await fetch(STAMPS_DATA_URL);
-
-                if (!response.ok) {
-                    throw new Error("Failed to fetch stamps data");
-                }
-
-                const data: IStampInfo[] = await response.json();
+                const data = await fetchMasterData<IStampInfo[]>("stamps.json");
                 setStamps(data);
                 setError(null);
             } catch (err) {

@@ -19,12 +19,7 @@ import { getCardFullUrl, getCardThumbnailUrl, getEventBannerUrl, getGachaBannerU
 import { useRef } from "react";
 import { formatSkillDescription } from "@/lib/skill";
 import { useTheme } from "@/contexts/ThemeContext";
-
-
-// Master data URL
-const CARDS_DATA_URL = "https://sekaimaster.exmeaning.com/master/cards.json";
-const SKILLS_DATA_URL = "https://sekaimaster.exmeaning.com/master/skills.json";
-const CARD_SUPPLIES_URL = "https://sekaimaster.exmeaning.com/master/cardSupplies.json"; // Added URL
+import { fetchMasterData, fetchWithCompression } from "@/lib/fetch";
 
 // Max levels by rarity
 const MAX_LEVELS: Record<string, { normal: number; trained?: number }> = {
@@ -82,49 +77,40 @@ export default function CardDetailPage() {
         async function fetchCard() {
             try {
                 setIsLoading(true);
-                const [cardsResponse, skillsResponse, suppliesResponse] = await Promise.all([
-                    fetch(CARDS_DATA_URL),
-                    fetch(SKILLS_DATA_URL),
-                    fetch(CARD_SUPPLIES_URL) // Added fetch
+                const [cardsData, skillsData, suppliesData] = await Promise.all([
+                    fetchMasterData<ICardInfo[]>("cards.json"),
+                    fetchMasterData<any[]>("skills.json"),
+                    fetchMasterData<any[]>("cardSupplies.json").catch(() => [])
                 ]);
 
-                if (!cardsResponse.ok) throw new Error("Failed to fetch cards data");
-
-                const data: ICardInfo[] = await cardsResponse.json();
-                const foundCard = data.find(c => c.id === cardId);
+                const foundCard = cardsData.find(c => c.id === cardId);
 
                 if (!foundCard) {
                     throw new Error(`Card ${cardId} not found`);
                 }
 
                 // Handle Supply Type
-                if (suppliesResponse.ok) {
-                    const suppliesData: any[] = await suppliesResponse.json();
-                    const supply = suppliesData.find(s => s.id === foundCard.cardSupplyId);
-                    if (supply && supply.cardSupplyType) {
-                        setSupplyName(SUPPLY_TYPE_NAMES[supply.cardSupplyType] || supply.cardSupplyType);
-                    } else {
-                        setSupplyName("常驻"); // Default
-                    }
+                const supply = suppliesData.find((s: any) => s.id === foundCard.cardSupplyId);
+                if (supply && supply.cardSupplyType) {
+                    setSupplyName(SUPPLY_TYPE_NAMES[supply.cardSupplyType] || supply.cardSupplyType);
+                } else {
+                    setSupplyName("常驻"); // Default
                 }
 
                 // ... (rest of logic)
-                if (skillsResponse.ok) {
-                    const skillsData = await skillsResponse.json();
-                    // Normal skill
-                    const skill = skillsData.find((s: any) => s.id === foundCard.skillId);
-                    if (skill) {
-                        setSkillData(skill);
-                        // Default to max level available in skill effects details
-                        const maxLvl = skill.skillEffects[0]?.skillEffectDetails.length || 1;
-                        setSkillLevel(maxLvl);
-                    }
-                    // Trained skill (after blooming)
-                    if (foundCard.specialTrainingSkillId) {
-                        const trainedSkill = skillsData.find((s: any) => s.id === foundCard.specialTrainingSkillId);
-                        if (trainedSkill) {
-                            setTrainedSkillData(trainedSkill);
-                        }
+                // Normal skill
+                const skill = skillsData.find((s: any) => s.id === foundCard.skillId);
+                if (skill) {
+                    setSkillData(skill);
+                    // Default to max level available in skill effects details
+                    const maxLvl = skill.skillEffects[0]?.skillEffectDetails.length || 1;
+                    setSkillLevel(maxLvl);
+                }
+                // Trained skill (after blooming)
+                if (foundCard.specialTrainingSkillId) {
+                    const trainedSkill = skillsData.find((s: any) => s.id === foundCard.specialTrainingSkillId);
+                    if (trainedSkill) {
+                        setTrainedSkillData(trainedSkill);
                     }
                 }
 

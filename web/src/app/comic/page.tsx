@@ -6,9 +6,7 @@ import MainLayout from "@/components/MainLayout";
 import BaseFilters from "@/components/common/BaseFilters";
 import { useTheme } from "@/contexts/ThemeContext";
 import { getComicUrl } from "@/lib/assets";
-
-// Master data URL
-const TIPS_DATA_URL = "https://sekaimaster.exmeaning.com/master/tips.json";
+import { fetchMasterData } from "@/lib/fetch";
 
 interface ITipInfo {
     id: number;
@@ -43,13 +41,7 @@ function ComicContent() {
         async function fetchComics() {
             try {
                 setIsLoading(true);
-                const response = await fetch(TIPS_DATA_URL);
-
-                if (!response.ok) {
-                    throw new Error("Failed to fetch tips data");
-                }
-
-                const data: ITipInfo[] = await response.json();
+                const data = await fetchMasterData<ITipInfo[]>("tips.json");
                 // Filter only comics (those with assetbundleName)
                 const comicsOnly = data.filter(t => t.assetbundleName);
                 setComics(comicsOnly);

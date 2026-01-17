@@ -1,13 +1,13 @@
 import { Suspense } from "react";
 import GachaDetailClient from "./client";
+import { fetchMasterData } from "@/lib/fetch";
+import { IGachaInfo } from "@/types/types";
 
 // Static params for SSG
 export async function generateStaticParams() {
     try {
-        const response = await fetch("https://sekaimaster.exmeaning.com/master/gachas.json");
-        if (!response.ok) return [];
-        const gachas = await response.json();
-        return gachas.map((gacha: { id: number }) => ({
+        const gachas = await fetchMasterData<IGachaInfo[]>("gachas.json");
+        return gachas.map((gacha) => ({
             id: gacha.id.toString(),
         }));
     } catch {

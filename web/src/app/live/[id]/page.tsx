@@ -1,12 +1,11 @@
 import { Suspense } from "react";
 import { IVirtualLiveInfo } from "@/types/virtualLive";
 import VirtualLiveDetailClient from "./client";
-
-const VIRTUAL_LIVES_DATA_URL = "https://sekaimaster.exmeaning.com/master/virtualLives.json";
+import { fetchMasterData } from "@/lib/fetch";
 
 export async function generateStaticParams() {
     try {
-        const virtualLives: IVirtualLiveInfo[] = await fetch(VIRTUAL_LIVES_DATA_URL).then((res) => res.json());
+        const virtualLives = await fetchMasterData<IVirtualLiveInfo[]>("virtualLives.json");
         return virtualLives.map((vl) => ({
             id: vl.id.toString(),
         }));

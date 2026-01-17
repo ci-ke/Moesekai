@@ -1,12 +1,11 @@
 import { Suspense } from "react";
 import { IEventInfo } from "@/types/events";
 import EventDetailClient from "./client";
-
-const EVENTS_DATA_URL = "https://sekaimaster.exmeaning.com/master/events.json";
+import { fetchMasterData } from "@/lib/fetch";
 
 export async function generateStaticParams() {
     try {
-        const events: IEventInfo[] = await fetch(EVENTS_DATA_URL).then((res) => res.json());
+        const events = await fetchMasterData<IEventInfo[]>("events.json");
         return events.map((event) => ({
             id: event.id.toString(),
         }));

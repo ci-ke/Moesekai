@@ -20,19 +20,7 @@ import {
     IMysekaiCharacterTalk,
     IMysekaiGameCharacterUnitGroup,
 } from "@/types/mysekai";
-
-// Master data URLs
-const FIXTURES_DATA_URL = "https://sekaimaster.exmeaning.com/master/mysekaiFixtures.json";
-const GENRES_DATA_URL = "https://sekaimaster.exmeaning.com/master/mysekaiFixtureMainGenres.json";
-const SUBGENRES_DATA_URL = "https://sekaimaster.exmeaning.com/master/mysekaiFixtureSubGenres.json";
-const TAGS_DATA_URL = "https://sekaimaster.exmeaning.com/master/mysekaiFixtureTags.json";
-const BLUEPRINTS_DATA_URL = "https://sekaimaster.exmeaning.com/master/mysekaiBlueprints.json";
-const MATERIAL_COSTS_DATA_URL = "https://sekaimaster.exmeaning.com/master/mysekaiBlueprintMysekaiMaterialCosts.json";
-const MATERIALS_DATA_URL = "https://sekaimaster.exmeaning.com/master/mysekaiMaterials.json";
-const TALK_CONDITIONS_DATA_URL = "https://sekaimaster.exmeaning.com/master/mysekaiCharacterTalkConditions.json";
-const TALK_CONDITION_GROUPS_DATA_URL = "https://sekaimaster.exmeaning.com/master/mysekaiCharacterTalkConditionGroups.json";
-const TALKS_DATA_URL = "https://sekaimaster.exmeaning.com/master/mysekaiCharacterTalks.json";
-const CHARACTER_GROUPS_DATA_URL = "https://sekaimaster.exmeaning.com/master/mysekaiGameCharacterUnitGroups.json";
+import { fetchMasterData } from "@/lib/fetch";
 
 // Map virtual singer unit-specific character IDs to base character IDs
 // 27-31: Miku (L/n, MMJ, VBS, WxS, 25-ji versions) -> 21
@@ -78,36 +66,22 @@ export default function MysekaiFixtureDetailClient() {
                 setIsLoading(true);
 
                 const [
-                    fixturesRes, genresRes, subGenresRes, tagsRes,
-                    blueprintsRes, materialCostsRes, materialsRes,
-                    talkConditionsRes, talkConditionGroupsRes, talksRes, characterGroupsRes
+                    fixturesData, genresData, subGenresData, tagsData,
+                    blueprintsData, materialCostsData, materialsData,
+                    talkConditionsData, talkConditionGroupsData, talksData, characterGroupsData
                 ] = await Promise.all([
-                    fetch(FIXTURES_DATA_URL),
-                    fetch(GENRES_DATA_URL),
-                    fetch(SUBGENRES_DATA_URL),
-                    fetch(TAGS_DATA_URL),
-                    fetch(BLUEPRINTS_DATA_URL),
-                    fetch(MATERIAL_COSTS_DATA_URL),
-                    fetch(MATERIALS_DATA_URL),
-                    fetch(TALK_CONDITIONS_DATA_URL),
-                    fetch(TALK_CONDITION_GROUPS_DATA_URL),
-                    fetch(TALKS_DATA_URL),
-                    fetch(CHARACTER_GROUPS_DATA_URL),
+                    fetchMasterData<IMysekaiFixtureInfo[]>("mysekaiFixtures.json"),
+                    fetchMasterData<IMysekaiFixtureGenre[]>("mysekaiFixtureMainGenres.json"),
+                    fetchMasterData<IMysekaiFixtureSubGenre[]>("mysekaiFixtureSubGenres.json"),
+                    fetchMasterData<IMysekaiFixtureTag[]>("mysekaiFixtureTags.json"),
+                    fetchMasterData<IMysekaiBlueprint[]>("mysekaiBlueprints.json"),
+                    fetchMasterData<IMysekaiBlueprintMaterialCost[]>("mysekaiBlueprintMysekaiMaterialCosts.json"),
+                    fetchMasterData<IMysekaiMaterial[]>("mysekaiMaterials.json"),
+                    fetchMasterData<IMysekaiCharacterTalkCondition[]>("mysekaiCharacterTalkConditions.json"),
+                    fetchMasterData<IMysekaiCharacterTalkConditionGroup[]>("mysekaiCharacterTalkConditionGroups.json"),
+                    fetchMasterData<IMysekaiCharacterTalk[]>("mysekaiCharacterTalks.json"),
+                    fetchMasterData<IMysekaiGameCharacterUnitGroup[]>("mysekaiGameCharacterUnitGroups.json"),
                 ]);
-
-                if (!fixturesRes.ok) throw new Error("Failed to fetch fixtures data");
-
-                const fixturesData: IMysekaiFixtureInfo[] = await fixturesRes.json();
-                const genresData: IMysekaiFixtureGenre[] = await genresRes.json();
-                const subGenresData: IMysekaiFixtureSubGenre[] = await subGenresRes.json();
-                const tagsData: IMysekaiFixtureTag[] = await tagsRes.json();
-                const blueprintsData: IMysekaiBlueprint[] = await blueprintsRes.json();
-                const materialCostsData: IMysekaiBlueprintMaterialCost[] = await materialCostsRes.json();
-                const materialsData: IMysekaiMaterial[] = await materialsRes.json();
-                const talkConditionsData: IMysekaiCharacterTalkCondition[] = await talkConditionsRes.json();
-                const talkConditionGroupsData: IMysekaiCharacterTalkConditionGroup[] = await talkConditionGroupsRes.json();
-                const talksData: IMysekaiCharacterTalk[] = await talksRes.json();
-                const characterGroupsData: IMysekaiGameCharacterUnitGroup[] = await characterGroupsRes.json();
 
                 const foundFixture = fixturesData.find(f => f.id === fixtureId);
                 if (!foundFixture) {

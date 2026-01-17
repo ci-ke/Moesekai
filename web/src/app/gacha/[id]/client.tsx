@@ -4,13 +4,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import MainLayout from "@/components/MainLayout";
-import { ICardInfo, GACHA_TYPE_LABELS, getRarityNumber, isTrainableCard } from "@/types/types";
+import { ICardInfo, IGachaInfo, GACHA_TYPE_LABELS, getRarityNumber, isTrainableCard } from "@/types/types";
 import { getGachaLogoUrl, getGachaScreenUrl, getCardThumbnailUrl } from "@/lib/assets";
 import { useTheme } from "@/contexts/ThemeContext";
-
-// API endpoints
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://sekaiviewerapi.exmeaning.com";
-const CARDS_DATA_URL = "https://sekaimaster.exmeaning.com/master/cards.json";
+import { fetchMasterData } from "@/lib/fetch";
 
 // Local attribute icon mapping
 const LOCAL_ATTR_ICONS: Record<string, string> = {
@@ -21,23 +18,6 @@ const LOCAL_ATTR_ICONS: Record<string, string> = {
     pure: "/data/icon/Pure.webp",
 };
 
-// API Response type
-interface GachaDetailResponse {
-    id: number;
-    gachaType: string;
-    name: string;
-    assetbundleName: string;
-    startAt: number;
-    endAt: number;
-    gachaCardRarityRates: {
-        id: number;
-        gachaId: number;
-        cardRarityType: string;
-        rate: number;
-    }[];
-    pickupCardIds: number[];
-}
-
 interface GachaDetailClientProps {
     gachaId: string;
 }
@@ -46,7 +26,7 @@ export default function GachaDetailClient({ gachaId }: GachaDetailClientProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const isScreenshotMode = searchParams.get('mode') === 'screenshot';
-    const [gacha, setGacha] = useState<GachaDetailResponse | null>(null);
+    const [gacha, setGacha] = useState<IGachaInfo | null>(null);
     const [cards, setCards] = useState<ICardInfo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -63,26 +43,23 @@ export default function GachaDetailClient({ gachaId }: GachaDetailClientProps) {
             try {
                 setIsLoading(true);
 
-                // Fetch gacha detail from our API and cards from master data
-                const [gachaRes, cardsRes] = await Promise.all([
-                    fetch(`${API_BASE_URL}/api/gachas/${gachaId}`),
-                    fetch(CARDS_DATA_URL)
+                // Fetch gacha and cards from master data
+                const [gachasData, cardsData] = await Promise.all([
+                    fetchMasterData<IGachaInfo[]>("gachas.json"),
+                    fetchMasterData<ICardInfo[]>("cards.json")
                 ]);
 
-                if (!gachaRes.ok) {
-                    if (gachaRes.status === 404) {
-                        throw new Error("Gacha not found");
-                    }
-                    throw new Error("Failed to fetch gacha data");
+                // Find the specific gacha
+                const gachaIdNum = parseInt(gachaId, 10);
+                const foundGacha = gachasData.find(g => g.id === gachaIdNum);
+
+                if (!foundGacha) {
+                    throw new Error("Gacha not found");
                 }
-                if (!cardsRes.ok) throw new Error("Failed to fetch cards data");
 
-                const gachaData: GachaDetailResponse = await gachaRes.json();
-                const cardsData: ICardInfo[] = await cardsRes.json();
-
-                setGacha(gachaData);
+                setGacha(foundGacha);
                 setCards(cardsData);
-                document.title = `${gachaData.name} - Snowy SekaiViewer`;
+                document.title = `${foundGacha.name} - Snowy SekaiViewer`;
             } catch (err) {
                 console.error("Error:", err);
                 setError(err instanceof Error ? err.message : "Unknown error");
@@ -104,10 +81,11 @@ export default function GachaDetailClient({ gachaId }: GachaDetailClientProps) {
         });
     };
 
-    // Get pickup cards from the pickupCardIds
+    // Get pickup cards from the gachaPickups
     const pickupCards = useMemo(() => {
         if (!gacha) return [];
-        return gacha.pickupCardIds
+        const pickupCardIds = gacha.gachaPickups?.map(p => p.cardId) || [];
+        return pickupCardIds
             .map(cardId => cards.find(c => c.id === cardId))
             .filter((c): c is ICardInfo => c !== undefined);
     }, [gacha, cards]);

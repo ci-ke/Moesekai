@@ -16,14 +16,7 @@ import {
 import { getEventLogoUrl, getCharacterIconUrl, getCardThumbnailUrl, getEventBannerUrl, getEventCharacterUrl, getMusicJacketUrl, getVirtualLiveBannerUrl } from "@/lib/assets";
 import { CHARACTER_NAMES, getRarityNumber, RARITY_DISPLAY, isTrainableCard } from "@/types/types";
 import { useTheme } from "@/contexts/ThemeContext";
-
-// Master data URLs
-const EVENTS_DATA_URL = "https://sekaimaster.exmeaning.com/master/events.json";
-const EVENT_DECK_BONUSES_URL = "https://sekaimaster.exmeaning.com/master/eventDeckBonuses.json";
-const EVENT_CARDS_URL = "https://sekaimaster.exmeaning.com/master/eventCards.json";
-const EVENT_MUSICS_URL = "https://sekaimaster.exmeaning.com/master/eventMusics.json";
-const CARDS_URL = "https://sekaimaster.exmeaning.com/master/cards.json";
-const MUSICS_URL = "https://sekaimaster.exmeaning.com/master/musics.json";
+import { fetchMasterData, fetchWithCompression } from "@/lib/fetch";
 
 // Asset URL helpers - Now imported from @/lib/assets
 
@@ -114,23 +107,14 @@ export default function EventDetailPage() {
         async function fetchData() {
             try {
                 setIsLoading(true);
-                const [eventsRes, bonusesRes, eventCardsRes, eventMusicsRes, cardsRes, musicsRes] = await Promise.all([
-                    fetch(EVENTS_DATA_URL),
-                    fetch(EVENT_DECK_BONUSES_URL),
-                    fetch(EVENT_CARDS_URL),
-                    fetch(EVENT_MUSICS_URL),
-                    fetch(CARDS_URL),
-                    fetch(MUSICS_URL),
+                const [eventsData, bonusesData, eventCardsData, eventMusicsData, cardsData, musicsData] = await Promise.all([
+                    fetchMasterData<IEventInfo[]>("events.json"),
+                    fetchMasterData<IEventDeckBonus[]>("eventDeckBonuses.json"),
+                    fetchMasterData<IEventCard[]>("eventCards.json"),
+                    fetchMasterData<IEventMusic[]>("eventMusics.json"),
+                    fetchMasterData<ICard[]>("cards.json"),
+                    fetchMasterData<IMusic[]>("musics.json"),
                 ]);
-
-                if (!eventsRes.ok) throw new Error("Failed to fetch events data");
-
-                const eventsData: IEventInfo[] = await eventsRes.json();
-                const bonusesData: IEventDeckBonus[] = await bonusesRes.json();
-                const eventCardsData: IEventCard[] = await eventCardsRes.json();
-                const eventMusicsData: IEventMusic[] = await eventMusicsRes.json();
-                const cardsData: ICard[] = await cardsRes.json();
-                const musicsData: IMusic[] = await musicsRes.json();
 
                 const foundEvent = eventsData.find(e => e.id === eventId);
                 if (!foundEvent) {

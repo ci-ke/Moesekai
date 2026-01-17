@@ -14,12 +14,7 @@ import {
     IMysekaiFixtureSubGenre,
     IMysekaiFixtureTag
 } from "@/types/mysekai";
-
-// Master data URLs
-const FIXTURES_DATA_URL = "https://sekaimaster.exmeaning.com/master/mysekaiFixtures.json";
-const GENRES_DATA_URL = "https://sekaimaster.exmeaning.com/master/mysekaiFixtureMainGenres.json";
-const SUBGENRES_DATA_URL = "https://sekaimaster.exmeaning.com/master/mysekaiFixtureSubGenres.json";
-const TAGS_DATA_URL = "https://sekaimaster.exmeaning.com/master/mysekaiFixtureTags.json";
+import { fetchMasterData } from "@/lib/fetch";
 
 // Genre name translation map (Japanese -> Chinese)
 const GENRE_NAME_MAP: Record<string, string> = {
@@ -237,21 +232,12 @@ function MysekaiContent() {
             try {
                 setIsLoading(true);
 
-                const [fixturesRes, genresRes, subGenresRes, tagsRes] = await Promise.all([
-                    fetch(FIXTURES_DATA_URL),
-                    fetch(GENRES_DATA_URL),
-                    fetch(SUBGENRES_DATA_URL),
-                    fetch(TAGS_DATA_URL)
+                const [fixturesData, genresData, subGenresData, tagsData] = await Promise.all([
+                    fetchMasterData<IMysekaiFixtureInfo[]>("mysekaiFixtures.json"),
+                    fetchMasterData<IMysekaiFixtureGenre[]>("mysekaiFixtureMainGenres.json"),
+                    fetchMasterData<IMysekaiFixtureSubGenre[]>("mysekaiFixtureSubGenres.json"),
+                    fetchMasterData<IMysekaiFixtureTag[]>("mysekaiFixtureTags.json")
                 ]);
-
-                if (!fixturesRes.ok || !genresRes.ok || !subGenresRes.ok || !tagsRes.ok) {
-                    throw new Error("Failed to fetch data");
-                }
-
-                const fixturesData = await fixturesRes.json();
-                const genresData = await genresRes.json();
-                const subGenresData = await subGenresRes.json();
-                const tagsData = await tagsRes.json();
 
                 setFixtures(fixturesData);
                 setGenres(genresData);

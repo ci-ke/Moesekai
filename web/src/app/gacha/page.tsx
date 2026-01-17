@@ -5,35 +5,15 @@ import MainLayout from "@/components/MainLayout";
 import GachaGrid from "@/components/gacha/GachaGrid";
 import GachaFilters from "@/components/gacha/GachaFilters";
 import { useTheme } from "@/contexts/ThemeContext";
-
-// API endpoint
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://sekaiviewerapi.exmeaning.com";
-
-// Gacha list item from API
-interface GachaListItem {
-    id: number;
-    gachaType: string;
-    name: string;
-    assetbundleName: string;
-    startAt: number;
-    endAt: number;
-    pickupCardIds: number[];
-}
-
-interface GachaListResponse {
-    total: number;
-    page: number;
-    limit: number;
-    gachas: GachaListItem[];
-}
+import { IGachaInfo } from "@/types/types";
+import { fetchMasterData } from "@/lib/fetch";
 
 function GachaContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { isShowSpoiler } = useTheme();
 
-    const [gachas, setGachas] = useState<GachaListItem[]>([]);
-    const [totalGachas, setTotalGachas] = useState(0);
+    const [allGachas, setAllGachas] = useState<IGachaInfo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [filtersInitialized, setFiltersInitialized] = useState(false);
@@ -44,9 +24,7 @@ function GachaContent() {
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
     // Pagination
-    const [page, setPage] = useState(1);
-    const [hasMore, setHasMore] = useState(true);
-    const PAGE_SIZE = 24;
+    const [displayCount, setDisplayCount] = useState(24);
 
     // Storage key
     const STORAGE_KEY = "gacha_filters";
@@ -105,53 +83,46 @@ function GachaContent() {
         router.replace(newUrl, { scroll: false });
     }, [searchQuery, sortBy, sortOrder, router, filtersInitialized]);
 
-    // Fetch gachas from API
-    const fetchGachas = useCallback(async (pageNum: number, reset: boolean = false) => {
-        try {
-            setIsLoading(true);
-
-            const params = new URLSearchParams();
-            params.set("page", pageNum.toString());
-            params.set("limit", PAGE_SIZE.toString());
-            if (searchQuery) params.set("search", searchQuery);
-            if (isShowSpoiler) params.set("showSpoiler", "true");
-
-            const response = await fetch(`${API_BASE_URL}/api/gachas?${params}`);
-
-            if (!response.ok) {
-                throw new Error("Failed to fetch gachas data");
-            }
-
-            const data: GachaListResponse = await response.json();
-
-            if (reset) {
-                setGachas(data.gachas);
-            } else {
-                setGachas(prev => [...prev, ...data.gachas]);
-            }
-
-            setTotalGachas(data.total);
-            setHasMore(data.gachas.length === PAGE_SIZE && (pageNum * PAGE_SIZE) < data.total);
-            setError(null);
-        } catch (err) {
-            console.error("Error fetching gachas:", err);
-            setError(err instanceof Error ? err.message : "Unknown error");
-        } finally {
-            setIsLoading(false);
-        }
-    }, [searchQuery, isShowSpoiler]);
-
-    // Initial fetch and refetch when filters change
+    // Fetch gachas from master data
     useEffect(() => {
-        if (!filtersInitialized) return;
         document.title = "Snowy SekaiViewer 扭蛋";
-        setPage(1);
-        fetchGachas(1, true);
-    }, [filtersInitialized, searchQuery, isShowSpoiler, fetchGachas]);
+        async function fetchGachas() {
+            try {
+                setIsLoading(true);
+                const data = await fetchMasterData<IGachaInfo[]>("gachas.json");
+                setAllGachas(data);
+                setError(null);
+            } catch (err) {
+                console.error("Error fetching gachas:", err);
+                setError(err instanceof Error ? err.message : "Unknown error");
+            } finally {
+                setIsLoading(false);
+            }
+        }
+        fetchGachas();
+    }, []);
 
-    // Sort gachas client-side (since API returns by startAt desc)
-    const sortedGachas = useMemo(() => {
-        const result = [...gachas];
+    // Filter and sort gachas
+    const filteredGachas = useMemo(() => {
+        let result = [...allGachas];
+
+        // Apply search query (supports both name and ID)
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase().trim();
+            const queryAsNumber = parseInt(query, 10);
+
+            result = result.filter(gacha =>
+                gacha.id === queryAsNumber ||
+                gacha.name.toLowerCase().includes(query)
+            );
+        }
+
+        // Spoiler filter
+        if (!isShowSpoiler) {
+            result = result.filter(gacha => gacha.startAt <= Date.now());
+        }
+
+        // Apply sorting
         result.sort((a, b) => {
             let comparison = 0;
             switch (sortBy) {
@@ -164,41 +135,25 @@ function GachaContent() {
             }
             return sortOrder === "asc" ? comparison : -comparison;
         });
-        return result;
-    }, [gachas, sortBy, sortOrder]);
 
-    // Transform to format expected by GachaGrid
-    const displayGachas = useMemo(() => {
-        return sortedGachas.map(g => ({
-            id: g.id,
-            gachaType: g.gachaType,
-            name: g.name,
-            assetbundleName: g.assetbundleName,
-            startAt: g.startAt,
-            endAt: g.endAt,
-            seq: 0,
-            gachaBehaviors: [],
-            gachaCardRarityRates: [],
-            gachaDetails: [],
-            gachaPickups: g.pickupCardIds.map((cardId, idx) => ({
-                id: idx,
-                gachaId: g.id,
-                cardId
-            }))
-        }));
-    }, [sortedGachas]);
+        return result;
+    }, [allGachas, searchQuery, sortBy, sortOrder, isShowSpoiler]);
+
+    // Displayed gachas (with pagination)
+    const displayedGachas = useMemo(() => {
+        return filteredGachas.slice(0, displayCount);
+    }, [filteredGachas, displayCount]);
 
     // Load more handler
     const loadMore = useCallback(() => {
-        const nextPage = page + 1;
-        setPage(nextPage);
-        fetchGachas(nextPage, false);
-    }, [page, fetchGachas]);
+        setDisplayCount(prev => prev + 24);
+    }, []);
 
     // Sort change handler
     const handleSortChange = useCallback((newSortBy: "id" | "startAt", newSortOrder: "asc" | "desc") => {
         setSortBy(newSortBy);
         setSortOrder(newSortOrder);
+        setDisplayCount(24);
     }, []);
 
     return (
@@ -222,7 +177,7 @@ function GachaContent() {
                     <p className="font-bold">加载失败</p>
                     <p>{error}</p>
                     <button
-                        onClick={() => fetchGachas(1, true)}
+                        onClick={() => window.location.reload()}
                         className="mt-2 text-red-500 underline hover:no-underline"
                     >
                         重试
@@ -241,18 +196,18 @@ function GachaContent() {
                             sortBy={sortBy}
                             sortOrder={sortOrder}
                             onSortChange={handleSortChange}
-                            totalGachas={totalGachas}
-                            filteredGachas={gachas.length}
+                            totalGachas={allGachas.length}
+                            filteredGachas={filteredGachas.length}
                         />
                     </div>
                 </div>
 
                 {/* Gacha Grid */}
                 <div className="flex-1 min-w-0">
-                    <GachaGrid gachas={displayGachas} isLoading={isLoading && page === 1} />
+                    <GachaGrid gachas={displayedGachas} isLoading={isLoading} />
 
                     {/* Load More Button */}
-                    {!isLoading && hasMore && (
+                    {!isLoading && displayedGachas.length < filteredGachas.length && (
                         <div className="mt-8 flex justify-center">
                             <button
                                 onClick={loadMore}
@@ -260,23 +215,16 @@ function GachaContent() {
                             >
                                 加载更多
                                 <span className="ml-2 text-sm opacity-80">
-                                    ({gachas.length} / {totalGachas})
+                                    ({displayedGachas.length} / {filteredGachas.length})
                                 </span>
                             </button>
                         </div>
                     )}
 
-                    {/* Loading more indicator */}
-                    {isLoading && page > 1 && (
-                        <div className="mt-8 flex justify-center">
-                            <div className="loading-spinner" style={{ width: '2rem', height: '2rem' }} />
-                        </div>
-                    )}
-
                     {/* All loaded indicator */}
-                    {!isLoading && !hasMore && gachas.length > 0 && (
+                    {!isLoading && displayedGachas.length > 0 && displayedGachas.length >= filteredGachas.length && (
                         <div className="mt-8 text-center text-slate-400 text-sm">
-                            已显示全部 {gachas.length} 个扭蛋
+                            已显示全部 {filteredGachas.length} 个扭蛋
                         </div>
                     )}
                 </div>

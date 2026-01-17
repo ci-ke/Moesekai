@@ -1,12 +1,11 @@
 import { Suspense } from "react";
 import { ICardInfo } from "@/types/types";
 import CardDetailClient from "./client";
-
-const CARDS_DATA_URL = "https://sekaimaster.exmeaning.com/master/cards.json";
+import { fetchMasterData } from "@/lib/fetch";
 
 export async function generateStaticParams() {
     try {
-        const cards: ICardInfo[] = await fetch(CARDS_DATA_URL).then((res) => res.json());
+        const cards = await fetchMasterData<ICardInfo[]>("cards.json");
         return cards.map((card) => ({
             id: card.id.toString(),
         }));

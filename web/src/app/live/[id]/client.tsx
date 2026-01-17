@@ -14,11 +14,7 @@ import {
 } from "@/types/virtualLive";
 import { getVirtualLiveBannerUrl, getMusicJacketUrl, getEventLogoUrl, getEventBannerUrl } from "@/lib/assets";
 import { useTheme } from "@/contexts/ThemeContext";
-
-// Master data URLs
-const VIRTUAL_LIVES_DATA_URL = "https://sekaimaster.exmeaning.com/master/virtualLives.json";
-const MUSICS_URL = "https://sekaimaster.exmeaning.com/master/musics.json";
-const MUSIC_VOCALS_URL = "https://sekaimaster.exmeaning.com/master/musicVocals.json";
+import { fetchMasterData, fetchWithCompression } from "@/lib/fetch";
 
 interface IMusic {
     id: number;
@@ -66,17 +62,11 @@ export default function VirtualLiveDetailClient() {
         async function fetchData() {
             try {
                 setIsLoading(true);
-                const [virtualLivesRes, musicsRes, musicVocalsRes] = await Promise.all([
-                    fetch(VIRTUAL_LIVES_DATA_URL),
-                    fetch(MUSICS_URL),
-                    fetch(MUSIC_VOCALS_URL),
+                const [virtualLivesData, musicsData, musicVocalsData] = await Promise.all([
+                    fetchMasterData<IVirtualLiveInfo[]>("virtualLives.json"),
+                    fetchMasterData<IMusic[]>("musics.json"),
+                    fetchMasterData<IMusicVocal[]>("musicVocals.json"),
                 ]);
-
-                if (!virtualLivesRes.ok) throw new Error("Failed to fetch virtual lives data");
-
-                const virtualLivesData: IVirtualLiveInfo[] = await virtualLivesRes.json();
-                const musicsData: IMusic[] = await musicsRes.json();
-                const musicVocalsData: IMusicVocal[] = await musicVocalsRes.json();
 
                 const foundVL = virtualLivesData.find(vl => vl.id === virtualLiveId);
                 if (!foundVL) {

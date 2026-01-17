@@ -1,12 +1,11 @@
 import { Suspense } from "react";
 import { IMusicInfo } from "@/types/music";
 import MusicDetailClient from "./client";
-
-const MUSICS_DATA_URL = "https://sekaimaster.exmeaning.com/master/musics.json";
+import { fetchMasterData } from "@/lib/fetch";
 
 export async function generateStaticParams() {
     try {
-        const musics: IMusicInfo[] = await fetch(MUSICS_DATA_URL).then((res) => res.json());
+        const musics = await fetchMasterData<IMusicInfo[]>("musics.json");
         return musics.map((music) => ({
             id: music.id.toString(),
         }));

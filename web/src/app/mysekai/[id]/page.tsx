@@ -1,12 +1,11 @@
 import { Suspense } from "react";
 import { IMysekaiFixtureInfo } from "@/types/mysekai";
 import MysekaiFixtureDetailClient from "./client";
-
-const FIXTURES_DATA_URL = "https://sekaimaster.exmeaning.com/master/mysekaiFixtures.json";
+import { fetchMasterData } from "@/lib/fetch";
 
 export async function generateStaticParams() {
     try {
-        const fixtures: IMysekaiFixtureInfo[] = await fetch(FIXTURES_DATA_URL).then((res) => res.json());
+        const fixtures = await fetchMasterData<IMysekaiFixtureInfo[]>("mysekaiFixtures.json");
         return fixtures.map((fixture) => ({
             id: fixture.id.toString(),
         }));

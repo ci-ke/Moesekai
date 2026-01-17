@@ -11,10 +11,7 @@ import {
     MusicCategoryType,
 } from "@/types/music";
 import { useTheme } from "@/contexts/ThemeContext";
-
-// Master data URLs
-const MUSICS_DATA_URL = "https://sekaimaster.exmeaning.com/master/musics.json";
-const MUSIC_TAGS_URL = "https://sekaimaster.exmeaning.com/master/musicTags.json";
+import { fetchMasterData } from "@/lib/fetch";
 
 function MusicContent() {
     const router = useRouter();
@@ -118,19 +115,11 @@ function MusicContent() {
         async function fetchData() {
             try {
                 setIsLoading(true);
-                const [musicsRes, tagsRes, eventMusicsRes] = await Promise.all([
-                    fetch(MUSICS_DATA_URL),
-                    fetch(MUSIC_TAGS_URL),
-                    fetch("https://sekaimaster.exmeaning.com/master/eventMusics.json"),
+                const [musicsData, tagsData, eventMusicsData] = await Promise.all([
+                    fetchMasterData<IMusicInfo[]>("musics.json"),
+                    fetchMasterData<IMusicTagInfo[]>("musicTags.json"),
+                    fetchMasterData<{ musicId: number }[]>("eventMusics.json"),
                 ]);
-
-                if (!musicsRes.ok || !tagsRes.ok || !eventMusicsRes.ok) {
-                    throw new Error("Failed to fetch music data");
-                }
-
-                const musicsData: IMusicInfo[] = await musicsRes.json();
-                const tagsData: IMusicTagInfo[] = await tagsRes.json();
-                const eventMusicsData: { musicId: number }[] = await eventMusicsRes.json();
 
                 setMusics(musicsData);
                 setMusicTags(tagsData);

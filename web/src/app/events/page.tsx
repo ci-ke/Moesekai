@@ -6,9 +6,7 @@ import EventGrid from "@/components/events/EventGrid";
 import EventFilters from "@/components/events/EventFilters";
 import { IEventInfo, EventType } from "@/types/events";
 import { useTheme } from "@/contexts/ThemeContext";
-
-// Master data URL
-const EVENTS_DATA_URL = "https://sekaimaster.exmeaning.com/master/events.json";
+import { fetchMasterData } from "@/lib/fetch";
 
 function EventsContent() {
     const router = useRouter();
@@ -98,11 +96,7 @@ function EventsContent() {
         async function fetchEvents() {
             try {
                 setIsLoading(true);
-                const response = await fetch(EVENTS_DATA_URL);
-                if (!response.ok) {
-                    throw new Error("Failed to fetch events data");
-                }
-                const data: IEventInfo[] = await response.json();
+                const data = await fetchMasterData<IEventInfo[]>("events.json");
                 setEvents(data);
                 setError(null);
             } catch (err) {
