@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
 import { useTheme, CHAR_NAMES, CHAR_COLORS, AssetSourceType } from "@/contexts/ThemeContext";
+import { fetchVersionInfo, VersionInfo } from "@/lib/fetch";
 
 interface SettingsPanelProps {
     isOpen: boolean;
@@ -20,6 +21,14 @@ const unitGroups = [
 export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     const { themeCharId, setThemeCharacter, isShowSpoiler, setShowSpoiler, isPowerSaving, setPowerSaving, useTrainedThumbnail, setUseTrainedThumbnail, assetSource, setAssetSource } = useTheme();
     const panelRef = useRef<HTMLDivElement>(null);
+    const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
+
+    // Fetch version info on mount
+    useEffect(() => {
+        fetchVersionInfo()
+            .then(setVersionInfo)
+            .catch((e) => console.warn("Failed to fetch version info:", e));
+    }, []);
 
     // Close on click outside
     useEffect(() => {
@@ -225,6 +234,15 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                     <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
                         选择游戏素材的来源服务器，切换后立即生效
                     </p>
+                </div>
+
+                {/* Version Info */}
+                <div className="border-t border-slate-100 mt-4 pt-4">
+                    <div className="text-center">
+                        <p className="text-[10px] text-slate-400">
+                            snowy-sekaimaster 版本: {versionInfo?.dataVersion || "加载中..."}
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>

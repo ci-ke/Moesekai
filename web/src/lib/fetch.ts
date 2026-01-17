@@ -4,17 +4,25 @@
  */
 
 const MASTER_BASE_URL = "https://sekaimaster.exmeaning.com/master";
+const VERSION_URL = "https://sekaimaster.exmeaning.com/versions/current_version.json";
+
+// Version info type
+export interface VersionInfo {
+    dataVersion: string;
+    assetVersion: string;
+    appVersion: string;
+    assetHash: string;
+    appHash: string;
+}
 
 /**
  * Fetch with explicit compression headers
- * Modern browsers typically send these automatically, but this ensures they're always present
  */
 export async function fetchWithCompression(
     url: string,
     options?: RequestInit
 ): Promise<Response> {
     const headers = new Headers(options?.headers);
-    // Only set if not already present (browser may set its own)
     if (!headers.has("Accept-Encoding")) {
         headers.set("Accept-Encoding", "gzip, deflate, br, zstd");
     }
@@ -45,4 +53,15 @@ export async function fetchMultipleMasterData<T extends unknown[]>(
         paths.map((path) => fetchMasterData(path))
     );
     return results as T;
+}
+
+/**
+ * Fetch current version info
+ */
+export async function fetchVersionInfo(): Promise<VersionInfo> {
+    const response = await fetchWithCompression(VERSION_URL);
+    if (!response.ok) {
+        throw new Error("Failed to fetch version info");
+    }
+    return response.json();
 }
