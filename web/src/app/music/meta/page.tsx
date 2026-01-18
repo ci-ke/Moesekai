@@ -99,6 +99,36 @@ function useColumnCount() {
     return columns;
 }
 
+// Hook to determine if sticky columns should be enabled
+// When scrollable area is less than MIN_SCROLLABLE_WIDTH, disable sticky to allow full horizontal scroll
+const MIN_SCROLLABLE_WIDTH = 100; // Minimum pixels for scrollable area
+// Total sticky columns width: ID + Difficulty + Song Title (min-width)
+// sm+: 60 + 140 + 180 = 380px
+// xs:  45 + 95 + 180 = 320px
+const STICKY_COLUMNS_WIDTH_SM = 380;
+const STICKY_COLUMNS_WIDTH_XS = 320;
+
+function useEnableStickyColumns() {
+    const [enableSticky, setEnableSticky] = useState(true);
+
+    useEffect(() => {
+        const checkWidth = () => {
+            const screenWidth = window.innerWidth;
+            const isSm = screenWidth >= 640;
+            const stickyWidth = isSm ? STICKY_COLUMNS_WIDTH_SM : STICKY_COLUMNS_WIDTH_XS;
+            // Calculate scrollable area: screen width - sticky columns - container padding (px-4 = 32px total)
+            const scrollableArea = screenWidth - stickyWidth - 32;
+            setEnableSticky(scrollableArea >= MIN_SCROLLABLE_WIDTH);
+        };
+
+        checkWidth();
+        window.addEventListener("resize", checkWidth);
+        return () => window.removeEventListener("resize", checkWidth);
+    }, []);
+
+    return enableSticky;
+}
+
 function MusicMetaContent() {
     const { assetSource } = useTheme();
     const [musicMetas, setMusicMetas] = useState<IMusicMeta[]>([]);
@@ -130,10 +160,13 @@ function MusicMetaContent() {
     // Get responsive column count
     const columnCount = useColumnCount();
 
+    // Check if sticky columns should be enabled (false when scrollable area is too small)
+    const enableStickyColumns = useEnableStickyColumns();
+
     // Calculate item counts based on columns to fill rows
     // Default: 1 row, Expanded: 3 rows
     const defaultRowCount = 1;
-    const expandedRowCount = 3;
+    const expandedRowCount = columnCount >= 5 ? 3 : 5;
     const defaultItemCount = columnCount * defaultRowCount;
     const expandedItemCount = columnCount * expandedRowCount;
 
@@ -597,9 +630,9 @@ function MusicMetaContent() {
                         <table className="w-full text-sm border-separate border-spacing-0">
                             <thead className="bg-slate-50">
                                 <tr>
-                                    <TableHeader field="music_id" main="ID" center className="sticky left-0 z-20 border-r border-slate-200/60 w-[45px] min-w-[45px] sm:w-[60px]" />
-                                    <TableHeader field="difficulty" main="难度" center className="sticky left-[45px] sm:left-[60px] z-20 border-r border-slate-200/60 w-[95px] min-w-[95px] sm:w-[140px] shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)]" />
-                                    <th className="px-3 py-3 text-left text-sm font-bold text-slate-700 min-w-[180px] sticky left-[140px] sm:left-[200px] z-20 bg-slate-50 border-r border-slate-200/60 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">歌曲名称</th>
+                                    <TableHeader field="music_id" main="ID" center className={`${enableStickyColumns ? 'sticky left-0 z-20' : ''} border-r border-slate-200/60 w-[45px] min-w-[45px] sm:w-[60px]`} />
+                                    <TableHeader field="difficulty" main="难度" center className={`${enableStickyColumns ? 'sticky left-[45px] sm:left-[60px] z-20 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)]' : ''} border-r border-slate-200/60 w-[95px] min-w-[95px] sm:w-[140px]`} />
+                                    <th className={`px-3 py-3 text-left text-sm font-bold text-slate-700 min-w-[180px] ${enableStickyColumns ? 'sticky left-[140px] sm:left-[200px] z-20 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]' : ''} bg-slate-50 border-r border-slate-200/60`}>歌曲名称</th>
                                     <TableHeader field="music_time" main="时长" sub="秒" center className="w-[80px]" />
                                     <TableHeader field="event_rate" main="活动PT倍率" center className="w-[100px]" />
                                     <TableHeader field="base_score" main="基础分" center className="min-w-[100px]" />
@@ -616,9 +649,9 @@ function MusicMetaContent() {
                                     const music = musicMap.get(meta.music_id);
                                     return (
                                         <tr key={`${meta.music_id}-${meta.difficulty}`} className="hover:bg-slate-50 transition-colors group">
-                                            <td className={`px-3 py-3 font-mono text-slate-500 text-center sticky left-0 z-10 border-r border-slate-200/60 ${rowBgClass}`}>{meta.music_id}</td>
-                                            <td className={`px-3 py-3 sticky left-[45px] sm:left-[60px] z-10 border-r border-slate-200/60 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)] ${rowBgClass}`}><DifficultyBadge musicId={meta.music_id} difficulty={meta.difficulty} /></td>
-                                            <td className={`px-3 py-3 sticky left-[140px] sm:left-[200px] z-10 border-r border-slate-200/60 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)] ${rowBgClass}`}>
+                                            <td className={`px-3 py-3 font-mono text-slate-500 text-center ${enableStickyColumns ? 'sticky left-0 z-10' : ''} border-r border-slate-200/60 ${rowBgClass}`}>{meta.music_id}</td>
+                                            <td className={`px-3 py-3 ${enableStickyColumns ? 'sticky left-[45px] sm:left-[60px] z-10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)]' : ''} border-r border-slate-200/60 ${rowBgClass}`}><DifficultyBadge musicId={meta.music_id} difficulty={meta.difficulty} /></td>
+                                            <td className={`px-3 py-3 ${enableStickyColumns ? 'sticky left-[140px] sm:left-[200px] z-10 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]' : ''} border-r border-slate-200/60 ${rowBgClass}`}>
                                                 <Link href={`/music/${meta.music_id}`} className="text-slate-700 group-hover:text-miku font-medium transition-colors line-clamp-1" title={music?.title}>
                                                     {music?.title || `Music ${meta.music_id}`}
                                                 </Link>
