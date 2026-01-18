@@ -26,6 +26,9 @@ COPY --from=builder-go /app/server ./server
 # Copy Frontend Static Export
 COPY --from=builder-web /app/out ./dist
 
+# Copy Master Data
+COPY data/ ./data/
+
 # Install certs for external API calls from backend
 RUN apk add --no-cache ca-certificates
 
