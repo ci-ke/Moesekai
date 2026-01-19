@@ -1,7 +1,7 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
-import { useTheme, CHAR_NAMES, CHAR_COLORS, AssetSourceType } from "@/contexts/ThemeContext";
-import { fetchVersionInfo, VersionInfo } from "@/lib/fetch";
+import React, { useRef, useEffect } from "react";
+import { useTheme, CHAR_NAMES, CHAR_COLORS } from "@/contexts/ThemeContext";
+import { useMasterData } from "@/contexts/MasterDataContext";
 
 interface SettingsPanelProps {
     isOpen: boolean;
@@ -20,15 +20,8 @@ const unitGroups = [
 
 export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     const { themeCharId, setThemeCharacter, isShowSpoiler, setShowSpoiler, isPowerSaving, setPowerSaving, useTrainedThumbnail, setUseTrainedThumbnail, assetSource, setAssetSource } = useTheme();
+    const { cloudVersion, isLoading, isRefreshing, forceRefreshData } = useMasterData();
     const panelRef = useRef<HTMLDivElement>(null);
-    const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
-
-    // Fetch version info on mount
-    useEffect(() => {
-        fetchVersionInfo()
-            .then(setVersionInfo)
-            .catch((e) => console.warn("Failed to fetch version info:", e));
-    }, []);
 
     // Close on click outside
     useEffect(() => {
@@ -238,9 +231,40 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
                 {/* Version Info */}
                 <div className="border-t border-slate-100 mt-4 pt-4">
-                    <div className="text-center">
-                        <p className="text-[10px] text-slate-400">
-                            snowy-sekaimaster 版本: {versionInfo?.dataVersion || "加载中..."}
+                    <div className="mb-3">
+                        <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Masterdata数据版本</span>
+                    </div>
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs text-slate-500">SnowyViewer云端最新版本:</span>
+                            <span className="text-xs font-mono text-slate-700">
+                                {isLoading ? "检测中..." : (cloudVersion || "加载失败")}
+                            </span>
+                        </div>
+                        <button
+                            onClick={forceRefreshData}
+                            disabled={isRefreshing || isLoading}
+                            className="w-full px-3 py-2 text-xs font-medium text-white bg-gradient-to-r from-sky-500 to-blue-500 hover:from-sky-600 hover:to-blue-600 disabled:from-slate-300 disabled:to-slate-400 rounded-lg transition-all flex items-center justify-center gap-2"
+                        >
+                            {isRefreshing ? (
+                                <>
+                                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    刷新中...
+                                </>
+                            ) : (
+                                <>
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                    强制刷新数据（实验性功能）
+                                </>
+                            )}
+                        </button>
+                        <p className="text-[10px] text-slate-400 leading-relaxed">
+                            如果数据显示异常（如新卡片/歌曲不显示），请点击上方按钮强制刷新数据缓存。虽然也可能依旧不起作用，因为这个功能正在测试。SnowyViewer服务器上的版本不一定是最新版本。
                         </p>
                     </div>
                 </div>

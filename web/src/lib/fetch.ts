@@ -42,22 +42,63 @@ export async function fetchWithCompression(
     return fetch(url, { ...options, headers });
 }
 
+// Session storage key for cache bypass flag
+const CACHE_BYPASS_KEY = "masterdata-cache-bypass";
+
+/**
+ * Check if we should bypass cache
+ * Uses sessionStorage to persist the flag across component renders during refresh
+ */
+function shouldBypassCache(): boolean {
+    if (typeof window === "undefined") return false;
+
+    // Check URL param first (initial detection)
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('_refresh')) {
+        // Set session flag for subsequent requests
+        sessionStorage.setItem(CACHE_BYPASS_KEY, 'true');
+        return true;
+    }
+
+    // Check session flag (for requests after URL was cleaned)
+    return sessionStorage.getItem(CACHE_BYPASS_KEY) === 'true';
+}
+
+/**
+ * Clear the cache bypass flag (call after all data is loaded)
+ */
+export function clearCacheBypassFlag(): void {
+    if (typeof window !== "undefined") {
+        sessionStorage.removeItem(CACHE_BYPASS_KEY);
+    }
+}
+
 /**
  * Fetch master data from appropriate source based on environment
  * - Build-time (SSG): Uses GitHub raw for large file stability (>3MB files)
  * - Runtime (Client): Uses sekaimaster.exmeaning.com
  * @param path - Path relative to master directory (e.g., "gachas.json", "cards.json")
+ * @param noCache - If true, bypass browser cache by adding timestamp
  */
-export async function fetchMasterData<T>(path: string): Promise<T> {
+export async function fetchMasterData<T>(path: string, noCache: boolean = false): Promise<T> {
     const baseUrl = isBuildTime() ? MASTER_BUILD_URL : MASTER_BASE_URL;
-    const url = `${baseUrl}/${path}`;
+    let url = `${baseUrl}/${path}`;
+
+    // Auto-detect if we need to bypass cache (after version sync refresh)
+    const shouldNoCache = noCache || shouldBypassCache();
+
+    // Add cache buster for client-side no-cache requests
+    if (shouldNoCache && !isBuildTime()) {
+        url += `?_t=${Date.now()}`;
+    }
 
     // Log which source is being used during build
     if (isBuildTime()) {
         console.log(`[Build] Fetching ${path} from GitHub raw...`);
     }
 
-    const response = await fetchWithCompression(url);
+    const fetchOptions: RequestInit = shouldNoCache ? { cache: "no-store" } : {};
+    const response = await fetchWithCompression(url, fetchOptions);
     if (!response.ok) {
         throw new Error(`Failed to fetch master data: ${path} from ${baseUrl}`);
     }
@@ -87,3 +128,23 @@ export async function fetchVersionInfo(): Promise<VersionInfo> {
     }
     return response.json();
 }
+
+/**
+ * Fetch current version info with no cache (bypasses browser cache entirely)
+ * Used for version comparisons to detect data updates
+ */
+export async function fetchVersionInfoNoCache(): Promise<VersionInfo> {
+    // Add timestamp to URL to bypass CDN and browser cache
+    const noCacheUrl = `${VERSION_URL}?_t=${Date.now()}`;
+    // Use simple fetch without custom headers to avoid CORS preflight issues
+    const response = await fetch(noCacheUrl, {
+        cache: "no-store",
+    });
+    if (!response.ok) {
+        throw new Error("Failed to fetch version info (no-cache)");
+    }
+    return response.json();
+}
+
+// Local storage key for cached version
+export const MASTERDATA_VERSION_KEY = "masterdata-version";
