@@ -20,14 +20,25 @@ jobs:
         run: |
           mkdir -p data/master
           
-          # Download files from sekaimaster
-          curl -sS --fail --retry 5 --retry-delay 5 --http1.1 "https://sekaimaster.exmeaning.com/master/events.json" -o data/master/events.json
-          curl -sS --fail --retry 5 --retry-delay 5 --http1.1 "https://sekaimaster.exmeaning.com/master/eventCards.json" -o data/master/eventCards.json
-          curl -sS --fail --retry 5 --retry-delay 5 --http1.1 "https://sekaimaster.exmeaning.com/master/eventMusics.json" -o data/master/eventMusics.json
+          # GitHub base URL
+          GITHUB_BASE="https://raw.githubusercontent.com/Team-Haruki/haruki-sekai-master/main/master"
           
-          # Download files from haruki-sekai-master (GitHub Raw)
-          curl -sS --fail --retry 5 --retry-delay 5 --http1.1 "https://raw.githubusercontent.com/Team-Haruki/haruki-sekai-master/main/master/virtualLives.json" -o data/master/virtualLives.json
-          curl -sS --fail --retry 5 --retry-delay 5 --http1.1 "https://raw.githubusercontent.com/Team-Haruki/haruki-sekai-master/main/master/gachas.json" -o data/master/gachas.json
+          # Download all files from haruki-sekai-master (GitHub Raw)
+          curl -sS --fail --retry 5 "$GITHUB_BASE/events.json" -o data/master/events.json
+          curl -sS --fail --retry 5 "$GITHUB_BASE/eventCards.json" -o data/master/eventCards.json
+          curl -sS --fail --retry 5 "$GITHUB_BASE/eventMusics.json" -o data/master/eventMusics.json
+          curl -sS --fail --retry 5 "$GITHUB_BASE/virtualLives.json" -o data/master/virtualLives.json
+          curl -sS --fail --retry 5 "$GITHUB_BASE/gachas.json" -o data/master/gachas.json
+          
+          # Validate JSON files
+          echo "Validating downloaded JSON files..."
+          for file in data/master/*.json; do
+            if ! python3 -c "import json; json.load(open('$file'))" 2>/dev/null; then
+              echo "ERROR: $file is not valid JSON, aborting."
+              exit 1
+            fi
+            echo "✓ $file is valid"
+          done
           
           # Check for changes
           if [[ -n $(git status --porcelain data/master) ]]; then
