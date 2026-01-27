@@ -33,3 +33,23 @@ Sekai Viewer is licensed under **GPLv3**.
 
 本项目的开源协议遵循所参考项目的要求（如适用），当前采用 AGPL-3.0。
 AGPL-3.0
+
+## 环境变量 / Environment Variables
+
+为了正常使用 Bilibili 动态功能（避免 -412 错误），需要在后端配置以下环境变量：
+
+### Bilibili 认证配置
+*推荐仅配置 `BILIBILI_SESSDATA`*
+
+- **BILIBILI_SESSDATA**: (推荐) 您的 Bilibili SESSDATA Cookie 值。
+- **BILIBILI_COOKIE**: (可选) 完整的 Bilibili Cookie 字符串。如果配置了此项，将优先使用。
+
+**获取方法**:
+1. 浏览器登录 Bilibili。
+2. F12 打开开发者工具 -> Application -> Cookies。
+3. 找到 `SESSDATA` 复制其值。
+
+**示例 (Docker)**:
+```bash
+docker run -e BILIBILI_SESSDATA=xxxxxx ...
+```

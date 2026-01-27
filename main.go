@@ -820,6 +820,16 @@ func main() {
 		req.Header.Set("Accept", "application/json, text/plain, */*")
 		req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
 
+		// Add Cookies (SESSDATA is critical for avoiding -412)
+		// Check environment variable first
+		if sessData := os.Getenv("BILIBILI_SESSDATA"); sessData != "" {
+			req.AddCookie(&http.Cookie{Name: "SESSDATA", Value: sessData})
+		}
+		// Also allowed: Full cookie string in BILIBILI_COOKIE
+		if cookieStr := os.Getenv("BILIBILI_COOKIE"); cookieStr != "" {
+			req.Header.Set("Cookie", cookieStr)
+		}
+
 		client := bilibiliClient
 		resp, err := client.Do(req)
 		if err != nil {
