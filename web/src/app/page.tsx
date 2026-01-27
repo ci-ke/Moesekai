@@ -5,6 +5,7 @@ import MainLayout from "@/components/MainLayout";
 import CurrentEventTab from "@/components/home/CurrentEventTab";
 import LatestCardsTab from "@/components/home/LatestCardsTab";
 import LatestMusicTab from "@/components/home/LatestMusicTab";
+import BilibiliDynamicTab from "@/components/home/BilibiliDynamicTab";
 
 type TabType = "event" | "cards" | "music";
 
@@ -185,9 +186,9 @@ export default function Home() {
 
         </div>
 
-        {/* Dynamic Tabs Section */}
+        {/* Tabs Section (Latest Info) */}
         <div className="w-full max-w-5xl">
-          <h2 className="text-xl font-bold text-primary-text mb-6 text-left opacity-80">动态</h2>
+          <h2 className="text-xl font-bold text-primary-text mb-6 text-left opacity-80">最新</h2>
 
           {/* Tab Navigation */}
           <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
@@ -237,6 +238,12 @@ export default function Home() {
               </Link>
             ))}
           </div>
+        </div>
+
+        {/* Dynamic Section (Bilibili) */}
+        <div className="w-full max-w-5xl text-left">
+          <h2 className="text-xl font-bold text-primary-text mb-6 opacity-80">动态</h2>
+          <BilibiliDynamicTab />
         </div>
 
         {/* Friendly Links Section (友链) */}

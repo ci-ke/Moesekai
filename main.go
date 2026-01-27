@@ -1,10 +1,15 @@
 package main
 
 import (
+	"compress/gzip"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -115,6 +120,188 @@ var (
 	gachaPickups = make(map[int][]int) // gachaId -> []cardId
 
 	mutex sync.RWMutex
+
+	// Bilibili WBI
+	wbiKeys  WbiKeys
+	wbiMutex sync.RWMutex
+
+	bilibiliClient *http.Client
+)
+
+func init() {
+	// Initialize Bilibili Client with CookieJar
+	jar, _ := cookiejar.New(nil)
+	bilibiliClient = &http.Client{
+		Timeout: 10 * time.Second,
+		Jar:     jar,
+	}
+	// Initial cookie fetch
+	go func() {
+		req, _ := http.NewRequest("GET", "https://www.bilibili.com/", nil)
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+		resp, err := bilibiliClient.Do(req)
+		if err == nil {
+			defer resp.Body.Close()
+			fmt.Println("Initialized Bilibili cookies")
+		} else {
+			fmt.Printf("Failed to init cookies: %v\n", err)
+		}
+	}()
+}
+
+// WBI Structs
+type WbiKeys struct {
+	Img            string
+	Sub            string
+	Mixin          string
+	lastUpdateTime time.Time
+}
+
+type NavResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    struct {
+		WbiImg struct {
+			ImgUrl string `json:"img_url"`
+			SubUrl string `json:"sub_url"`
+		} `json:"wbi_img"`
+	} `json:"data"`
+}
+
+var mixinKeyEncTab = []int{
+	46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
+	33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40,
+	61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11,
+	36, 20, 34, 44, 52,
+}
+
+func getWbiKeys() (WbiKeys, error) {
+	wbiMutex.RLock()
+	if time.Since(wbiKeys.lastUpdateTime) < 1*time.Hour && wbiKeys.Mixin != "" {
+		defer wbiMutex.RUnlock()
+		return wbiKeys, nil
+	}
+	wbiMutex.RUnlock()
+
+	wbiMutex.Lock()
+	defer wbiMutex.Unlock()
+
+	// Double check after lock
+	if time.Since(wbiKeys.lastUpdateTime) < 1*time.Hour && wbiKeys.Mixin != "" {
+		return wbiKeys, nil
+	}
+
+	// Use the shared client to reuse cookies
+	req, err := http.NewRequest("GET", "https://api.bilibili.com/x/web-interface/nav", nil)
+	if err != nil {
+		return WbiKeys{}, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+	resp, err := bilibiliClient.Do(req)
+	if err != nil {
+		return WbiKeys{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return WbiKeys{}, fmt.Errorf("nav api status: %s", resp.Status)
+	}
+
+	var nav NavResponse
+	if err := json.NewDecoder(resp.Body).Decode(&nav); err != nil {
+		return WbiKeys{}, err
+	}
+
+	imgUrl := nav.Data.WbiImg.ImgUrl
+	subUrl := nav.Data.WbiImg.SubUrl
+
+	if imgUrl == "" || subUrl == "" {
+		return WbiKeys{}, fmt.Errorf("empty wbi urls")
+	}
+
+	imgKey := strings.TrimSuffix(filepath.Base(imgUrl), ".png")
+	subKey := strings.TrimSuffix(filepath.Base(subUrl), ".png")
+
+	// Generate Mixin Key
+	rawWbiKey := imgKey + subKey
+	var mixin []byte
+	for _, index := range mixinKeyEncTab {
+		if index < len(rawWbiKey) {
+			mixin = append(mixin, rawWbiKey[index])
+		}
+	}
+
+	wbiKeys.Img = imgKey
+	wbiKeys.Sub = subKey
+	wbiKeys.Mixin = string(mixin[:32])
+	wbiKeys.lastUpdateTime = time.Now()
+
+	return wbiKeys, nil
+}
+
+func signWbi(params url.Values) (string, error) {
+	keys, err := getWbiKeys()
+	if err != nil {
+		return "", err
+	}
+
+	params.Set("wts", strconv.FormatInt(time.Now().Unix(), 10))
+
+	// Sort keys
+	keysList := make([]string, 0, len(params))
+	for k := range params {
+		keysList = append(keysList, k)
+	}
+	sort.Strings(keysList)
+
+	// Build query string
+	var sb strings.Builder
+	for i, k := range keysList {
+		if i > 0 {
+			sb.WriteString("&")
+		}
+		// Encode key and value safely
+		// Note: params.Encode() sorts and encodes, but we need to control the order and specific encoding if necessary.
+		// Detailed docs say standard URL encoding is mostly fine but specific chars might need handling.
+		// Go's url.Values.Encode() does sorting and encoding.
+		// However, we need to append mixin key at the end of the string used for md5.
+		// Let's use url.Values.Encode() but we need to ensure we don't double encode or simpler approach using the sorted keys.
+		// Bilibili WBI requires standard URL encoding.
+
+		val := params.Get(k)
+		// We need to encode key and value.
+		// Go's url.QueryEscape escapes spaces as "+", but we might need "%20".
+		// Bilibili doc says spaces should be %20.
+		sb.WriteString(url.QueryEscape(k))
+		sb.WriteString("=")
+		sb.WriteString(url.QueryEscape(val))
+		// Note: url.QueryEscape actually encodes space as "+". PathEscape encodes as "%20".
+		// But in query parameters usually + is fine unless Bilibili is strict.
+		// The python demo uses `urllib.parse.urlencode` which quotes.
+		// The Go demo uses `values.Encode()`.
+	}
+
+	// Re-construct query string using built-in Encode which sorts
+	queryStr := params.Encode()
+
+	// Calculate w_rid
+	hash := md5.Sum([]byte(queryStr + keys.Mixin))
+	w_rid := hex.EncodeToString(hash[:])
+
+	params.Set("w_rid", w_rid)
+	return params.Encode(), nil
+}
+
+// Memory Cache for Dynamic Feed
+type DynamicCacheItem struct {
+	Data      []byte
+	ExpiresAt time.Time
+}
+
+var (
+	dynamicCache = make(map[string]DynamicCacheItem)
+	cacheMutex   sync.RWMutex
 )
 
 const (
@@ -284,8 +471,33 @@ func fetchData() error {
 	return nil
 }
 
+// Gzip Middleware
+type gzipResponseWriter struct {
+	io.Writer
+	http.ResponseWriter
+}
+
+func (w gzipResponseWriter) Write(b []byte) (int, error) {
+	return w.Writer.Write(b)
+}
+
+func gzipMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		w.Header().Set("Content-Encoding", "gzip")
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+		gzw := gzipResponseWriter{Writer: gz, ResponseWriter: w}
+		next.ServeHTTP(gzw, r)
+	})
+}
+
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// ... existing cors headers ...
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
@@ -293,6 +505,10 @@ func corsMiddleware(next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
+		// Wrap gzip inside cors? or vice versa?
+		// Usually Cors -> Gzip -> Handler
+		// But here we are applying middlewares in ListenAndServe.
+		// Let's keep cors simpler and apply gzip in main.
 		next.ServeHTTP(w, r)
 	})
 }
@@ -543,6 +759,136 @@ func main() {
 		json.NewEncoder(w).Encode(resp)
 	})
 
+	// Bilibili Dynamic Proxy
+	mux.HandleFunc("/api/bilibili/dynamic/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		parts := strings.Split(r.URL.Path, "/")
+		if len(parts) < 5 {
+			http.Error(w, "Invalid UID", http.StatusBadRequest)
+			return
+		}
+		uid := parts[4]
+		if uid == "" {
+			http.Error(w, "Empty UID", http.StatusBadRequest)
+			return
+		}
+
+		// Check Cache
+		cacheKey := "dynamic_" + uid
+		cacheMutex.RLock()
+		if item, ok := dynamicCache[cacheKey]; ok {
+			if time.Now().Before(item.ExpiresAt) {
+				cacheMutex.RUnlock()
+				w.Write(item.Data)
+				return
+			}
+		}
+		cacheMutex.RUnlock()
+
+		// Prepare Request
+		params := url.Values{}
+		params.Set("host_mid", uid)
+		params.Set("platform", "web")
+		params.Set("web_location", "0.0")
+		params.Set("dm_img_list", "[]") // Minimal mock
+		params.Set("dm_img_str", "V2ViR0wgMS4wIChPcGVuR0wgRVMgMi4wIENocm9taXVtKQ")
+		params.Set("dm_cover_img_str", "QU5HTEUgKEFNRCwgQU1EIFJhZGVvbiA3ODBNIEdyYXBoaWNzICgweDAwMDAxNUJGKSBEaXJlY3QzRDExIHZzXzVfMCBwc181XzAsIEQzRDExKUdvb2dsZSBJbmMuIChBTU")
+
+		// Add full features as requested by user to ensure text (OPUS) is returned
+		params.Set("features", "itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,forwardListHidden,decorationCard,commentsNewVersion,onlyfansAssetsV2,ugcDelete,onlyfansQaCard,avatarAutoTheme,sunflowerStyle,cardsEnhance,eva3CardOpus,eva3CardVideo,eva3CardComment,eva3CardUser")
+
+		signedQuery, err := signWbi(params)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("WBI Sign Error: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		targetUrl := "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?" + signedQuery
+
+		req, err := http.NewRequest("GET", targetUrl, nil)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Request Creation Error: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Set Headers to look like a browser
+		// Set Headers to look like a browser
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+		req.Header.Set("Referer", "https://space.bilibili.com/"+uid+"/dynamic")
+		req.Header.Set("Origin", "https://space.bilibili.com")
+		req.Header.Set("Accept", "application/json, text/plain, */*")
+		req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+
+		client := bilibiliClient
+		resp, err := client.Do(req)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Bilibili API Error: %v", err), http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			http.Error(w, "Failed to read response", http.StatusInternalServerError)
+			return
+		}
+
+		// Cache Success Response
+		if resp.StatusCode == http.StatusOK {
+			// Basic check if it's a valid JSON
+			var check map[string]interface{}
+			if err := json.Unmarshal(body, &check); err == nil {
+				// Access code
+				if code, ok := check["code"].(float64); ok && code == 0 {
+					cacheMutex.Lock()
+					dynamicCache[cacheKey] = DynamicCacheItem{
+						Data:      body,
+						ExpiresAt: time.Now().Add(10 * time.Minute),
+					}
+					cacheMutex.Unlock()
+				}
+			}
+		}
+
+		w.WriteHeader(resp.StatusCode)
+		w.Write(body)
+	})
+
+	// Bilibili Image Proxy
+	mux.HandleFunc("/api/bilibili/image", func(w http.ResponseWriter, r *http.Request) {
+		imageUrl := r.URL.Query().Get("url")
+		if imageUrl == "" {
+			http.Error(w, "Missing url parameter", http.StatusBadRequest)
+			return
+		}
+
+		// Create request to Bilibili
+		req, err := http.NewRequest("GET", imageUrl, nil)
+		if err != nil {
+			http.Error(w, "Invalid URL", http.StatusBadRequest)
+			return
+		}
+
+		// Set Referer to bypass hotlinking protection
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+		req.Header.Set("Referer", "https://www.bilibili.com/")
+
+		resp, err := bilibiliClient.Do(req)
+		if err != nil {
+			http.Error(w, "Failed to fetch image", http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+
+		// Copy headers
+		w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
+		w.Header().Set("Cache-Control", "public, max-age=31536000") // Cache for 1 year
+
+		w.WriteHeader(resp.StatusCode)
+		io.Copy(w, resp.Body)
+	})
+
 	// Static
 	if _, err := os.Stat("./dist"); !os.IsNotExist(err) {
 		fmt.Println("Serving static files from ./dist")
@@ -560,7 +906,9 @@ func main() {
 	}
 
 	fmt.Println("Server starting on :8080...")
-	if err := http.ListenAndServe(":8080", corsMiddleware(mux)); err != nil {
+	// Chain middlewares: CORS -> Gzip -> Mux
+	handler := gzipMiddleware(corsMiddleware(mux))
+	if err := http.ListenAndServe(":8080", handler); err != nil {
 		fmt.Printf("Error starting server: %s\n", err)
 	}
 }
