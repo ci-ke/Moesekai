@@ -1,9 +1,157 @@
 "use client";
-import { useState } from "react";
+import React, { useState, Suspense } from "react";
 import Link from "next/link";
 import MainLayout from "@/components/MainLayout";
+import CurrentEventTab from "@/components/home/CurrentEventTab";
+import LatestCardsTab from "@/components/home/LatestCardsTab";
+import LatestMusicTab from "@/components/home/LatestMusicTab";
+
+type TabType = "event" | "cards" | "music";
+
+const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
+  {
+    id: "event",
+    label: "当前活动",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
+  {
+    id: "cards",
+    label: "最新卡牌",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+      </svg>
+    ),
+  },
+  {
+    id: "music",
+    label: "最新歌曲",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+      </svg>
+    ),
+  },
+];
+
+// Loading fallback component
+function TabLoading() {
+  return (
+    <div className="animate-pulse">
+      <div className="rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 h-48 w-full" />
+      <div className="mt-4 space-y-2">
+        <div className="h-5 bg-slate-200 rounded w-3/4" />
+        <div className="h-4 bg-slate-100 rounded w-1/2" />
+      </div>
+    </div>
+  );
+}
+
+// Shortcut definitions with icons
+const SHORTCUTS = [
+  {
+    href: "/cards",
+    label: "卡牌",
+    subLabel: "CARD DATABASE",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-miku">
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+        <path d="M7 8h10" />
+        <path d="M7 12h10" />
+        <path d="M7 16h10" />
+      </svg>
+    ),
+  },
+  {
+    href: "/music",
+    label: "音乐",
+    subLabel: "MUSIC LIBRARY",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-miku">
+        <path d="M9 18V5l12-2v13" />
+        <circle cx="6" cy="18" r="3" />
+        <circle cx="18" cy="16" r="3" />
+      </svg>
+    ),
+  },
+  {
+    href: "/events",
+    label: "活动",
+    subLabel: "EVENT LIBRARY",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-miku">
+        <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+        <line x1="16" x2="16" y1="2" y2="6" />
+        <line x1="8" x2="8" y1="2" y2="6" />
+        <line x1="3" x2="21" y1="10" y2="10" />
+      </svg>
+    ),
+  },
+  {
+    href: "/gacha",
+    label: "扭蛋",
+    subLabel: "GACHA",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-miku">
+        <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/sticker",
+    label: "贴纸",
+    subLabel: "STICKER",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-miku">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+        <line x1="9" x2="9.01" y1="9" y2="9" />
+        <line x1="15" x2="15.01" y1="9" y2="9" />
+      </svg>
+    ),
+  },
+  {
+    href: "/comic",
+    label: "漫画",
+    subLabel: "COMIC",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-miku">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/live",
+    label: "演唱会",
+    subLabel: "VIRTUAL LIVE",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-miku">
+        <rect width="20" height="15" x="2" y="7" rx="2" ry="2" />
+        <polyline points="17 2 12 7 7 2" />
+      </svg>
+    ),
+  },
+  {
+    href: "/mysekai",
+    label: "家具",
+    subLabel: "MYSEKAI",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-miku">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <polyline points="9 22 9 12 15 12 15 22" />
+      </svg>
+    ),
+  },
+];
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<TabType>("event");
+
   return (
     <MainLayout activeNav="首页" showLoader={true}>
       <div className="container mx-auto px-6 pt-20 pb-20 flex flex-col items-center gap-12 text-center">
@@ -22,7 +170,7 @@ export default function Home() {
           </div>
 
           <h1 className="text-4xl lg:text-5xl font-black text-primary-text leading-tight">
-            <span className="text-miku mx-2">Snowybot</span> Viewer
+            <span className="text-miku mx-2">Snowybot</span> SekaiViewer
           </h1>
 
           {/* Performance Tip */}
@@ -37,73 +185,57 @@ export default function Home() {
 
         </div>
 
+        {/* Dynamic Tabs Section */}
+        <div className="w-full max-w-5xl">
+          <h2 className="text-xl font-bold text-primary-text mb-6 text-left opacity-80">动态</h2>
+
+          {/* Tab Navigation */}
+          <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap transition-all duration-300
+                  ${activeTab === tab.id
+                    ? 'bg-gradient-to-r from-miku to-miku-dark text-white shadow-lg shadow-miku/20'
+                    : 'bg-white/60 text-slate-600 hover:bg-white/80 border border-slate-200/50'
+                  }
+                `}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content */}
+          <div className="text-left">
+            <Suspense fallback={<TabLoading />}>
+              {activeTab === "event" && <CurrentEventTab />}
+              {activeTab === "cards" && <LatestCardsTab />}
+              {activeTab === "music" && <LatestMusicTab />}
+            </Suspense>
+          </div>
+        </div>
+
         {/* Shortcuts Section (捷径) */}
         <div className="w-full max-w-5xl">
           <h2 className="text-xl font-bold text-primary-text mb-6 text-left opacity-80">捷径</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {/* Card 1: Cards */}
-            <Link href="/cards" className="group">
-              <div className="p-4 rounded-2xl glass-card hover:bg-white/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border border-white/40 flex flex-col items-center gap-2 text-center h-full justify-center">
-                <h3 className="text-lg font-bold text-primary-text group-hover:text-miku transition-colors">卡牌</h3>
-                <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Card Database</p>
-              </div>
-            </Link>
-
-            {/* Card 2: Music */}
-            <Link href="/music" className="group">
-              <div className="p-4 rounded-2xl glass-card hover:bg-white/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border border-white/40 flex flex-col items-center gap-2 text-center h-full justify-center">
-                <h3 className="text-lg font-bold text-primary-text group-hover:text-miku transition-colors">音乐</h3>
-                <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Music Library</p>
-              </div>
-            </Link>
-
-            {/* Card 3: Events */}
-            <Link href="/events" className="group">
-              <div className="p-4 rounded-2xl glass-card hover:bg-white/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border border-white/40 flex flex-col items-center gap-2 text-center h-full justify-center">
-                <h3 className="text-lg font-bold text-primary-text group-hover:text-miku transition-colors">活动</h3>
-                <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Event Library</p>
-              </div>
-            </Link>
-
-            {/* Card 4: Gacha */}
-            <Link href="/gacha" className="group">
-              <div className="p-4 rounded-2xl glass-card hover:bg-white/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border border-white/40 flex flex-col items-center gap-2 text-center h-full justify-center">
-                <h3 className="text-lg font-bold text-primary-text group-hover:text-miku transition-colors">扭蛋</h3>
-                <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Gacha</p>
-              </div>
-            </Link>
-
-            {/* Card 5: Sticker */}
-            <Link href="/sticker" className="group">
-              <div className="p-4 rounded-2xl glass-card hover:bg-white/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border border-white/40 flex flex-col items-center gap-2 text-center h-full justify-center">
-                <h3 className="text-lg font-bold text-primary-text group-hover:text-miku transition-colors">贴纸</h3>
-                <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Sticker</p>
-              </div>
-            </Link>
-
-            {/* Card 6: Comic */}
-            <Link href="/comic" className="group">
-              <div className="p-4 rounded-2xl glass-card hover:bg-white/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border border-white/40 flex flex-col items-center gap-2 text-center h-full justify-center">
-                <h3 className="text-lg font-bold text-primary-text group-hover:text-miku transition-colors">漫画</h3>
-                <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Comic</p>
-              </div>
-            </Link>
-
-            {/* Card 7: Virtual Live */}
-            <Link href="/live" className="group">
-              <div className="p-4 rounded-2xl glass-card hover:bg-white/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border border-white/40 flex flex-col items-center gap-2 text-center h-full justify-center">
-                <h3 className="text-lg font-bold text-primary-text group-hover:text-miku transition-colors">演唱会</h3>
-                <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Virtual Live</p>
-              </div>
-            </Link>
-
-            {/* Card 8: MySEKAI */}
-            <Link href="/mysekai" className="group">
-              <div className="p-4 rounded-2xl glass-card hover:bg-white/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border border-white/40 flex flex-col items-center gap-2 text-center h-full justify-center">
-                <h3 className="text-lg font-bold text-primary-text group-hover:text-miku transition-colors">家具</h3>
-                <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">MySEKAI</p>
-              </div>
-            </Link>
+            {SHORTCUTS.map((shortcut, index) => (
+              <Link key={index} href={shortcut.href} className="group">
+                <div className="p-6 rounded-2xl glass-card hover:bg-white/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border border-white/40 flex flex-col items-center gap-3 text-center h-full justify-center">
+                  <div className="transition-transform duration-300 group-hover:scale-110">
+                    {shortcut.icon}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-primary-text group-hover:text-miku transition-colors">{shortcut.label}</h3>
+                    <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">{shortcut.subLabel}</p>
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
 

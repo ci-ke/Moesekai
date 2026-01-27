@@ -63,10 +63,9 @@ export default function AboutPage() {
                             />
                         </div>
                         <h3 className="text-2xl font-bold">Exmeaning (東雪)</h3>
-                        <p className="text-miku text-sm font-bold mt-1">AI Architect & Director</p>
+                        <p className="text-miku text-sm font-bold mt-1">An ordinary developer</p>
                         <div className="mt-6 flex flex-col items-center gap-1 opacity-50 text-xs text-white">
-                            <span>"99% Code by AI"</span>
-                            <span>"1% Soul by HelloWorld"</span>
+                            <span>"Soul by HelloWorld"</span>
                         </div>
                     </div>
 
