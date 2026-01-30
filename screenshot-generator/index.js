@@ -269,8 +269,20 @@ async function main() {
     const stats = {};
 
     try {
+        // Parse --only argument
+        const onlyArgIndex = process.argv.indexOf('--only');
+        let allowedTargets = [];
+        if (onlyArgIndex !== -1 && process.argv[onlyArgIndex + 1]) {
+            allowedTargets = process.argv[onlyArgIndex + 1].split(',').map(t => t.trim());
+            log(`Filtering targets: ${allowedTargets.join(', ')}`);
+        }
+
         // Generate screenshots for each target
         for (const target of TARGETS) {
+            if (allowedTargets.length > 0 && !allowedTargets.includes(target.name)) {
+                log(`Skipping ${target.name} (not in allowed list)`);
+                continue;
+            }
             log(`\nProcessing ${target.name}...`);
             stats[target.name] = await generateScreenshots(browser, target, forceRegenerate);
         }

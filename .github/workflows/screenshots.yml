@@ -24,7 +24,7 @@ on:
       force_regenerate:
         description: 'Force regenerate all screenshots'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
 env:
@@ -96,7 +96,7 @@ jobs:
           OUTPUT_DIR=../screenshots-output \
           CONCURRENCY=4 \
           BUILD_VERSION=${{ github.sha }} \
-          node index.js $FORCE_FLAG
+          node index.js $FORCE_FLAG --only cards,events,gacha,music
         env:
           PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: true
 
