@@ -235,6 +235,10 @@
     "きのこ系": {
       "text": "菌菇类",
       "source": "cn"
+    },
+    "豆腐": {
+      "text": "豆腐",
+      "source": "llm"
     }
   },
   "introduction": {

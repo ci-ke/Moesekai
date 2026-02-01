@@ -1735,6 +1735,10 @@
     "HAPPY BIRTHDAYライブ 彰人 2025": {
       "text": "HAPPY BIRTHDAY演唱会 彰人 2025",
       "source": "unknown"
+    },
+    "粉砕せよ！アンヴァレンタインの復讐 アフターライブ": {
+      "text": "粉碎吧！反情人节的复仇 赛后演唱会",
+      "source": "llm"
     }
   }
 }

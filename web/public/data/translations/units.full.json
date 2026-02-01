@@ -11,6 +11,18 @@
     "バーチャル・シンガー": {
       "text": "虚拟歌手",
       "source": "cn"
+    },
+    "Leo/need": {
+      "text": "Leo/need",
+      "source": "llm"
+    },
+    "Vivid BAD SQUAD": {
+      "text": "Vivid BAD SQUAD",
+      "source": "llm"
+    },
+    "MORE MORE JUMP！": {
+      "text": "MORE MORE JUMP！",
+      "source": "llm"
     }
   },
   "profileSentence": {

@@ -2531,6 +2531,10 @@
     "[復刻]音楽が鳴る街角でガチャ": {
       "text": "[复刻] 音乐鸣响的街角招募",
       "source": "unknown"
+    },
+    "A sweet afternoonガチャ": {
+      "text": "A sweet afternoon招募",
+      "source": "llm"
     }
   }
 }

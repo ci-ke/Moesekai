@@ -2511,6 +2511,26 @@
     "ULTRA C": {
       "text": "ULTRA C",
       "source": "llm"
+    },
+    "スターナイトスノウ": {
+      "text": "星夜之雪",
+      "source": "llm"
+    },
+    "雪がとける前に": {
+      "text": "在雪融化之前",
+      "source": "llm"
+    },
+    "好き！雪！本気マジック": {
+      "text": "喜欢！雪！真实魔法",
+      "source": "llm"
+    },
+    "Snow Fairy Story": {
+      "text": "Snow Fairy Story",
+      "source": "llm"
+    },
+    "四角い地球を丸くする": {
+      "text": "将方方的地球变圆",
+      "source": "llm"
     }
   },
   "artist": {
@@ -3912,6 +3932,10 @@
     },
     "syudou": {
       "text": "syudou_",
+      "source": "llm"
+    },
+    "n-buna、Orangestar": {
+      "text": "n-buna",
       "source": "llm"
     }
   },
