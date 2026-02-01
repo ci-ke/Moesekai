@@ -8,6 +8,7 @@ import { ICardInfo, CardRarityType, CardAttribute, getRarityNumber, SupportUnit 
 import { useTheme } from "@/contexts/ThemeContext";
 import { fetchMasterData } from "@/lib/fetch";
 import { loadTranslations, TranslationData } from "@/lib/translations";
+import { useScrollRestore } from "@/hooks/useScrollRestore";
 
 interface ICardSupply {
     id: number;
@@ -39,8 +40,13 @@ function CardsContent() {
     const [sortBy, setSortBy] = useState<"id" | "releaseAt" | "rarity">("id");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-    // Pagination
-    const [displayCount, setDisplayCount] = useState(30);
+    // Pagination with scroll restore
+    const { displayCount, loadMore, resetDisplayCount } = useScrollRestore({
+        storageKey: "cards",
+        defaultDisplayCount: 30,
+        increment: 30,
+        isReady: !isLoading,
+    });
 
     // Storage key
     const STORAGE_KEY = "cards_filters";
@@ -262,10 +268,7 @@ function CardsContent() {
         return filteredCards.slice(0, limit);
     }, [filteredCards, displayCount, isScreenshotMode]);
 
-    // Load more handler
-    const loadMore = useCallback(() => {
-        setDisplayCount(prev => prev + 30);
-    }, []);
+
 
     // Reset filters
     const resetFilters = useCallback(() => {
@@ -277,15 +280,15 @@ function CardsContent() {
         setSearchQuery("");
         setSortBy("id");
         setSortOrder("desc");
-        setDisplayCount(30);
-    }, []);
+        resetDisplayCount();
+    }, [resetDisplayCount]);
 
     // Sort change handler
     const handleSortChange = useCallback((newSortBy: "id" | "releaseAt" | "rarity", newSortOrder: "asc" | "desc") => {
         setSortBy(newSortBy);
         setSortOrder(newSortOrder);
-        setDisplayCount(30);
-    }, []);
+        resetDisplayCount();
+    }, [resetDisplayCount]);
 
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8">

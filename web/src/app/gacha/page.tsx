@@ -8,6 +8,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { IGachaInfo } from "@/types/types";
 import { fetchMasterData } from "@/lib/fetch";
 import { loadTranslations, TranslationData } from "@/lib/translations";
+import { useScrollRestore } from "@/hooks/useScrollRestore";
 
 function GachaContent() {
     const router = useRouter();
@@ -25,8 +26,13 @@ function GachaContent() {
     const [sortBy, setSortBy] = useState<"id" | "startAt">("startAt");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-    // Pagination
-    const [displayCount, setDisplayCount] = useState(24);
+    // Pagination with scroll restore
+    const { displayCount, loadMore, resetDisplayCount } = useScrollRestore({
+        storageKey: "gacha",
+        defaultDisplayCount: 24,
+        increment: 24,
+        isReady: !isLoading,
+    });
 
     // Storage key
     const STORAGE_KEY = "gacha_filters";
@@ -156,17 +162,14 @@ function GachaContent() {
         return filteredGachas.slice(0, displayCount);
     }, [filteredGachas, displayCount]);
 
-    // Load more handler
-    const loadMore = useCallback(() => {
-        setDisplayCount(prev => prev + 24);
-    }, []);
+
 
     // Sort change handler
     const handleSortChange = useCallback((newSortBy: "id" | "startAt", newSortOrder: "asc" | "desc") => {
         setSortBy(newSortBy);
         setSortOrder(newSortOrder);
-        setDisplayCount(24);
-    }, []);
+        resetDisplayCount();
+    }, [resetDisplayCount]);
 
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8">

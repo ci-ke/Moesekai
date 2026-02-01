@@ -8,6 +8,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { getComicUrl } from "@/lib/assets";
 import { fetchMasterData } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
+import { useScrollRestore } from "@/hooks/useScrollRestore";
 
 interface ITipInfo {
     id: number;
@@ -30,8 +31,13 @@ function ComicContent() {
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
     const [searchQuery, setSearchQuery] = useState("");
 
-    // Pagination
-    const [displayCount, setDisplayCount] = useState(24);
+    // Pagination with scroll restore
+    const { displayCount, loadMore } = useScrollRestore({
+        storageKey: "comic",
+        defaultDisplayCount: 24,
+        increment: 24,
+        isReady: !isLoading,
+    });
 
     // Selected comic for full view
     const [selectedComic, setSelectedComic] = useState<ITipInfo | null>(null);
@@ -78,10 +84,7 @@ function ComicContent() {
         return filteredComics.slice(0, displayCount);
     }, [filteredComics, displayCount]);
 
-    // Load more
-    const loadMore = useCallback(() => {
-        setDisplayCount(prev => prev + 24);
-    }, []);
+
 
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8">

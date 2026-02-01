@@ -17,6 +17,7 @@ import {
 import { fetchMasterData } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
 import { loadTranslations, TranslationData } from "@/lib/translations";
+import { useScrollRestore } from "@/hooks/useScrollRestore";
 
 // Genre name translation map (Japanese -> Chinese)
 const GENRE_NAME_MAP: Record<string, string> = {
@@ -228,8 +229,13 @@ function MysekaiContent() {
     const [sortBy, setSortBy] = useState<string>("id");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-    // Pagination
-    const [displayCount, setDisplayCount] = useState(48);
+    // Pagination with scroll restore
+    const { displayCount, loadMore, resetDisplayCount } = useScrollRestore({
+        storageKey: "mysekai",
+        defaultDisplayCount: 48,
+        increment: 48,
+        isReady: !isLoading,
+    });
 
     // Storage key
     const STORAGE_KEY = "mysekai_filters";
@@ -432,10 +438,7 @@ function MysekaiContent() {
         return filteredFixtures.slice(0, displayCount);
     }, [filteredFixtures, displayCount]);
 
-    // Load more
-    const loadMore = useCallback(() => {
-        setDisplayCount(prev => prev + 48);
-    }, []);
+
 
     // Helper to get genre name (translated)
     const getGenreName = (id: number) => {
@@ -476,6 +479,7 @@ function MysekaiContent() {
         setSelectedTag(null);
         setSelectedCharacters([]);
         setSelectedUnitIds([]);
+        resetDisplayCount();
     };
 
     const hasActiveFilters = !!(searchQuery || selectedGenre || selectedSubGenre || selectedTag || selectedCharacters.length > 0);

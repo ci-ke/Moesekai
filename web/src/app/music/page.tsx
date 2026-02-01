@@ -13,6 +13,7 @@ import {
 import { useTheme } from "@/contexts/ThemeContext";
 import { fetchMasterData } from "@/lib/fetch";
 import { loadTranslations, TranslationData } from "@/lib/translations";
+import { useScrollRestore } from "@/hooks/useScrollRestore";
 
 
 function MusicContent() {
@@ -39,8 +40,13 @@ function MusicContent() {
     const [sortBy, setSortBy] = useState<"publishedAt" | "id">("publishedAt");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-    // Pagination
-    const [displayCount, setDisplayCount] = useState(30);
+    // Pagination with scroll restore
+    const { displayCount, loadMore, resetDisplayCount } = useScrollRestore({
+        storageKey: "music",
+        defaultDisplayCount: 30,
+        increment: 30,
+        isReady: !isLoading,
+    });
 
     // Storage key
     const STORAGE_KEY = "music_filters";
@@ -219,10 +225,7 @@ function MusicContent() {
         return filteredMusics.slice(0, displayCount);
     }, [filteredMusics, displayCount]);
 
-    // Load more handler
-    const loadMore = useCallback(() => {
-        setDisplayCount((prev) => prev + 30);
-    }, []);
+
 
     // Reset filters
     const resetFilters = useCallback(() => {
@@ -232,17 +235,17 @@ function MusicContent() {
         setSearchQuery("");
         setSortBy("publishedAt");
         setSortOrder("desc");
-        setDisplayCount(30);
-    }, []);
+        resetDisplayCount();
+    }, [resetDisplayCount]);
 
     // Sort change handler
     const handleSortChange = useCallback(
         (newSortBy: "publishedAt" | "id", newSortOrder: "asc" | "desc") => {
             setSortBy(newSortBy);
             setSortOrder(newSortOrder);
-            setDisplayCount(30);
+            resetDisplayCount();
         },
-        []
+        [resetDisplayCount]
     );
 
     return (
@@ -285,22 +288,18 @@ function MusicContent() {
                             selectedTag={selectedTag}
                             onTagChange={(tag) => {
                                 setSelectedTag(tag);
-                                setDisplayCount(30);
                             }}
                             selectedCategories={selectedCategories}
                             onCategoryChange={(cats) => {
                                 setSelectedCategories(cats);
-                                setDisplayCount(30);
                             }}
                             hasEventOnly={hasEventOnly}
                             onHasEventOnlyChange={(checked) => {
                                 setHasEventOnly(checked);
-                                setDisplayCount(30);
                             }}
                             searchQuery={searchQuery}
                             onSearchChange={(q) => {
                                 setSearchQuery(q);
-                                setDisplayCount(30);
                             }}
                             sortBy={sortBy}
                             sortOrder={sortOrder}

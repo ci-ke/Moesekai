@@ -9,6 +9,7 @@ import { CHARACTER_NAMES } from "@/types/types";
 import { getStampUrl } from "@/lib/assets";
 import { fetchMasterData } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
+import { useScrollRestore } from "@/hooks/useScrollRestore";
 
 interface IStampInfo {
     id: number;
@@ -37,8 +38,13 @@ function StickerContent() {
     const [stampType, setStampType] = useState<string>("");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-    // Pagination
-    const [displayCount, setDisplayCount] = useState(48);
+    // Pagination with scroll restore
+    const { displayCount, loadMore } = useScrollRestore({
+        storageKey: "sticker",
+        defaultDisplayCount: 48,
+        increment: 48,
+        isReady: !isLoading,
+    });
 
     // Fetch stamps data
     useEffect(() => {
@@ -113,10 +119,7 @@ function StickerContent() {
         return filteredStamps.slice(0, displayCount);
     }, [filteredStamps, displayCount]);
 
-    // Load more
-    const loadMore = useCallback(() => {
-        setDisplayCount(prev => prev + 48);
-    }, []);
+
 
     // Unique characters from stamps
     const characters = useMemo(() => {

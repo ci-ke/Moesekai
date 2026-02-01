@@ -8,6 +8,7 @@ import { IVirtualLiveInfo, VirtualLiveType } from "@/types/virtualLive";
 import { useTheme } from "@/contexts/ThemeContext";
 import { fetchMasterData } from "@/lib/fetch";
 import { loadTranslations, TranslationData } from "@/lib/translations";
+import { useScrollRestore } from "@/hooks/useScrollRestore";
 
 function VirtualLiveContent() {
     const router = useRouter();
@@ -28,8 +29,13 @@ function VirtualLiveContent() {
     const [sortBy, setSortBy] = useState<"id" | "startAt">("startAt");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-    // Pagination
-    const [displayCount, setDisplayCount] = useState(12);
+    // Pagination with scroll restore
+    const { displayCount, loadMore, resetDisplayCount } = useScrollRestore({
+        storageKey: "live",
+        defaultDisplayCount: 12,
+        increment: 12,
+        isReady: !isLoading,
+    });
 
     // Storage key
     const STORAGE_KEY = "virtual_live_filters";
@@ -168,10 +174,7 @@ function VirtualLiveContent() {
         return filteredVirtualLives.slice(0, displayCount);
     }, [filteredVirtualLives, displayCount]);
 
-    // Load more handler
-    const loadMore = useCallback(() => {
-        setDisplayCount(prev => prev + 12);
-    }, []);
+
 
     // Reset filters
     const resetFilters = useCallback(() => {
@@ -179,15 +182,15 @@ function VirtualLiveContent() {
         setSearchQuery("");
         setSortBy("startAt");
         setSortOrder("desc");
-        setDisplayCount(12);
-    }, []);
+        resetDisplayCount();
+    }, [resetDisplayCount]);
 
     // Sort change handler
     const handleSortChange = useCallback((newSortBy: "id" | "startAt", newSortOrder: "asc" | "desc") => {
         setSortBy(newSortBy);
         setSortOrder(newSortOrder);
-        setDisplayCount(12);
-    }, []);
+        resetDisplayCount();
+    }, [resetDisplayCount]);
 
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8">
