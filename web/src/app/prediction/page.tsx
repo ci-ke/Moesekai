@@ -231,7 +231,7 @@ export default function PredictionPage() {
                                 : 'text-slate-600 hover:bg-slate-50'
                                 }`}
                         >
-                            🇨🇳 国服
+                            国服
                         </button>
                         <button
                             onClick={() => handleServerChange('jp')}
@@ -240,7 +240,7 @@ export default function PredictionPage() {
                                 : 'text-slate-600 hover:bg-slate-50'
                                 }`}
                         >
-                            🇯🇵 日服
+                            日服
                         </button>
                     </div>
 
@@ -292,8 +292,8 @@ export default function PredictionPage() {
                             const { banner, isActive } = eventState;
                             return (
                                 <>
-                                    <div className="block group mb-6">
-                                        <div className="relative flex h-32 md:h-36 rounded-2xl overflow-hidden glass-card border border-white/40 bg-white shadow-sm">
+                                    <Link href={`/events/${banner.mockEvent.id}`} className="block group mb-6">
+                                        <div className="relative flex h-32 md:h-36 rounded-2xl overflow-hidden glass-card border border-white/40 bg-white shadow-sm transition-transform hover:scale-[1.01] active:scale-[0.99] hover:shadow-md cursor-pointer">
                                             {/* Link wrapper could be added here if needed */}
 
                                             {/* Left Side: Background & Logo */}
@@ -377,7 +377,7 @@ export default function PredictionPage() {
                                                 )}
                                             </div>
                                         </div>
-                                    </div>
+                                    </Link>
 
                                     {/* Row 1: PGAI + Activity Stats (Only if Active) */}
                                     {isActive && (
