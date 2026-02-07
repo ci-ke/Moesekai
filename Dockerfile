@@ -13,6 +13,7 @@ FROM golang:1.23-alpine AS builder-go
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
+COPY internal ./internal
 COPY main.go .
 RUN go build -o server main.go
 
