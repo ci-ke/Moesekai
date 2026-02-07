@@ -30,14 +30,24 @@ func New(redisURL string) *Cache {
 	}
 
 	if redisURL != "" {
-		client := redis.NewClient(&redis.Options{
-			Addr:     redisURL,
-			Password: "",
-			DB:       0,
-		})
+		var opts *redis.Options
+		var err error
 
-		// Test connection
-		_, err := client.Ping(ctx).Result()
+		// Try to parse as connection URL first
+		if opts, err = redis.ParseURL(redisURL); err != nil {
+			// Fallback: treat as direct address
+			opts = &redis.Options{
+				Addr: redisURL,
+			}
+		}
+
+		client := redis.NewClient(opts)
+
+		// Test connection with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		_, err = client.Ping(ctx).Result()
 		if err != nil {
 			fmt.Printf("Redis connection failed (%s), using memory cache: %v\n", redisURL, err)
 			return c
@@ -45,7 +55,8 @@ func New(redisURL string) *Cache {
 
 		c.redis = client
 		c.useRedis = true
-		fmt.Printf("Redis connected successfully: %s\n", redisURL)
+		// Mask password in log if present
+		fmt.Printf("Redis connected successfully: %s\n", opts.Addr)
 	}
 
 	return c
