@@ -547,9 +547,9 @@ export default function StickerMakerContent() {
                                     <p className="text-sm mt-1">点击左侧头像开始制作</p>
                                 </div>
                             ) : (
-                                <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 lg:p-8 shadow-sm border border-slate-100 sticker-editor-container">
+                                <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 lg:p-8 shadow-sm border border-slate-100 sticker-editor-container grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Canvas Area */}
-                                    <div className="flex flex-col items-center gap-6 mb-8">
+                                    <div className="flex flex-col items-center gap-6 order-2 md:order-1 md:col-span-2 mt-4 md:mt-0 mb-4 md:mb-8">
                                         <div className="relative group">
                                             {/* Canvas Wrapper */}
                                             <div className="flex items-center gap-4">
@@ -608,123 +608,120 @@ export default function StickerMakerContent() {
                                         </div>
                                     </div>
 
-                                    {/* Controls */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {/* Text & Font */}
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-500 mb-2">
-                                                    文本内容
-                                                </label>
-                                                <textarea
-                                                    value={text}
-                                                    onChange={(e) => setText(e.target.value)}
-                                                    rows={3}
-                                                    className="w-full px-4 py-3 text-base border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-miku/30 focus:border-miku resize-none bg-slate-50"
-                                                    placeholder="输入文字..."
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-500 mb-2">
-                                                    字体选择
-                                                </label>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    {allFonts.map(font => (
-                                                        <button
-                                                            key={font.name}
-                                                            onClick={() => setFontFamily(font.name)}
-                                                            className={`px-3 py-2 text-sm rounded-lg border transition-all truncate ${fontFamily === font.name
-                                                                ? "border-miku bg-miku/5 text-miku font-bold"
-                                                                : "border-slate-200 hover:border-slate-300 text-slate-600"
-                                                                }`}
-                                                            title={font.label}
-                                                        >
-                                                            {font.label}
-                                                        </button>
-                                                    ))}
-
-                                                    {/* Custom Font Upload Button */}
-                                                    <button
-                                                        onClick={() => fileInputRef.current?.click()}
-                                                        className="px-3 py-2 text-sm rounded-lg border border-dashed border-slate-300 text-slate-500 hover:border-miku hover:text-miku hover:bg-white transition-all flex items-center justify-center gap-1"
-                                                    >
-                                                        <span className="text-lg">+</span> 自定义字体
-                                                    </button>
-                                                    <input
-                                                        type="file"
-                                                        accept=".ttf,.otf,.woff,.woff2"
-                                                        ref={fileInputRef}
-                                                        className="hidden"
-                                                        onChange={handleFontUpload}
-                                                    />
-                                                </div>
-                                            </div>
+                                    {/* Text & Font Controls */}
+                                    <div className="space-y-4 order-1 md:order-2">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 mb-2">
+                                                文本内容
+                                            </label>
+                                            <textarea
+                                                value={text}
+                                                onChange={(e) => setText(e.target.value)}
+                                                rows={3}
+                                                className="w-full px-4 py-3 text-base border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-miku/30 focus:border-miku resize-none bg-slate-50"
+                                                placeholder="输入文字..."
+                                            />
                                         </div>
-
-                                        {/* Param Sliders */}
-                                        <div className="space-y-5 bg-slate-50 p-5 rounded-xl border border-slate-100">
-                                            <RangeSlider
-                                                label="旋转"
-                                                value={rotate}
-                                                onChange={setRotate}
-                                                min={-10}
-                                                max={10}
-                                                step={0.2}
-                                            />
-                                            <RangeSlider
-                                                label="字号"
-                                                value={fontSize}
-                                                onChange={setFontSize}
-                                                min={10}
-                                                max={100}
-                                            />
-                                            <RangeSlider
-                                                label="行间距"
-                                                value={spaceSize}
-                                                onChange={setSpaceSize}
-                                                min={18}
-                                                max={100}
-                                            />
-                                            <RangeSlider
-                                                label="字间距"
-                                                value={charSpacing}
-                                                onChange={setCharSpacing}
-                                                min={-10}
-                                                max={50}
-                                                step={0.5}
-                                            />
-
-                                            <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                                                <span className="text-xs font-bold text-slate-500">
-                                                    弧形文字 (Beta)
-                                                </span>
-                                                <button
-                                                    onClick={() => setCurve(!curve)}
-                                                    className={`relative w-11 h-6 rounded-full transition-colors ${curve ? "bg-miku" : "bg-slate-300"
-                                                        }`}
-                                                >
-                                                    <span
-                                                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${curve ? "translate-x-5" : ""
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-500 mb-2">
+                                                字体选择
+                                            </label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {allFonts.map(font => (
+                                                    <button
+                                                        key={font.name}
+                                                        onClick={() => setFontFamily(font.name)}
+                                                        className={`px-3 py-2 text-sm rounded-lg border transition-all truncate ${fontFamily === font.name
+                                                            ? "border-miku bg-miku/5 text-miku font-bold"
+                                                            : "border-slate-200 hover:border-slate-300 text-slate-600"
                                                             }`}
-                                                    />
-                                                </button>
-                                            </div>
+                                                        title={font.label}
+                                                    >
+                                                        {font.label}
+                                                    </button>
+                                                ))}
 
-                                            <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
-                                                <span className="text-xs font-bold text-slate-500">角色颜色:</span>
-                                                <div
-                                                    className="w-5 h-5 rounded-full border border-slate-200 shadow-sm"
-                                                    style={{ backgroundColor: selectedSticker?.color }}
+                                                {/* Custom Font Upload Button */}
+                                                <button
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="px-3 py-2 text-sm rounded-lg border border-dashed border-slate-300 text-slate-500 hover:border-miku hover:text-miku hover:bg-white transition-all flex items-center justify-center gap-1"
+                                                >
+                                                    <span className="text-lg">+</span> 自定义字体
+                                                </button>
+                                                <input
+                                                    type="file"
+                                                    accept=".ttf,.otf,.woff,.woff2"
+                                                    ref={fileInputRef}
+                                                    className="hidden"
+                                                    onChange={handleFontUpload}
                                                 />
-                                                <span className="text-xs font-mono text-slate-400">
-                                                    {selectedSticker?.color}
-                                                </span>
                                             </div>
                                         </div>
                                     </div>
 
+                                    {/* Param Sliders */}
+                                    <div className="space-y-5 bg-slate-50 p-5 rounded-xl border border-slate-100 order-3 md:order-3">
+                                        <RangeSlider
+                                            label="旋转"
+                                            value={rotate}
+                                            onChange={setRotate}
+                                            min={-10}
+                                            max={10}
+                                            step={0.2}
+                                        />
+                                        <RangeSlider
+                                            label="字号"
+                                            value={fontSize}
+                                            onChange={setFontSize}
+                                            min={10}
+                                            max={100}
+                                        />
+                                        <RangeSlider
+                                            label="行间距"
+                                            value={spaceSize}
+                                            onChange={setSpaceSize}
+                                            min={18}
+                                            max={100}
+                                        />
+                                        <RangeSlider
+                                            label="字间距"
+                                            value={charSpacing}
+                                            onChange={setCharSpacing}
+                                            min={-10}
+                                            max={50}
+                                            step={0.5}
+                                        />
+
+                                        <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                                            <span className="text-xs font-bold text-slate-500">
+                                                弧形文字 (Beta)
+                                            </span>
+                                            <button
+                                                onClick={() => setCurve(!curve)}
+                                                className={`relative w-11 h-6 rounded-full transition-colors ${curve ? "bg-miku" : "bg-slate-300"
+                                                    }`}
+                                            >
+                                                <span
+                                                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${curve ? "translate-x-5" : ""
+                                                        }`}
+                                                />
+                                            </button>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
+                                            <span className="text-xs font-bold text-slate-500">角色颜色:</span>
+                                            <div
+                                                className="w-5 h-5 rounded-full border border-slate-200 shadow-sm"
+                                                style={{ backgroundColor: selectedSticker?.color }}
+                                            />
+                                            <span className="text-xs font-mono text-slate-400">
+                                                {selectedSticker?.color}
+                                            </span>
+                                        </div>
+                                    </div>
+
                                     {/* Action Buttons */}
-                                    <div className="flex items-center justify-center gap-4 mt-8 pt-6 border-t border-slate-100">
+                                    <div className="flex items-center justify-center gap-4 mt-8 pt-6 border-t border-slate-100 order-4 md:order-4 md:col-span-2">
                                         <button
                                             onClick={handleCopy}
                                             className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 hover:border-miku hover:text-miku transition-all shadow-sm"
