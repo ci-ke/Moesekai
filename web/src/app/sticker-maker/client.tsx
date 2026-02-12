@@ -426,7 +426,7 @@ export default function StickerMakerContent() {
     };
 
     return (
-        <MainLayout>
+        <MainLayout activeNav="表情包制作">
             <div className="pt-4 min-h-screen pb-12">
                 <div className="container mx-auto px-4 py-8">
                     {/* Page Header */}

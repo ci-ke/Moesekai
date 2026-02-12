@@ -77,7 +77,7 @@ export default function MainNavbar({ activeItem = "首页" }: MainNavbarProps) {
     };
 
     return (
-        <nav className="fixed top-0 w-full z-50 bg-white/95 backdrop-blur-lg border-b border-white/20 h-[4.5rem]">
+        <nav className="fixed top-0 w-full z-[100] bg-white/95 backdrop-blur-lg border-b border-white/20 h-[4.5rem]">
             <div className="container mx-auto px-6 h-full flex items-center justify-between">
 
                 {/* Logo Section */}
@@ -97,7 +97,7 @@ export default function MainNavbar({ activeItem = "首页" }: MainNavbarProps) {
                     />
                     <div className="flex items-center gap-1.5 h-full">
                         <span className="text-[10px] text-miku font-bold tracking-widest uppercase leading-none mt-1">Sekai Viewer</span>
-                        <span className="text-[8px] px-1.5 py-0.5 bg-amber-400 text-white font-bold rounded-full leading-none">BETA1.96</span>
+                        <span className="text-[8px] px-1.5 py-0.5 bg-amber-400 text-white font-bold rounded-full leading-none">BETA1.97</span>
                     </div>
                 </Link>
 
@@ -208,7 +208,7 @@ export default function MainNavbar({ activeItem = "首页" }: MainNavbarProps) {
             </div>
 
             {/* Mobile Menu with Animation */}
-            <div className={`md:hidden absolute top-[4.5rem] left-0 w-full bg-slate-50/95 backdrop-blur-md border-b border-white/20 shadow-lg py-4 px-6 flex flex-col gap-2 origin-top transition-all duration-300 ease-out transform ${isMenuOpen
+            <div className={`md:hidden absolute top-[4.5rem] left-0 w-full bg-slate-50/95 backdrop-blur-md border-b border-white/20 shadow-lg py-4 px-6 pb-8 flex flex-col gap-2 origin-top transition-all duration-300 ease-out transform max-h-[calc(100vh-4.5rem)] overflow-y-auto overscroll-contain z-40 ${isMenuOpen
                 ? "translate-y-0 opacity-100 visible"
                 : "-translate-y-4 opacity-0 invisible pointer-events-none"
                 }`}>

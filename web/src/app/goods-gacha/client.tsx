@@ -89,7 +89,7 @@ export default function GachaClient({ pools }: GachaClientProps) {
     const completionRate = Math.round((uniqueObtained / currentPoolImages.length) * 100) || 0;
 
     return (
-        <MainLayout>
+        <MainLayout activeNav="谷子盲抽">
             <div className="pt-4 min-h-screen pb-20">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl py-8">
 
