@@ -72,8 +72,11 @@ function getFallbackVersionUrl(): string {
 }
 
 // Build-time URL (for static generation - more stable for large files >3MB)
-// const MASTER_BUILD_URL = "https://raw.githubusercontent.com/Team-Haruki/haruki-sekai-master/main/master";
-const MASTER_BUILD_URL = "https://sekaimaster.exmeaning.com/master";
+const MASTER_BUILD_URL = "https://raw.githubusercontent.com/Exmeaning/haruki-sekai-master/main/master";
+// const MASTER_BUILD_URL = "https://sekaimaster.exmeaning.com/master";
+
+// CN Build-time URL (for SSG - generates pages for CN-only content)
+const MASTER_BUILD_URL_CN = "https://raw.githubusercontent.com/Exmeaning/haruki-sekai-sc-master/main/master";
 
 /**
  * Detect if we're in a build/SSG context (server-side, no window)
@@ -277,3 +280,49 @@ export async function fetchVersionInfoNoCache(): Promise<VersionInfo> {
 
 // Local storage key for cached version
 export const MASTERDATA_VERSION_KEY = "masterdata-version";
+
+/**
+ * Fetch master data from the CN build source (GitHub raw)
+ * Used at build time (SSG) to get CN-only content IDs
+ * @param path - Path relative to master directory (e.g., "cards.json")
+ */
+export async function fetchCnBuildMasterData<T>(path: string): Promise<T> {
+    const url = `${MASTER_BUILD_URL_CN}/${path}`;
+    console.log(`[Build-CN] Fetching ${path} from CN GitHub raw...`);
+    const response = await fetchWithCompression(url);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch CN master data: ${path} from ${MASTER_BUILD_URL_CN}`);
+    }
+    return response.json();
+}
+
+/**
+ * Merge unique IDs from JP and CN master data at build time.
+ * Fetches both JP and CN data, extracts IDs, and returns a deduplicated union.
+ * CN fetch failures are silently ignored (CN may not have all files).
+ * @param path - Master data file path (e.g., "cards.json")
+ * @param idExtractor - Function to extract IDs from the data
+ */
+export async function fetchMergedBuildIds<T>(
+    path: string,
+    idExtractor: (data: T) => string[]
+): Promise<string[]> {
+    // Fetch JP data (required)
+    const jpData = await fetchMasterData<T>(path);
+    const jpIds = idExtractor(jpData);
+    const idSet = new Set(jpIds);
+
+    // Fetch CN data (optional - may not exist)
+    try {
+        const cnData = await fetchCnBuildMasterData<T>(path);
+        const cnIds = idExtractor(cnData);
+        for (const id of cnIds) {
+            idSet.add(id);
+        }
+        console.log(`[Build] Merged ${path}: JP=${jpIds.length}, CN=${cnIds.length}, Total=${idSet.size}`);
+    } catch (e) {
+        console.warn(`[Build] CN data not available for ${path}, using JP only.`, e);
+    }
+
+    return Array.from(idSet);
+}

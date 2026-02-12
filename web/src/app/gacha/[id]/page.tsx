@@ -3,17 +3,17 @@ import GachaDetailClient from "./client";
 import { fetchMasterData } from "@/lib/fetch";
 import { IGachaInfo } from "@/types/types";
 
-// Static params for SSG
-export const dynamicParams = false;
 
 export async function generateStaticParams() {
     console.log("Generating static params for gacha/[id]...");
     try {
-        const gachas = await fetchMasterData<IGachaInfo[]>("gachas.json");
-        console.log(`Found ${gachas.length} gachas.`);
-        return gachas.map((gacha) => ({
-            id: gacha.id.toString(),
-        }));
+        const { fetchMergedBuildIds } = await import("@/lib/fetch");
+        const ids = await fetchMergedBuildIds<IGachaInfo[]>(
+            "gachas.json",
+            (gachas) => gachas.map((gacha) => gacha.id.toString())
+        );
+        console.log(`Found ${ids.length} gachas (merged JP+CN).`);
+        return ids.map((id) => ({ id }));
     } catch (e) {
         console.error("Error generating static params for gacha:", e);
         return [];

@@ -344,7 +344,7 @@ export default function MusicDetailPage() {
                         </span>
                         {/* Category Tags */}
                         <div className="flex items-center gap-2 flex-wrap">
-                            {music.categories.map((cat) => (
+                            {Array.from(new Set(music.categories)).map((cat) => (
                                 <span
                                     key={cat}
                                     className="px-2 py-0.5 text-xs font-bold rounded text-white"

@@ -5,12 +5,35 @@ export const ASSET_BASE_URL_UNI = "https://assets.unipjsk.com";
 export const ASSET_BASE_URL_HARUKI = "https://sekai-assets-bdf29c81.seiunx.net/jp-assets";
 export const ASSET_BASE_URL_SNOWY = "https://snowyassets.exmeaning.com";
 
-// Get the base URL based on asset source setting
+// CN-specific base URLs (independent sources)
+export const ASSET_BASE_URL_SNOWY_CN = "https://snowyassets.exmeaning.com/cn";
+export const ASSET_BASE_URL_HARUKI_CN = "https://sekai-assets-bdf29c81.seiunx.net/cn-assets";
+
+// Get the base URL based on asset source setting (5 independent sources)
 export function getAssetBaseUrl(source: AssetSourceType): string {
-    if (source === "snowyassets") {
-        return ASSET_BASE_URL_SNOWY;
+    switch (source) {
+        case "snowyassets": return ASSET_BASE_URL_SNOWY;
+        case "haruki": return ASSET_BASE_URL_HARUKI;
+        case "uni": return ASSET_BASE_URL_UNI;
+        case "snowyassets_cn": return ASSET_BASE_URL_SNOWY_CN;
+        case "haruki_cn": return ASSET_BASE_URL_HARUKI_CN;
+        default: return ASSET_BASE_URL_SNOWY;
     }
-    return source === "haruki" ? ASSET_BASE_URL_HARUKI : ASSET_BASE_URL_UNI;
+}
+
+// Helper: check if source is a CN source
+export function isCnSource(source: AssetSourceType): boolean {
+    return source === "snowyassets_cn" || source === "haruki_cn";
+}
+
+// Helper: get corresponding snowy source for current server context
+function getSnowySource(source: AssetSourceType): AssetSourceType {
+    return isCnSource(source) ? "snowyassets_cn" : "snowyassets";
+}
+
+// Helper: get corresponding haruki source for current server context
+function getHarukiSource(source: AssetSourceType): AssetSourceType {
+    return isCnSource(source) ? "haruki_cn" : "haruki";
 }
 
 export function getCharacterIconUrl(characterId: number): string {
@@ -74,7 +97,13 @@ export function getEventLogoUrl(assetbundleName: string, source: AssetSourceType
 }
 
 export function getEventBgmUrl(assetbundleName: string, source: AssetSourceType = "uni"): string {
-    const baseUrl = source === "uni" ? ASSET_BASE_URL_HARUKI : getAssetBaseUrl(source);
+    // For CN sources or snowy/haruki, use their own base URL directly
+    if (isCnSource(source) || source === "snowyassets" || source === "haruki") {
+        const baseUrl = getAssetBaseUrl(source);
+        return `${baseUrl}/ondemand/event/${assetbundleName}/bgm/${assetbundleName}_top.mp3`;
+    }
+    // Uni source defaults to Haruki for BGM
+    const baseUrl = ASSET_BASE_URL_HARUKI;
     return `${baseUrl}/ondemand/event/${assetbundleName}/bgm/${assetbundleName}_top.mp3`;
 }
 
@@ -98,6 +127,11 @@ export function getGachaScreenUrl(assetbundleName: string, gachaId: number, sour
 // Gacha Voice always uses Haruki source (audio files not on Uni)
 // Update: SnowyAssets also has these files
 export function getCardGachaVoiceUrl(assetbundleName: string, source: AssetSourceType = "uni"): string {
+    // CN sources use their own base directly
+    if (isCnSource(source)) {
+        const baseUrl = getAssetBaseUrl(source);
+        return `${baseUrl}/startapp/sound/gacha/get_voice/${assetbundleName}/${assetbundleName}.mp3`;
+    }
     if (source === "snowyassets") {
         return `${ASSET_BASE_URL_SNOWY}/startapp/sound/gacha/get_voice/${assetbundleName}/${assetbundleName}.mp3`;
     }
@@ -107,6 +141,11 @@ export function getCardGachaVoiceUrl(assetbundleName: string, source: AssetSourc
 // ==================== Comic Asset URLs ====================
 
 export function getComicUrl(assetbundleName: string, source: AssetSourceType = "uni"): string {
+    // CN sources use their own base directly
+    if (isCnSource(source)) {
+        const baseUrl = getAssetBaseUrl(source);
+        return `${baseUrl}/startapp/comic/one_frame/${assetbundleName}.png`;
+    }
     // Comics are available on Haruki and SnowyAssets
     if (source === "snowyassets") {
         return `${ASSET_BASE_URL_SNOWY}/startapp/comic/one_frame/${assetbundleName}.png`;
@@ -125,9 +164,6 @@ export function getStampUrl(assetbundleName: string, source: AssetSourceType = "
 
 // Chart SVG available on Uni and SnowyAssets
 export function getChartSvgUrl(musicId: number, difficulty: string, source: AssetSourceType = "uni"): string {
-    if (source === "snowyassets") {
-        return `https://charts-new.unipjsk.com/moe/svg/${musicId}/${difficulty}.svg`;
-    }
     return `https://charts-new.unipjsk.com/moe/svg/${musicId}/${difficulty}.svg`;
 }
 
@@ -145,6 +181,11 @@ export function getMusicVocalAudioUrl(assetbundleName: string, source: AssetSour
 
 // Virtual Live Banner available on Haruki and SnowyAssets
 export function getVirtualLiveBannerUrl(assetbundleName: string, source: AssetSourceType = "uni"): string {
+    // CN sources use their own base directly
+    if (isCnSource(source)) {
+        const baseUrl = getAssetBaseUrl(source);
+        return `${baseUrl}/ondemand/virtual_live/select/banner/${assetbundleName}/${assetbundleName}.png`;
+    }
     if (source === "snowyassets") {
         return `${ASSET_BASE_URL_SNOWY}/ondemand/virtual_live/select/banner/${assetbundleName}/${assetbundleName}.png`;
     }
@@ -154,9 +195,14 @@ export function getVirtualLiveBannerUrl(assetbundleName: string, source: AssetSo
 // ==================== MySEKAI Asset URLs ====================
 
 // MySEKAI Fixture Thumbnail available on Haruki and SnowyAssets
-// MySEKAI Fixture Thumbnail available on Haruki and SnowyAssets
 export function getMysekaiFixtureThumbnailUrl(assetbundleName: string, source: AssetSourceType = "uni", genreId: number = 0): string {
-    const baseUrl = source === "snowyassets" ? ASSET_BASE_URL_SNOWY : ASSET_BASE_URL_HARUKI;
+    // CN sources use their own base, JP defaults to Snowy or Haruki
+    let baseUrl: string;
+    if (isCnSource(source)) {
+        baseUrl = getAssetBaseUrl(source);
+    } else {
+        baseUrl = source === "snowyassets" ? ASSET_BASE_URL_SNOWY : ASSET_BASE_URL_HARUKI;
+    }
 
     // Wall (Genre ID 7)
     if (genreId === 7) {
@@ -174,6 +220,11 @@ export function getMysekaiFixtureThumbnailUrl(assetbundleName: string, source: A
 
 // MySEKAI Material Thumbnail available on Haruki and SnowyAssets
 export function getMysekaiMaterialThumbnailUrl(iconAssetbundleName: string, source: AssetSourceType = "uni"): string {
+    // CN sources use their own base
+    if (isCnSource(source)) {
+        const baseUrl = getAssetBaseUrl(source);
+        return `${baseUrl}/ondemand/mysekai/thumbnail/material/${iconAssetbundleName}.png`;
+    }
     if (source === "snowyassets") {
         return `${ASSET_BASE_URL_SNOWY}/ondemand/mysekai/thumbnail/material/${iconAssetbundleName}.png`;
     }
@@ -185,47 +236,37 @@ export function getMysekaiMaterialThumbnailUrl(iconAssetbundleName: string, sour
 
 // Character trim image (main display image)
 export function getCharacterTrimUrl(characterId: number, source: AssetSourceType = "uni"): string {
-    if (source === "snowyassets") {
-        return `${ASSET_BASE_URL_SNOWY}/startapp/character/character_trim/chr_trim_${characterId}.png`;
-    }
     const baseUrl = getAssetBaseUrl(source);
     return `${baseUrl}/startapp/character/character_trim/chr_trim_${characterId}.png`;
 }
 
 // Character horizontal label
 export function getCharacterLabelHUrl(characterId: number, source: AssetSourceType = "uni"): string {
-    if (source === "snowyassets") {
-        return `${ASSET_BASE_URL_SNOWY}/startapp/character/label/chr_h_lb_${characterId}.png`;
-    }
     const baseUrl = getAssetBaseUrl(source);
     return `${baseUrl}/startapp/character/label/chr_h_lb_${characterId}.png`;
 }
 
 // Character vertical label
 export function getCharacterLabelVUrl(characterId: number, source: AssetSourceType = "uni"): string {
-    if (source === "snowyassets") {
-        return `${ASSET_BASE_URL_SNOWY}/startapp/character/label_vertical/chr_v_lb_${characterId}.png`;
-    }
     const baseUrl = getAssetBaseUrl(source);
     return `${baseUrl}/startapp/character/label_vertical/chr_v_lb_${characterId}.png`;
 }
 
 // Character select thumbnail (for list view)
 export function getCharacterSelectUrl(characterId: number, source: AssetSourceType = "uni"): string {
-    if (source === "snowyassets") {
-        return `${ASSET_BASE_URL_SNOWY}/startapp/character/character_select/chr_tl_${characterId}.png`;
-    }
     const baseUrl = getAssetBaseUrl(source);
     return `${baseUrl}/startapp/character/character_select/chr_tl_${characterId}.png`;
 }
 
 // ==================== Story/Scenario Asset URLs ====================
 
-// ==================== Story/Scenario Asset URLs ====================
-
 // Get scenario JSON URL (uses /ondemand/ and .json extension)
-// Rule: Use Snowy or Uni. Haruki source defaults to Snowy.
+// Rule: Use Snowy or Uni. Haruki source defaults to Snowy. CN sources use their own.
 export function getScenarioJsonUrl(scenarioPath: string, source: AssetSourceType = "uni"): string {
+    if (isCnSource(source)) {
+        const baseUrl = getAssetBaseUrl(source);
+        return `${baseUrl}/ondemand/${scenarioPath}.json`;
+    }
     let targetSource = source;
     if (source === "haruki") {
         targetSource = "snowyassets";
@@ -236,8 +277,12 @@ export function getScenarioJsonUrl(scenarioPath: string, source: AssetSourceType
 }
 
 // Get scenario background image URL (uses /ondemand/ and .png extension)
-// Rule: Use Snowy or Haruki. Uni source defaults to Haruki.
+// Rule: Use Snowy or Haruki. Uni source defaults to Haruki. CN sources use their own.
 export function getBackgroundImageUrl(bgName: string, source: AssetSourceType = "uni"): string {
+    if (isCnSource(source)) {
+        const baseUrl = getAssetBaseUrl(source);
+        return `${baseUrl}/ondemand/scenario/background/${bgName}/${bgName}.png`;
+    }
     let targetSource = source;
     if (source === "uni") {
         targetSource = "haruki";
@@ -247,30 +292,42 @@ export function getBackgroundImageUrl(bgName: string, source: AssetSourceType = 
 }
 
 // Get story voice URL (audio only on Haruki/Snowy, not Uni)
-// Rule: Use Snowy or Haruki. Uni source defaults to Haruki.
+// Rule: Use Snowy or Haruki. Uni source defaults to Haruki. CN sources use their own.
 export function getStoryVoiceUrl(scenarioId: string, voiceId: string, source: AssetSourceType = "uni"): string {
+    if (isCnSource(source)) {
+        const baseUrl = getAssetBaseUrl(source);
+        return `${baseUrl}/ondemand/sound/scenario/voice/${scenarioId}/${voiceId}.mp3`;
+    }
     const baseUrl = source === "snowyassets" ? ASSET_BASE_URL_SNOWY : ASSET_BASE_URL_HARUKI;
     return `${baseUrl}/ondemand/sound/scenario/voice/${scenarioId}/${voiceId}.mp3`;
 }
 
 // Get story BGM URL (audio only on Haruki/Snowy)
-// Rule: Use Snowy or Haruki. Uni source defaults to Haruki.
+// Rule: Use Snowy or Haruki. Uni source defaults to Haruki. CN sources use their own.
 export function getStoryBgmUrl(bgmName: string, source: AssetSourceType = "uni"): string {
+    if (isCnSource(source)) {
+        const baseUrl = getAssetBaseUrl(source);
+        return `${baseUrl}/ondemand/sound/scenario/bgm/${bgmName}/${bgmName}.mp3`;
+    }
     const baseUrl = source === "snowyassets" ? ASSET_BASE_URL_SNOWY : ASSET_BASE_URL_HARUKI;
     return `${baseUrl}/ondemand/sound/scenario/bgm/${bgmName}/${bgmName}.mp3`;
 }
 
 // Get story sound effect URL (audio only on Haruki/Snowy)
-// Rule: Use Snowy or Haruki. Uni source defaults to Haruki.
+// Rule: Use Snowy or Haruki. Uni source defaults to Haruki. CN sources use their own.
 export function getStorySoundEffectUrl(seName: string, source: AssetSourceType = "uni"): string {
+    if (isCnSource(source)) {
+        const baseUrl = getAssetBaseUrl(source);
+        return `${baseUrl}/ondemand/sound/scenario/se/${seName}.mp3`;
+    }
     const baseUrl = source === "snowyassets" ? ASSET_BASE_URL_SNOWY : ASSET_BASE_URL_HARUKI;
     return `${baseUrl}/ondemand/sound/scenario/se/${seName}.mp3`;
 }
 
 // Get story episode image URL
-// Rule: Use Snowy assets.
-export function getStoryEpisodeImageUrl(assetbundleName: string, episodeNo: number): string {
+// Rule: Use Snowy assets. CN sources use CN Snowy.
+export function getStoryEpisodeImageUrl(assetbundleName: string, episodeNo: number, source: AssetSourceType = "snowyassets"): string {
     const paddedNo = episodeNo.toString().padStart(2, "0");
-    return `${ASSET_BASE_URL_SNOWY}/ondemand/event_story/${assetbundleName}/episode_image/${assetbundleName}_${paddedNo}.png`;
+    const baseUrl = isCnSource(source) ? ASSET_BASE_URL_SNOWY_CN : ASSET_BASE_URL_SNOWY;
+    return `${baseUrl}/ondemand/event_story/${assetbundleName}/episode_image/${assetbundleName}_${paddedNo}.png`;
 }
-

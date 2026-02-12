@@ -30,10 +30,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export async function generateStaticParams() {
     try {
-        const cards = await fetchMasterData<ICardInfo[]>("cards.json");
-        return cards.map((card) => ({
-            id: card.id.toString(),
-        }));
+        const { fetchMergedBuildIds } = await import("@/lib/fetch");
+        const ids = await fetchMergedBuildIds<ICardInfo[]>(
+            "cards.json",
+            (cards) => cards.map((card) => card.id.toString())
+        );
+        return ids.map((id) => ({ id }));
     } catch (e) {
         console.error("Error generating static params for cards:", e);
         return [];

@@ -5,10 +5,12 @@ import { fetchMasterData } from "@/lib/fetch";
 
 export async function generateStaticParams() {
     try {
-        const fixtures = await fetchMasterData<IMysekaiFixtureInfo[]>("mysekaiFixtures.json");
-        return fixtures.map((fixture) => ({
-            id: fixture.id.toString(),
-        }));
+        const { fetchMergedBuildIds } = await import("@/lib/fetch");
+        const ids = await fetchMergedBuildIds<IMysekaiFixtureInfo[]>(
+            "mysekaiFixtures.json",
+            (fixtures) => fixtures.map((fixture) => fixture.id.toString())
+        );
+        return ids.map((id) => ({ id }));
     } catch (e) {
         console.error("Error generating static params for mysekai fixtures:", e);
         return [];

@@ -5,13 +5,15 @@ import { fetchMasterData } from "@/lib/fetch";
 
 export async function generateStaticParams() {
     try {
-        const data = await fetchMasterData<ISnowyCostumesData>("snowy_costumes.json");
-        const costumes = data.costumes || [];
-        // Extract unique costume3dGroupIds
-        const groupIds = [...new Set(costumes.map(c => c.costume3dGroupId))];
-        return groupIds.map((id) => ({
-            id: id.toString(),
-        }));
+        const { fetchMergedBuildIds } = await import("@/lib/fetch");
+        const ids = await fetchMergedBuildIds<ISnowyCostumesData>(
+            "snowy_costumes.json",
+            (data) => {
+                const costumes = data.costumes || [];
+                return [...new Set(costumes.map(c => c.costume3dGroupId))].map(id => id.toString());
+            }
+        );
+        return ids.map((id) => ({ id }));
     } catch (e) {
         console.error("Error generating static params for costumes:", e);
         return [];

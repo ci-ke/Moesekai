@@ -216,37 +216,64 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                         <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">assets源</span>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2">
-                        <button
-                            onClick={() => setAssetSource("snowyassets")}
-                            className={`px-3 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${assetSource === "snowyassets"
-                                ? "bg-sky-500 text-white shadow-md ring-2 ring-sky-300"
-                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                }`}
-                        >
-                            Snowy
-                        </button>
-                        <button
-                            onClick={() => setAssetSource("uni")}
-                            className={`px-3 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${assetSource === "uni"
-                                ? "bg-blue-500 text-white shadow-md ring-2 ring-blue-300"
-                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                }`}
-                        >
-                            Uni
-                        </button>
-                        <button
-                            onClick={() => setAssetSource("haruki")}
-                            className={`px-3 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${assetSource === "haruki"
-                                ? "bg-purple-500 text-white shadow-md ring-2 ring-purple-300"
-                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                }`}
-                        >
-                            Haruki
-                        </button>
-                    </div>
+                    {serverSource === "cn" ? (
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                onClick={() => setAssetSource("snowyassets_cn")}
+                                className={`px-3 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${assetSource === "snowyassets_cn"
+                                    ? "bg-sky-500 text-white shadow-md ring-2 ring-sky-300"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                    }`}
+                            >
+                                Snowy
+                            </button>
+                            <button
+                                onClick={() => setAssetSource("haruki_cn")}
+                                className={`px-3 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${assetSource === "haruki_cn"
+                                    ? "bg-purple-500 text-white shadow-md ring-2 ring-purple-300"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                    }`}
+                            >
+                                Haruki
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-3 gap-2">
+                            <button
+                                onClick={() => setAssetSource("snowyassets")}
+                                className={`px-3 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${assetSource === "snowyassets"
+                                    ? "bg-sky-500 text-white shadow-md ring-2 ring-sky-300"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                    }`}
+                            >
+                                Snowy
+                            </button>
+                            <button
+                                onClick={() => setAssetSource("uni")}
+                                className={`px-3 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${assetSource === "uni"
+                                    ? "bg-blue-500 text-white shadow-md ring-2 ring-blue-300"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                    }`}
+                            >
+                                Uni
+                            </button>
+                            <button
+                                onClick={() => setAssetSource("haruki")}
+                                className={`px-3 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${assetSource === "haruki"
+                                    ? "bg-purple-500 text-white shadow-md ring-2 ring-purple-300"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                    }`}
+                            >
+                                Haruki
+                            </button>
+                        </div>
+                    )}
                     <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
-                        选择游戏素材的来源服务器，切换后立即生效
+                        {serverSource === "cn"
+                            ? (assetSource === "snowyassets_cn"
+                                ? "snowy源的简体中文服务器资源混合了日服资源 若要完全国服资源请使用haruki"
+                                : "简体中文服务器仅支持 Snowy 和 Haruki 源")
+                            : "选择游戏素材的来源服务器，切换后立即生效"}
                     </p>
                 </div>
 

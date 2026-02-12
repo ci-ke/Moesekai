@@ -134,7 +134,17 @@ function MusicContent() {
                     loadTranslations(),
                 ]);
 
-                setMusics(musicsData);
+                // Normalize musics data (CN server returns categories as objects)
+                const normalizedMusics = musicsData.map((music) => ({
+                    ...music,
+                    categories: music.categories.map((cat: any) =>
+                        typeof cat === "object" && cat !== null && "musicCategoryName" in cat
+                            ? cat.musicCategoryName
+                            : cat
+                    ),
+                }));
+
+                setMusics(normalizedMusics);
                 setMusicTags(tagsData);
                 setEventMusicIds(new Set(eventMusicsData.map((em) => em.musicId)));
                 setTranslations(translationsData);

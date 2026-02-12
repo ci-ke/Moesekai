@@ -6,9 +6,11 @@ import { CHAR_COLORS, CHAR_NAMES } from "@/types/types";
 const DEFAULT_THEME_CHAR = "21";
 const DEFAULT_COLOR = "#33ccbb";
 
-// Asset source type
-export type AssetSourceType = "uni" | "haruki" | "snowyassets";
+// Asset source type (5 independent sources: 3 JP + 2 CN)
+export type AssetSourceType = "uni" | "haruki" | "snowyassets" | "snowyassets_cn" | "haruki_cn";
 const DEFAULT_ASSET_SOURCE: AssetSourceType = "snowyassets";
+const CN_ASSET_SOURCES: AssetSourceType[] = ["snowyassets_cn", "haruki_cn"];
+const VALID_ASSET_SOURCES: AssetSourceType[] = ["uni", "haruki", "snowyassets", "snowyassets_cn", "haruki_cn"];
 
 // Server source type
 export type ServerSourceType = "jp" | "cn";
@@ -73,9 +75,10 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
             setUseTrainedThumbnailState(true);
         }
         // Load asset source setting
+        let loadedAssetSource: AssetSourceType = DEFAULT_ASSET_SOURCE;
         const savedAssetSource = localStorage.getItem("asset-source");
-        if (savedAssetSource === "uni" || savedAssetSource === "haruki" || savedAssetSource === "snowyassets") {
-            setAssetSourceState(savedAssetSource);
+        if (savedAssetSource && VALID_ASSET_SOURCES.includes(savedAssetSource as AssetSourceType)) {
+            loadedAssetSource = savedAssetSource as AssetSourceType;
         }
         // Load LLM translation setting (default ON, so only turn off if explicitly "false")
         const savedLLMTranslation = localStorage.getItem("use-llm-translation");
@@ -87,6 +90,17 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         if (savedServerSource === "jp" || savedServerSource === "cn") {
             setServerSourceState(savedServerSource);
         }
+        // When CN server is selected, ensure asset source is a CN source
+        if (savedServerSource === "cn" && !CN_ASSET_SOURCES.includes(loadedAssetSource)) {
+            loadedAssetSource = "snowyassets_cn";
+            localStorage.setItem("asset-source", "snowyassets_cn");
+        }
+        // When JP server is selected, ensure asset source is NOT a CN source
+        if (savedServerSource !== "cn" && CN_ASSET_SOURCES.includes(loadedAssetSource)) {
+            loadedAssetSource = "snowyassets";
+            localStorage.setItem("asset-source", "snowyassets");
+        }
+        setAssetSourceState(loadedAssetSource);
     }, []);
 
     // Apply theme color to CSS variables
@@ -168,6 +182,26 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
             localStorage.setItem("server-source", source);
         } catch (e) {
             console.error("Failed to save server source setting to localStorage:", e);
+        }
+        // Auto-map asset source when switching servers
+        if (source === "cn") {
+            // Map JP sources → CN equivalents
+            const sourceMap: Record<string, AssetSourceType> = {
+                "snowyassets": "snowyassets_cn",
+                "haruki": "haruki_cn",
+                "uni": "snowyassets_cn", // Uni has no CN equivalent, default to Snowy CN
+            };
+            const newAsset = sourceMap[assetSourceState] || "snowyassets_cn";
+            setAssetSource(newAsset);
+        } else {
+            // Map CN sources → JP equivalents
+            const sourceMap: Record<string, AssetSourceType> = {
+                "snowyassets_cn": "snowyassets",
+                "haruki_cn": "haruki",
+            };
+            if (sourceMap[assetSourceState]) {
+                setAssetSource(sourceMap[assetSourceState]);
+            }
         }
     };
 

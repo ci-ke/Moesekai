@@ -7,10 +7,12 @@ import { IGameChara } from "@/types/types";
 // Generate static params for all characters
 export async function generateStaticParams() {
     try {
-        const characters = await fetchMasterData<IGameChara[]>("gameCharacters.json");
-        return characters.map((chara) => ({
-            id: chara.id.toString(),
-        }));
+        const { fetchMergedBuildIds } = await import("@/lib/fetch");
+        const ids = await fetchMergedBuildIds<IGameChara[]>(
+            "gameCharacters.json",
+            (characters) => characters.map((chara) => chara.id.toString())
+        );
+        return ids.map((id) => ({ id }));
     } catch (e) {
         console.error("Error generating static params for characters:", e);
         return [];
