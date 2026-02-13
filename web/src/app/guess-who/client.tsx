@@ -75,8 +75,6 @@ interface RoundResult {
     score: number;
     timeTaken: number;
     isTrained: boolean;
-    timeTaken: number;
-    isTrained: boolean;
     distortions?: ActiveDistortion[]; // For extreme mode
     multiplier: number;
 }
@@ -910,7 +908,6 @@ function GuessWhoClientPlayingAndSetup({
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-3">猜测时间 (秒)</label>
                                 <label className="block text-sm font-bold text-slate-700 mb-3">猜测时间 (秒)</label>
                                 <input type="number" value={settings.timeLimit} onChange={(e) => setSettings({ ...settings, timeLimit: Math.max(3, Math.min(120, Number(e.target.value))) })} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-miku font-mono text-center" />
                             </div>
