@@ -11,7 +11,8 @@ import { getCardFullUrl, getCharacterIconUrl } from "@/lib/assets";
 // Game Constants
 const ROUNDS_PER_GAME = 10;
 const BASE_SCORE_PER_ROUND = 1000;
-const FEEDBACK_DURATION = 10000; // 10 seconds
+const FEEDBACK_DURATION = 3000; // Reduced to 3s for snappier feel
+const MAX_STRIKES_PER_ROUND = 3;
 
 // Unit Id map for icons
 const UNIT_ICON_MAP: Record<string, string> = {
@@ -74,7 +75,10 @@ interface RoundResult {
     score: number;
     timeTaken: number;
     isTrained: boolean;
+    timeTaken: number;
+    isTrained: boolean;
     distortions?: ActiveDistortion[]; // For extreme mode
+    multiplier: number;
 }
 
 // Seeded Random
@@ -157,7 +161,7 @@ function GuessWhoContent() {
     // Settings
     const [settings, setSettings] = useState<GameSettings>({
         server: "jp",
-        timeLimit: 30,
+        timeLimit: 60,
         seed: Math.random().toString(36).substring(7),
         difficulty: "normal",
         selectedUnitIds: [],
@@ -177,6 +181,10 @@ function GuessWhoContent() {
     const [cropRect, setCropRect] = useState<{ x: number, y: number, size: number } | null>(null);
     const [currentIsTrained, setCurrentIsTrained] = useState(false);
     const [currentDistortions, setCurrentDistortions] = useState<ActiveDistortion[]>([]);
+
+    // New Logic State
+    const [strikes, setStrikes] = useState(0);
+    const [combo, setCombo] = useState(0);
 
     // Feedback State
     const [showFeedback, setShowFeedback] = useState(false);
@@ -204,7 +212,7 @@ function GuessWhoContent() {
             ...prev,
             seed: seedParam || Math.random().toString(36).substring(7),
             difficulty: (difficultyParam as Difficulty) || "normal",
-            timeLimit: timeParam ? Number(timeParam) : 30,
+            timeLimit: Math.min(120, timeParam ? Number(timeParam) : 60),
             server: (serverParam as ServerScope) || "jp",
             selectedUnitIds: unitsParam ? unitsParam.split(",") : [],
             selectedRarities: raritiesParam ? raritiesParam.split(",") : DEFAULT_RARITIES,
@@ -308,6 +316,7 @@ function GuessWhoContent() {
 
         setCurrentRound(0);
         setCurrentResults([]);
+        setCombo(0);
         activeImagesRef.current = {};
 
         setGameState("playing");
@@ -320,6 +329,7 @@ function GuessWhoContent() {
         setFeedbackResult(null);
         setTimeLeft(settings.timeLimit);
         setCropRect(null);
+        setStrikes(0);
         setCurrentDistortions([]);
         if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
 
@@ -453,22 +463,69 @@ function GuessWhoContent() {
         if (settings.difficulty === "easy") diffMult = 0.8;
         if (settings.difficulty === "hard") diffMult = 1.5;
         if (settings.difficulty === "extreme") diffMult = 2.5;
-        return Math.floor(BASE_SCORE_PER_ROUND * timeFactor * diffMult);
+
+        let comboMult = 1.0;
+        if (combo > 0) comboMult = 1.0 + (combo * 0.5); // Preview next combo
+
+        return Math.floor(BASE_SCORE_PER_ROUND * timeFactor * diffMult * comboMult);
     };
 
     const handleGuess = (charId: number | null) => {
-        setIsRoundActive(false);
         const isCorrect = charId === gameDeck[currentRound].characterId;
+
+        // Wrong Guess Logic (Retry)
+        if (!isCorrect && charId !== null) {
+            // Check if max strikes reached
+            if (strikes < MAX_STRIKES_PER_ROUND - 1) {
+                setStrikes(prev => prev + 1);
+                setTimeLeft(prev => prev * 0.5); // 50% penalty
+                setCombo(0); // Break combo
+                // Transient feedback
+                const feedbackEl = document.createElement("div");
+                feedbackEl.textContent = "回答错误! 时间 -50%";
+                feedbackEl.className = "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-500 text-white font-bold px-6 py-3 rounded-full animate-bounce z-[100] shadow-lg text-xl";
+                document.body.appendChild(feedbackEl);
+                setTimeout(() => feedbackEl.remove(), 1000);
+                return; // Do NOT end round
+            }
+            // If strikes reached max, proceed to fail round below
+        }
+
+        setIsRoundActive(false);
         const timeTaken = settings.timeLimit - timeLeft;
 
         let roundScore = 0;
+        let finalMultiplier = 1.0;
+
         if (isCorrect) {
             const timeFactor = Math.max(0.1, timeLeft / settings.timeLimit);
             let diffMult = 1.0;
             if (settings.difficulty === "easy") diffMult = 0.8;
             if (settings.difficulty === "hard") diffMult = 1.5;
             if (settings.difficulty === "extreme") diffMult = 2.5;
-            roundScore = Math.floor(BASE_SCORE_PER_ROUND * timeFactor * diffMult);
+
+            // Combo Logic
+            let newCombo = combo;
+            if (strikes === 0) {
+                newCombo = combo + 1;
+            } else {
+                newCombo = 0;
+            }
+            setCombo(newCombo);
+
+            // Calculate Multiplier: 1 + (streak-1)*0.5. e.g. 1->1x, 2->1.5x, 3->2.0x
+            // Wait, usually combo starts at 0.
+            // If newCombo is 1 (first correct), mult is 1.0
+            // If newCombo is 2 (2nd correct), mult is 1.5
+            // If newCombo is 3 (3rd correct), mult is 2.0
+            // Formula: 1.0 + Math.max(0, newCombo - 1) * 0.5
+
+            const comboBonus = Math.max(0, newCombo - 1) * 0.5;
+            finalMultiplier = 1.0 + comboBonus;
+
+            roundScore = Math.floor(BASE_SCORE_PER_ROUND * timeFactor * diffMult * finalMultiplier);
+        } else {
+            setCombo(0);
         }
 
         const result: RoundResult = {
@@ -480,6 +537,7 @@ function GuessWhoContent() {
             timeTaken,
             isTrained: currentIsTrained,
             distortions: currentDistortions,
+            multiplier: finalMultiplier,
         };
 
         const newResults = [...currentResults, result];
@@ -617,7 +675,14 @@ function GuessWhoContent() {
                                                             <span className="opacity-80 truncate">{res.card.prefix}</span>
                                                         </div>
                                                     </div>
-                                                    <div className="text-lg font-bold text-slate-700 shrink-0">+{res.score}</div>
+                                                    <div className="flex flex-col items-end shrink-0">
+                                                        <div className="text-lg font-bold text-slate-700">+{res.score}</div>
+                                                        {res.multiplier > 1 && (
+                                                            <div className="text-xs font-bold text-miku bg-miku/10 px-1.5 rounded">
+                                                                x{res.multiplier.toFixed(1)} Combo
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 {res.distortions && res.distortions.length > 0 && (
                                                     <div className="flex flex-wrap justify-end gap-1 px-1">
@@ -647,7 +712,8 @@ function GuessWhoContent() {
         currentRound, showFeedback, feedbackResult, currentCanvasImage,
         canvasRef, currentDistortions, handleGuess, handleNextRound,
         availableCharacters, startGame, handleRarityToggle, handleUnitToggle, copyShareLink, formatTime,
-        potentialScore: getCurrentPotentialScore()
+        potentialScore: getCurrentPotentialScore(),
+        combo, strikes
     });
 }
 
@@ -665,8 +731,11 @@ function GuessWhoClientPlayingAndSetup({
     currentTotalScore, timeLeft, isRoundActive,
     currentRound, showFeedback, feedbackResult, currentCanvasImage,
     canvasRef, currentDistortions, handleGuess, handleNextRound,
-    availableCharacters, startGame, handleRarityToggle, handleUnitToggle, copyShareLink, formatTime, potentialScore
+    availableCharacters, startGame, handleRarityToggle, handleUnitToggle, copyShareLink, formatTime, potentialScore,
+    combo, strikes
 }: any) {
+    const multiplier = combo > 0 ? 1.0 + (combo * 0.5) : 1.0;
+
     if (gameState === "playing") {
         return (
             <MainLayout activeNav="我是谁">
@@ -679,7 +748,7 @@ function GuessWhoClientPlayingAndSetup({
                                     <CanvasImage image={currentCanvasImage} objectFit="contain" />
                                 </div>
                                 <div className={`mt-8 px-8 py-4 rounded-full font-black text-3xl animate-bounce ${feedbackResult.isCorrect ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
-                                    {feedbackResult.isCorrect ? "CORRECT!" : "WRONG!"}
+                                    {feedbackResult.isCorrect ? "回答正确!" : "回答错误!"}
                                 </div>
                                 <div className="mt-4 text-center text-white">
                                     <div className="text-2xl font-bold mb-1">{CHARACTER_NAMES[feedbackResult.card.characterId]}</div>
@@ -700,6 +769,24 @@ function GuessWhoClientPlayingAndSetup({
                                     {isRoundActive && <div className="text-sm font-bold text-miku animate-pulse">+{potentialScore}</div>}
                                 </div>
                             </div>
+
+                            {/* Combo & Lives Bar */}
+                            <div className="flex justify-between items-center mb-2 px-1">
+                                <div className="flex items-center gap-1 h-6">
+                                    {multiplier > 1 && (
+                                        <div className="flex items-center gap-1 bg-yellow-400 text-white px-2 py-0.5 rounded-full text-xs font-bold shadow-sm animate-pulse">
+                                            <span>COMBO x{multiplier.toFixed(1)}</span>
+                                            <span className="text-[10px] opacity-80">(Streak: {combo})</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    {[...Array(MAX_STRIKES_PER_ROUND)].map((_, i) => (
+                                        <div key={i} className={`w-3 h-3 rounded-full transition-colors ${i < (MAX_STRIKES_PER_ROUND - strikes) ? "bg-red-500" : "bg-slate-200"}`} />
+                                    ))}
+                                </div>
+                            </div>
+
                             <div className="relative h-6 w-full bg-slate-200 rounded-full overflow-hidden">
                                 <div className="h-full bg-miku transition-all duration-100 ease-linear" style={{ width: `${(timeLeft / settings.timeLimit) * 100}%` }} />
                                 <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-md">{formatTime(timeLeft)}</div>
@@ -824,32 +911,33 @@ function GuessWhoClientPlayingAndSetup({
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-3">猜测时间 (秒)</label>
-                                <input type="number" value={settings.timeLimit} onChange={(e) => setSettings({ ...settings, timeLimit: Math.max(3, Math.min(60, Number(e.target.value))) })} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-miku font-mono text-center" />
+                                <label className="block text-sm font-bold text-slate-700 mb-3">猜测时间 (秒)</label>
+                                <input type="number" value={settings.timeLimit} onChange={(e) => setSettings({ ...settings, timeLimit: Math.max(3, Math.min(120, Number(e.target.value))) })} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-miku font-mono text-center" />
                             </div>
                         </div>
-
-                        <div className="border-t border-slate-100 pt-6">
-                            <div className="flex justify-between items-center mb-4">
-                                <label className="text-sm font-bold text-slate-700">角色筛选</label>
-                                <button onClick={() => setSettings({ ...settings, selectedUnitIds: [] })} className="text-xs text-miku hover:underline">重置筛选</button>
-                            </div>
-                            <div className="flex flex-wrap gap-3 mb-4 justify-center">
-                                {UNIT_DATA.map(unit => (
-                                    <button key={unit.id} onClick={() => handleUnitToggle(unit.id)} className={`transition-all p-1 rounded-full ${settings.selectedUnitIds.includes(unit.id) ? "bg-slate-100 ring-2 ring-miku scale-110" : "opacity-60 hover:opacity-100 grayscale hover:grayscale-0 hover:bg-slate-50"}`}>
-                                        <Image src={`/data/icon/${UNIT_ICON_MAP[unit.id]}`} alt={unit.name} width={40} height={40} className="w-10 h-10 object-contain" unoptimized />
-                                    </button>
-                                ))}
-                            </div>
-                            <div className="text-xs text-slate-400 text-center">已选: {settings.selectedUnitIds.length > 0 ? "~" + availableCharacters.length + " 名角色" : "全部26名角色"}</div>
-                        </div>
-
-                        <button onClick={startGame} className="w-full py-4 bg-gradient-to-r from-miku to-miku-dark text-white rounded-2xl font-black text-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
-                            开始挑战
-                        </button>
                     </div>
+
+                    <div className="border-t border-slate-100 pt-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <label className="text-sm font-bold text-slate-700">角色筛选</label>
+                            <button onClick={() => setSettings({ ...settings, selectedUnitIds: [] })} className="text-xs text-miku hover:underline">重置筛选</button>
+                        </div>
+                        <div className="flex flex-wrap gap-3 mb-4 justify-center">
+                            {UNIT_DATA.map(unit => (
+                                <button key={unit.id} onClick={() => handleUnitToggle(unit.id)} className={`transition-all p-1 rounded-full ${settings.selectedUnitIds.includes(unit.id) ? "bg-slate-100 ring-2 ring-miku scale-110" : "opacity-60 hover:opacity-100 grayscale hover:grayscale-0 hover:bg-slate-50"}`}>
+                                    <Image src={`/data/icon/${UNIT_ICON_MAP[unit.id]}`} alt={unit.name} width={40} height={40} className="w-10 h-10 object-contain" unoptimized />
+                                </button>
+                            ))}
+                        </div>
+                        <div className="text-xs text-slate-400 text-center">已选: {settings.selectedUnitIds.length > 0 ? "~" + availableCharacters.length + " 名角色" : "全部26名角色"}</div>
+                    </div>
+
+                    <button onClick={startGame} className="w-full py-4 bg-gradient-to-r from-miku to-miku-dark text-white rounded-2xl font-black text-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
+                        开始挑战
+                    </button>
                 </div>
             </div>
-        </MainLayout>
+        </MainLayout >
     );
 }
 
