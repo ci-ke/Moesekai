@@ -71,7 +71,7 @@ const DEFAULT_SETTINGS: MultiplayerSettings = {
     difficulty: "normal",
     selectedRarities: DEFAULT_RARITIES,
     selectedUnitIds: [],
-    timeLimit: 60,
+    timeLimit: 30,
 };
 
 // Get sticker URL from generic stamp assets (01-44 range)
@@ -232,7 +232,7 @@ function MultiplayerContent() {
     const [cardsLoading, setCardsLoading] = useState(true);
     const [gameDeck, setGameDeck] = useState<ICardInfo[]>([]);
     const [currentRound, setCurrentRound] = useState(0);
-    const [timeLeft, setTimeLeft] = useState(60);
+    const [timeLeft, setTimeLeft] = useState(30);
     const [isRoundActive, setIsRoundActive] = useState(false);
     const [roundData, setRoundData] = useState<RoundData | null>(null);
     const [guessCount, setGuessCount] = useState(0); // global guess order counter
@@ -281,7 +281,7 @@ function MultiplayerContent() {
     const isRoundActiveRef = useRef(false);
     const myGuessedRef = useRef(false);
     const roundDataRef = useRef<RoundData | null>(null);
-    const timeLeftRef = useRef(60);
+    const timeLeftRef = useRef(30);
     const roundKillDamageRef = useRef<Map<string, number>>(new Map()); // track kill damage per player per round
 
     useEffect(() => { playersRef.current = players; }, [players]);
@@ -300,6 +300,13 @@ function MultiplayerContent() {
     // Image preloading state
     const [isPreloading, setIsPreloading] = useState(false);
     const preloadedImagesRef = useRef<Map<string, HTMLImageElement>>(new Map());
+
+    // Loading progress state (per-player)
+    const [playerLoadProgress, setPlayerLoadProgress] = useState<Map<string, number>>(new Map());
+    const [playerLoadComplete, setPlayerLoadComplete] = useState<Map<string, boolean>>(new Map());
+    const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const fakeProgressRef = useRef<NodeJS.Timeout | null>(null);
+    const myLoadCompleteRef = useRef(false);
 
     // ==================== LOAD CARD DATA ====================
     const loadCards = useCallback(async () => {
@@ -450,12 +457,18 @@ function MultiplayerContent() {
                 eliminatedRound: -1,
                 isDying: false,
             })));
+            // Initialize loading progress for all players
+            setPlayerLoadProgress(new Map());
+            setPlayerLoadComplete(new Map());
+            myLoadCompleteRef.current = false;
             setPhase("playing");
             setIsPreloading(true);
         });
 
         channel.on("broadcast", { event: "round_start" }, ({ payload }) => {
             const rd = payload.roundData as RoundData;
+            // Exit preloading screen for all players (non-host players rely on this)
+            setIsPreloading(false);
             setRoundData(rd);
             roundDataRef.current = rd;
             setCurrentRound(rd.roundIndex);
@@ -599,6 +612,30 @@ function MultiplayerContent() {
                 isDying: false,
             })));
             setFloatingHpChanges([]);
+        });
+
+        // Loading progress events
+        channel.on("broadcast", { event: "loading_progress" }, ({ payload }) => {
+            const { playerId, progress } = payload as { playerId: string; progress: number };
+            setPlayerLoadProgress(prev => {
+                const next = new Map(prev);
+                next.set(playerId, Math.max(next.get(playerId) || 0, progress));
+                return next;
+            });
+        });
+
+        channel.on("broadcast", { event: "loading_complete" }, ({ payload }) => {
+            const { playerId } = payload as { playerId: string };
+            setPlayerLoadProgress(prev => {
+                const next = new Map(prev);
+                next.set(playerId, 100);
+                return next;
+            });
+            setPlayerLoadComplete(prev => {
+                const next = new Map(prev);
+                next.set(playerId, true);
+                return next;
+            });
         });
 
         channel.on("broadcast", { event: "sticker" }, ({ payload }) => {
@@ -839,42 +876,101 @@ function MultiplayerContent() {
 
     // ==================== IMAGE PRELOADING ====================
 
-    // When game starts, preload first round's image, then host starts round 0
+    // When game starts, preload first round's image with fake progress animation
     useEffect(() => {
         if (phase === "playing" && isPreloading && gameDeckRef.current.length > 0) {
-            // Preload first round's image before starting
+            // Start fake progress animation (0% → ~85% over 3 seconds)
+            let fakeProgress = 0;
+            const fakeInterval = setInterval(() => {
+                if (myLoadCompleteRef.current) {
+                    clearInterval(fakeInterval);
+                    return;
+                }
+                fakeProgress = Math.min(85, fakeProgress + 2 + Math.random() * 3);
+                channelRef.current?.send({
+                    type: "broadcast",
+                    event: "loading_progress",
+                    payload: { playerId: mySessionId, progress: Math.floor(fakeProgress) },
+                });
+            }, 150);
+            fakeProgressRef.current = fakeInterval;
+
+            // Start real image preloading
             const card = gameDeckRef.current[0];
             const random = new SeededRandom(card.assetbundleName + 0);
             const isTrained = card.cardRarityType !== "rarity_1" && card.cardRarityType !== "rarity_2" && random.next() > 0.5;
             const url = getCardFullUrl(card.characterId, card.assetbundleName, isTrained);
 
+            const onComplete = (img?: HTMLImageElement) => {
+                if (myLoadCompleteRef.current) return; // prevent double-fire
+                myLoadCompleteRef.current = true;
+                clearInterval(fakeInterval);
+                if (img) preloadedImagesRef.current.set(url, img);
+                // Broadcast 100% and completion
+                channelRef.current?.send({
+                    type: "broadcast",
+                    event: "loading_progress",
+                    payload: { playerId: mySessionId, progress: 100 },
+                });
+                channelRef.current?.send({
+                    type: "broadcast",
+                    event: "loading_complete",
+                    payload: { playerId: mySessionId },
+                });
+            };
+
             if (preloadedImagesRef.current.has(url)) {
-                // Already cached
-                setIsPreloading(false);
-                if (isHostRef.current) {
-                    setTimeout(() => startRound(0), 300);
-                }
+                onComplete(preloadedImagesRef.current.get(url)!);
             } else {
                 const img = new window.Image();
                 img.crossOrigin = "anonymous";
-                img.onload = () => {
-                    preloadedImagesRef.current.set(url, img);
-                    setIsPreloading(false);
-                    if (isHostRef.current) {
-                        setTimeout(() => startRound(0), 300);
-                    }
-                };
-                img.onerror = () => {
-                    // Still start even if image fails
-                    setIsPreloading(false);
-                    if (isHostRef.current) {
-                        setTimeout(() => startRound(0), 300);
-                    }
-                };
+                img.onload = () => onComplete(img);
+                img.onerror = () => onComplete();
                 img.src = url;
             }
+
+            // Safety timeout: start game after 10s even if not all loaded
+            const safetyTimeout = setTimeout(() => {
+                if (isHostRef.current) {
+                    setIsPreloading(false);
+                    setTimeout(() => startRound(0), 300);
+                }
+            }, 10000);
+            loadingTimeoutRef.current = safetyTimeout;
+
+            return () => {
+                clearInterval(fakeInterval);
+                clearTimeout(safetyTimeout);
+            };
         }
-    }, [phase, isPreloading]);
+    }, [phase, isPreloading, mySessionId]);
+
+    // Host: check if all players have finished loading
+    useEffect(() => {
+        if (!isPreloading || !isHost) return;
+        const allLoaded = players.length > 0 && players.every(p => playerLoadComplete.get(p.id));
+        if (allLoaded) {
+            // Clear safety timeout
+            if (loadingTimeoutRef.current) {
+                clearTimeout(loadingTimeoutRef.current);
+                loadingTimeoutRef.current = null;
+            }
+            // Wait 1 second to show all-complete state, then start
+            const startDelay = setTimeout(() => {
+                setIsPreloading(false);
+                setTimeout(() => startRound(0), 300);
+            }, 1000);
+            return () => clearTimeout(startDelay);
+        }
+    }, [isPreloading, isHost, players, playerLoadComplete]);
+
+    // Safety: re-draw canvas after preloading screen is dismissed
+    // (drawCanvas may have been called before React mounted the canvas element)
+    useEffect(() => {
+        if (!isPreloading && roundData && imageRef.current && canvasRef.current) {
+            drawCanvas(imageRef.current, roundData);
+        }
+    }, [isPreloading, roundData]);
 
     // ==================== CANVAS RENDERING ====================
 
@@ -2016,9 +2112,38 @@ function MultiplayerContent() {
         if (isPreloading) {
             return (
                 <div className="mp-container">
-                    <div className="mp-waiting">
-                        <div className="mp-verify-title">准备开始...</div>
-                        <div style={{ color: "#94a3b8", fontSize: "0.875rem" }}>即将进入游戏</div>
+                    <div className="mp-loading-screen">
+                        <div className="mp-loading-title">正在加载资源...</div>
+                        <div className="mp-loading-subtitle">预加载第一题的图片数据</div>
+                        <div className="mp-loading-players">
+                            {players.map(p => {
+                                const progress = playerLoadProgress.get(p.id) || 0;
+                                const isComplete = playerLoadComplete.get(p.id) || false;
+                                return (
+                                    <div key={p.id} className={`mp-loading-player ${isComplete ? "complete" : ""}`}>
+                                        <div className="mp-loading-player-info">
+                                            <div className="mp-loading-player-avatar">
+                                                <Image src={getCharacterIconUrl(p.characterId)} alt="" fill sizes="32px" unoptimized />
+                                            </div>
+                                            <div className="mp-loading-player-name">
+                                                {CHARACTER_NAMES[p.characterId]}
+                                                {p.id === mySessionId && <span className="mp-loading-you">你</span>}
+                                            </div>
+                                            {isComplete && (
+                                                <div className="mp-loading-complete-badge">✓ 加载完成</div>
+                                            )}
+                                        </div>
+                                        <div className="mp-loading-bar">
+                                            <div
+                                                className="mp-loading-bar-fill"
+                                                style={{ width: `${progress}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <div className="mp-loading-hint">所有玩家加载完成后将自动开始</div>
                     </div>
                 </div>
             );
