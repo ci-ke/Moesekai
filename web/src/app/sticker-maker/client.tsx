@@ -114,6 +114,7 @@ export default function StickerMakerContent() {
 
     // Editor State
     const [selectedSticker, setSelectedSticker] = useState<CharacterData | null>(null);
+    const [bgColor, setBgColor] = useState<"transparent" | "white">("transparent");
     const [text, setText] = useState("");
     const [position, setPosition] = useState({ x: 148, y: 58 });
     const [fontSize, setFontSize] = useState(47);
@@ -253,6 +254,10 @@ export default function StickerMakerContent() {
     // Handle Sticker Selection
     const handleStickerClick = (sticker: CharacterData) => {
         setSelectedSticker(sticker);
+        // Reset or keep previous settings? Let's reset relevant ones but maybe keep color if desired?
+        // Actually, let's keep it simple and reset.
+        // setBgColor("transparent"); // Optional: reset background on new sticker? Let's keep user preference.
+
         // Set defaults from sticker
         // Override "text" default if it is the generic "text"
         setText(sticker.defaultText.text === "text" ? "这是一串文字" : sticker.defaultText.text);
@@ -298,6 +303,13 @@ export default function StickerMakerContent() {
         const centerShiftY = (canvas.height - img.height * ratio) / 2;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Background
+        if (bgColor === "white") {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
         ctx.drawImage(
             img, 0, 0, img.width, img.height,
             centerShiftX, centerShiftY, img.width * ratio, img.height * ratio
@@ -389,7 +401,7 @@ export default function StickerMakerContent() {
             }
         }
         ctx.restore();
-    }, [loaded, fontsReady, selectedSticker, text, position, fontSize, spaceSize, charSpacing, rotate, curve, fontFamily]);
+    }, [loaded, fontsReady, selectedSticker, text, position, fontSize, spaceSize, charSpacing, rotate, curve, fontFamily, bgColor]);
 
     useEffect(() => {
         draw();
@@ -717,6 +729,32 @@ export default function StickerMakerContent() {
                                             <span className="text-xs font-mono text-slate-400">
                                                 {selectedSticker?.color}
                                             </span>
+                                        </div>
+
+                                        <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                                            <span className="text-xs font-bold text-slate-500">
+                                                背景颜色
+                                            </span>
+                                            <div className="flex bg-slate-200 rounded-lg p-1 gap-1">
+                                                <button
+                                                    onClick={() => setBgColor("transparent")}
+                                                    className={`px-3 py-1 text-xs rounded-md transition-all ${bgColor === "transparent"
+                                                        ? "bg-white text-slate-700 shadow-sm font-bold"
+                                                        : "text-slate-500 hover:text-slate-700"
+                                                        }`}
+                                                >
+                                                    透明
+                                                </button>
+                                                <button
+                                                    onClick={() => setBgColor("white")}
+                                                    className={`px-3 py-1 text-xs rounded-md transition-all ${bgColor === "white"
+                                                        ? "bg-white text-slate-700 shadow-sm font-bold"
+                                                        : "text-slate-500 hover:text-slate-700"
+                                                        }`}
+                                                >
+                                                    白色
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
 
