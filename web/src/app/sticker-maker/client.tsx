@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import Image from "next/image";
+import NextImage from "next/image";
 import ExternalLink from "@/components/ExternalLink";
 import MainLayout from "@/components/MainLayout";
 import { UNIT_DATA, CHARACTER_NAMES, SUPPORT_UNIT_NAMES, SupportUnit } from "@/types/types";
