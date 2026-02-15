@@ -70,7 +70,7 @@ const DEFAULT_CARD_CONFIG: Record<string, CardConfigItem> = {
 function getErrorMessage(error: string): string {
     switch (error) {
         case "USER_NOT_FOUND":
-            return "用户数据未找到，请确认用户ID是否正确，并已在 Haruki 上传数据。";
+            return "用户数据未找到，请确认用户ID/所选服务器是否正确，并已在 Haruki 上传数据。";
         case "API_NOT_PUBLIC":
             return "该用户的公开API未开启，请先在 Haruki 上开启公开API。";
         default:
