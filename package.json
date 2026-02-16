@@ -7,5 +7,9 @@
         "build": "npm run build --prefix web",
         "start": "npm run start --prefix web",
         "lint": "npm run lint --prefix web"
-    }
+    },
+    "workspaces": [
+        "web",
+        "refer/re_sekai-calculator"
+    ]
 }

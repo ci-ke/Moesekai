@@ -1,0 +1,93 @@
+/* Score Control Calculator Styles */
+
+/* Number input styling */
+.sc-number-input {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.sc-number-input::-webkit-outer-spin-button,
+.sc-number-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Result card */
+.sc-result-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(8px);
+    transition: all 0.2s ease;
+}
+
+/* Score pop animation */
+@keyframes sc-result-pop {
+    0% {
+        transform: scale(0.97);
+        opacity: 0;
+    }
+
+    60% {
+        transform: scale(1.01);
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.sc-result-enter {
+    animation: sc-result-pop 0.3s ease-out;
+}
+
+/* Boost group header */
+.sc-boost-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+}
+
+/* Score range bar */
+.sc-score-bar {
+    height: 4px;
+    border-radius: 2px;
+    background: #e2e8f0;
+    position: relative;
+    overflow: hidden;
+}
+
+.sc-score-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #33ccbb, #2bb5a6);
+    transition: width 0.4s ease;
+}
+
+/* Table row hover */
+.sc-row {
+    transition: all 0.15s ease;
+}
+
+.sc-row:hover {
+    background: rgba(51, 204, 187, 0.04);
+}
+
+/* Dark mode overrides */
+[data-theme="dark"] .sc-result-card {
+    background: rgba(30, 30, 45, 0.6);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .sc-boost-header {
+    background: rgba(20, 20, 35, 0.95);
+}
+
+[data-theme="dark"] .sc-row:hover {
+    background: rgba(51, 204, 187, 0.06);
+}
+
+[data-theme="dark"] .sc-score-bar {
+    background: rgba(255, 255, 255, 0.1);
+}

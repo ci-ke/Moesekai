@@ -211,7 +211,7 @@ export default function DeckRecommendClient() {
         }
 
         const worker = new Worker(
-            new URL("@/lib/deck-recommend/worker.ts", import.meta.url)
+            new URL("@/lib/deck-recommend/dr-worker.ts", import.meta.url)
         );
         workerRef.current = worker;
 

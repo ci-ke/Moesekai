@@ -1,21 +1,17 @@
 /**
- * Web Worker for deck recommendation computation
- * Runs sekai-calculator in a background thread to avoid blocking the UI
+ * Web Worker for score-control deck building
+ * Uses EventBonusDeckRecommend to find decks with exact target event bonus
  */
 import {
     CachedDataProvider,
-    ChallengeLiveDeckRecommend,
-    EventDeckRecommend,
+    DataProvider,
+    EventBonusDeckRecommend,
     LiveCalculator,
     LiveType,
-    DataProvider,
     MusicMeta,
 } from "sekai-calculator";
 
-// ==================== Data Provider Implementation ====================
-
-// Server type
-type HarukiServer = "jp" | "cn" | "tw";
+// ==================== INLINED DATA PROVIDER ====================
 
 // Music meta URL
 const MUSIC_META_URL = "https://assets.exmeaning.com/musicmeta/music_metas.json";
@@ -43,6 +39,18 @@ const USER_DATA_KEYS = [
     "userPlayerFrames", "userMaterials", "upload_time",
 ].join(",");
 
+// Master data keys needed for preloading
+const PRELOAD_MASTER_KEYS = [
+    "areaItemLevels", "cards", "cardMysekaiCanvasBonuses", "cardRarities",
+    "characterRanks", "cardEpisodes", "events", "eventCards",
+    "eventRarityBonusRates", "eventDeckBonuses", "gameCharacters",
+    "gameCharacterUnits", "honors", "masterLessons", "mysekaiGates",
+    "mysekaiGateLevels", "skills", "worldBloomDifferentAttributeBonuses",
+    "worldBloomSupportDeckBonuses", "worldBloomSupportDeckUnitEventLimitedBonuses",
+];
+
+type HarukiServer = "jp" | "cn" | "tw";
+
 /**
  * Transform official cardParameters format to sekai-calculator expected format.
  * Official: { param1: number[], param2: number[], param3: number[] }
@@ -51,7 +59,6 @@ const USER_DATA_KEYS = [
 function transformCards(cards: any[]): any[] {
     return cards.map((card: any) => {
         if (!card.cardParameters || Array.isArray(card.cardParameters)) {
-            // Already in array format or missing, skip transform
             return card;
         }
         const params = card.cardParameters as Record<string, number[]>;
@@ -59,7 +66,6 @@ function transformCards(cards: any[]): any[] {
         for (const [paramType, powers] of Object.entries(params)) {
             powers.forEach((power: number, index: number) => {
                 const cardLevel = index + 1;
-                // Generate a deterministic ID: paramType index * 1000 + cardId * base + level
                 const paramIndex = paramType === "param1" ? 1 : paramType === "param2" ? 2 : 3;
                 const id = paramIndex * 10000 + (card.id % 10000) * 100 + cardLevel;
                 transformed.push({
@@ -75,6 +81,16 @@ function transformCards(cards: any[]): any[] {
     });
 }
 
+function calcDuration() {
+    const startAt = performance.now();
+    return {
+        startAt,
+        done() {
+            return performance.now() - startAt;
+        },
+    };
+}
+
 class SnowyDataProvider implements DataProvider {
     private userDataCache: Record<string, any> | null = null;
 
@@ -82,32 +98,23 @@ class SnowyDataProvider implements DataProvider {
         private userId: string,
         private server: HarukiServer = "jp"
     ) {
-        // Runtime validation for server
         if (!["jp", "cn", "tw"].includes(server)) {
             throw new Error(`Unsupported server: ${server}. Only JP, CN, and TW are supported.`);
         }
     }
 
-    /**
-     * Create a cached instance for better performance
-     */
     public static getCachedInstance(userId: string, server: HarukiServer = "jp"): CachedDataProvider {
         return new CachedDataProvider(new SnowyDataProvider(userId, server));
     }
 
-    /**
-     * Fetch a single master data JSON, validating it's actually JSON.
-     * Returns null if the response is not valid JSON (e.g. HTML 404 page).
-     */
     private async fetchMasterJson(base: string, key: string): Promise<any[] | null> {
         try {
             const response = await fetch(`${base}/${key}.json`);
             if (!response.ok) return null;
-            // Guard against HTML error pages returned with 200 status
             const contentType = response.headers.get("content-type") || "";
             if (contentType.includes("text/html")) return null;
             const text = await response.text();
-            if (text.trimStart().startsWith("<")) return null; // HTML response
+            if (text.trimStart().startsWith("<")) return null;
             return JSON.parse(text);
         } catch {
             return null;
@@ -115,19 +122,12 @@ class SnowyDataProvider implements DataProvider {
     }
 
     async getMasterData<T>(key: string): Promise<T[]> {
-        // FORCE JP MASTER DATA for all servers
-        // This ensures compatibility with newer events even for CN/TW/KR players
         const base = MASTER_DATA_BASES["jp"];
-
         let data = await this.fetchMasterJson(base, key);
-
-        // If still null, return empty array (non-critical master data may not exist)
         if (data === null) {
             console.warn(`[DeckRecommend] Master data "${key}" not available, using empty array`);
             return [] as any;
         }
-
-        // Transform cards data for sekai-calculator compatibility
         if (key === "cards") {
             data = transformCards(data);
         }
@@ -169,29 +169,28 @@ class SnowyDataProvider implements DataProvider {
         const data = await response.json();
 
         // Filter userCards to ensure only cards existing in JP master data are returned
-        // This prevents "Object not found" errors when using non-JP accounts with JP master data
         if (data.userCards && Array.isArray(data.userCards)) {
             try {
                 const masterCards = await this.getMasterData<any>("cards");
                 const masterCardIds = new Set(masterCards.map((c) => c.id));
                 const originalCount = data.userCards.length;
                 data.userCards = data.userCards.filter((uc: any) => masterCardIds.has(uc.cardId));
-                console.log(`[DeckRecommend] Filtered userCards in getUserDataAll: ${originalCount} -> ${data.userCards.length}`);
+                console.log(`[DeckRecommend] Filtered userCards: ${originalCount} -> ${data.userCards.length}`);
             } catch (e) {
-                console.error("[DeckRecommend] Failed to filter userCards in getUserDataAll", e);
+                console.error("[DeckRecommend] Failed to filter userCards", e);
             }
         }
 
-        // Filter userHonors (PROFILE TITLES)
+        // Filter userHonors
         if (data.userHonors && Array.isArray(data.userHonors)) {
             try {
                 const masterHonors = await this.getMasterData<any>("honors");
                 const masterHonorIds = new Set(masterHonors.map((h) => h.id));
                 const originalCount = data.userHonors.length;
                 data.userHonors = data.userHonors.filter((h: any) => masterHonorIds.has(h.honorId));
-                console.log(`[DeckRecommend] Filtered userHonors in getUserDataAll: ${originalCount} -> ${data.userHonors.length}`);
+                console.log(`[DeckRecommend] Filtered userHonors: ${originalCount} -> ${data.userHonors.length}`);
             } catch (e) {
-                console.error("[DeckRecommend] Failed to filter userHonors in getUserDataAll", e);
+                console.error("[DeckRecommend] Failed to filter userHonors", e);
             }
         }
 
@@ -200,64 +199,43 @@ class SnowyDataProvider implements DataProvider {
     }
 }
 
-// ==================== End Data Provider Implementation ====================
+// ==================== WORKER LOGIC ====================
 
-function calcDuration() {
-    const startAt = performance.now();
-    return {
-        startAt,
-        done() {
-            return performance.now() - startAt;
-        },
-    };
-}
+// Types
 
-// Master data keys needed for preloading
-const PRELOAD_MASTER_KEYS = [
-    "areaItemLevels", "cards", "cardMysekaiCanvasBonuses", "cardRarities",
-    "characterRanks", "cardEpisodes", "events", "eventCards",
-    "eventRarityBonusRates", "eventDeckBonuses", "gameCharacters",
-    "gameCharacterUnits", "honors", "masterLessons", "mysekaiGates",
-    "mysekaiGateLevels", "skills", "worldBloomDifferentAttributeBonuses",
-    "worldBloomSupportDeckBonuses", "worldBloomSupportDeckUnitEventLimitedBonuses",
-];
-
-export interface WorkerInput {
-    mode: "challenge" | "event";
+export interface DeckBuilderInput {
     userId: string;
     server: string;
+    eventId: number;
+    minBonus: number;
+    maxBonus: number;
+    liveType: string; // "multi" | "solo" | "auto" | "cheerful"
     musicId: number;
     difficulty: string;
-    // Challenge mode
-    characterId?: number;
-    // Event mode
-    eventId?: number;
-    liveType?: string; // "multi" | "solo" | "auto" | "cheerful"
     supportCharacterId?: number;
-    // Card config
     cardConfig: Record<string, any>;
 }
 
-export interface WorkerOutput {
+export interface DeckBuilderOutput {
     result?: any[];
-    challengeHighScore?: any;
     userCards?: any[];
     duration?: number;
     error?: string;
+    upload_time?: number;
 }
 
-async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
+async function deckBuilderRunner(args: DeckBuilderInput): Promise<DeckBuilderOutput> {
     const {
-        mode, userId, server, musicId, difficulty,
-        characterId, cardConfig,
-        eventId, liveType: liveTypeStr, supportCharacterId,
+        userId, server, eventId, minBonus, maxBonus,
+        liveType: liveTypeStr, musicId, difficulty,
+        supportCharacterId, cardConfig,
     } = args;
 
     const dataProvider = new CachedDataProvider(
-        new SnowyDataProvider(userId, server as any)
+        new SnowyDataProvider(userId, server as HarukiServer)
     );
 
-    // Parallel preload all data for speed
+    // Parallel preload all data
     await Promise.all([
         dataProvider.getUserDataAll(),
         dataProvider.getMusicMeta(),
@@ -265,45 +243,10 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
     ]);
 
     const userCards = await dataProvider.getUserData<any[]>("userCards");
+    const uploadTime = await dataProvider.getUserData<number | undefined>("upload_time").catch(() => undefined);
 
     const liveCalculator = new LiveCalculator(dataProvider);
     const musicMeta = await liveCalculator.getMusicMeta(musicId, difficulty);
-
-    if (mode === "challenge") {
-        if (!characterId) throw new Error("characterId is required for challenge mode");
-
-        const userChallengeLiveSoloResults = await dataProvider.getUserData<any[]>(
-            "userChallengeLiveSoloResults"
-        );
-        const userChallengeLiveSoloResult = userChallengeLiveSoloResults?.find(
-            (it: any) => it.characterId === characterId
-        );
-
-        const challengeLiveRecommend = new ChallengeLiveDeckRecommend(dataProvider);
-        const currentDuration = calcDuration();
-        const result = await challengeLiveRecommend.recommendChallengeLiveDeck(
-            characterId,
-            {
-                musicMeta,
-                limit: 10,
-                member: 5,
-                cardConfig,
-                debugLog: (str: string) => {
-                    console.log("[Worker]", str);
-                },
-            }
-        );
-
-        return {
-            challengeHighScore: userChallengeLiveSoloResult,
-            result,
-            userCards,
-            duration: currentDuration.done(),
-        };
-    }
-
-    // Event mode
-    if (!eventId) throw new Error("eventId is required for event mode");
 
     // Map liveType string to enum
     let computedLiveType: LiveType;
@@ -332,34 +275,38 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
         computedLiveType = LiveType.CHEERFUL;
     }
 
-    const eventDeckRecommend = new EventDeckRecommend(dataProvider);
+    const recommend = new EventBonusDeckRecommend(dataProvider);
     const currentDuration = calcDuration();
-    const result = await eventDeckRecommend.recommendEventDeck(
+
+    const result = await recommend.recommendEventBonusDeck(
         eventId,
+        minBonus,
         computedLiveType,
         {
             musicMeta,
-            limit: 10,
+            member: 5,
             cardConfig,
             debugLog: (str: string) => {
-                console.log("[Worker]", str);
+                console.log("[DeckBuilder]", str);
             },
         },
-        supportCharacterId || 0
+        supportCharacterId || 0,
+        maxBonus
     );
 
     return {
         result,
         userCards,
         duration: currentDuration.done(),
+        upload_time: uploadTime,
     };
 }
 
 // Worker message handler
-addEventListener("message", (event: MessageEvent<{ args: WorkerInput }>) => {
-    deckRecommendRunner(event.data.args)
-        .then((result) => {
-            postMessage(result);
+addEventListener("message", (event: MessageEvent<{ args: DeckBuilderInput }>) => {
+    deckBuilderRunner(event.data.args)
+        .then((output) => {
+            postMessage(output);
         })
         .catch((err) => {
             postMessage({
