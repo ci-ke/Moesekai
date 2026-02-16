@@ -2,7 +2,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ICardInfo, RARITY_TO_STARS, CHARACTER_NAMES, ATTR_COLORS, isTrainableCard, getRarityNumber, RARITY_DISPLAY } from "@/types/types";
+import { ICardInfo, RARITY_TO_STARS, CHARACTER_NAMES, ATTR_COLORS, isTrainableCard, getRarityNumber, RARITY_DISPLAY, ATTR_ICON_PATHS } from "@/types/types";
 import { getCardThumbnailUrl } from "@/lib/assets";
 import { useTheme } from "@/contexts/ThemeContext";
 import { TranslatedText } from "@/components/common/TranslatedText";
@@ -25,14 +25,7 @@ export default function CardItem({ card, isSpoiler }: CardItemProps) {
     // Determine if we should show trained thumbnail (3★+ cards, not birthday, or forced for special cards)
     const showTrainedThumbnail = isTrainedOnlyCard || (useTrainedThumbnail && isTrainableCard(card) && card.cardRarityType !== "rarity_birthday");
 
-    let attrIconName = "";
-    switch (card.attr) {
-        case "cool": attrIconName = "Cool.webp"; break;
-        case "cute": attrIconName = "cute.webp"; break;
-        case "happy": attrIconName = "Happy.webp"; break;
-        case "mysterious": attrIconName = "Mysterious.webp"; break;
-        case "pure": attrIconName = "Pure.webp"; break;
-    }
+    const attrIconName = ATTR_ICON_PATHS[card.attr] || `${card.attr}.webp`;
 
     return (
         <Link href={`/cards/${card.id}`} className="group block">

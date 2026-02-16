@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import Image from "next/image";
 import Link from "next/link";
 import { IMusicInfo, IMusicMeta } from "@/types/music";
-import { CHAR_NAMES } from "@/types/types";
+import { CHAR_NAMES, ATTR_ICON_PATHS } from "@/types/types";
 import { fetchMasterData } from "@/lib/fetch";
 import MainLayout from "@/components/MainLayout";
 import ExternalLink from "@/components/ExternalLink";
@@ -1115,7 +1115,7 @@ export default function ScoreControlClient() {
                                                         }
                                                         const masterRank = userCard?.masterRank ?? card.masterRank ?? 0;
                                                         const level = userCard?.level ?? card.level ?? 1;
-                                                        const showTrained = (card.masterRank > 0 || rarityType === "rarity_3" || rarityType === "rarity_4") && !isBirthday;
+                                                        const showTrained = ((rarityType === "rarity_3" || rarityType === "rarity_4") && !isBirthday);
 
                                                         if (!masterCard) {
                                                             return (
@@ -1136,7 +1136,7 @@ export default function ScoreControlClient() {
                                                                     </Link>
                                                                     {masterCard.attr && (
                                                                         <div className="absolute top-0.5 left-0.5 w-3 h-3 drop-shadow-md z-10">
-                                                                            <Image src={`/data/icon/${masterCard.attr}.webp`} alt={masterCard.attr} fill className="object-contain" unoptimized />
+                                                                            <Image src={`/data/icon/${ATTR_ICON_PATHS[masterCard.attr as import("@/types/types").CardAttribute]}`} alt={masterCard.attr} fill className="object-contain" unoptimized />
                                                                         </div>
                                                                     )}
                                                                     <div className="absolute top-0.5 right-0.5 z-10">

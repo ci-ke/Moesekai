@@ -249,6 +249,15 @@ export const ATTR_COLORS: Record<CardAttribute, string> = {
     pure: "#44dd88",
 };
 
+// Attribute icon file paths (Case sensitive for Linux/Production)
+export const ATTR_ICON_PATHS: Record<CardAttribute, string> = {
+    cool: "Cool.webp",
+    cute: "cute.webp",
+    happy: "Happy.webp",
+    mysterious: "Mysterious.webp",
+    pure: "Pure.webp",
+};
+
 // Character short names (Chinese)
 export const CHAR_NAMES: Record<number, string> = {
     1: "一歌", 2: "咲希", 3: "穗波", 4: "志步",

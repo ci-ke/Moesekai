@@ -239,7 +239,7 @@ export default function MainNavbar({ activeItem = "首页" }: MainNavbarProps) {
                                     </svg>
                                 </button>
                                 {/* Expandable children */}
-                                <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? "max-h-48 opacity-100" : "max-h-0 opacity-0"}`}>
+                                <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? "max-h-96 opacity-100" : "max-h-0 opacity-0"}`}>
                                     <div className="pl-4 pb-2 flex flex-col gap-1">
                                         {item.children.map((child) => (
                                             <Link
