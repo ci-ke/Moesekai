@@ -3,6 +3,11 @@ FROM node:20-alpine AS builder-web
 RUN npm install -g npm@10.8.2
 WORKDIR /app
 COPY refer/re_sekai-calculator/ refer/re_sekai-calculator/
+WORKDIR /app/refer/re_sekai-calculator
+RUN npm install
+RUN npm run build
+
+WORKDIR /app
 COPY web/ web/
 WORKDIR /app/web
 # Set API URL empty to allow relative fetching
