@@ -27,7 +27,7 @@
         "./src/*"
       ],
       "sekai-calculator": [
-        "../../refer/re_sekai-calculator/src/index.ts"
+        "../refer/re_sekai-calculator/src/index.ts"
       ]
     }
   },
