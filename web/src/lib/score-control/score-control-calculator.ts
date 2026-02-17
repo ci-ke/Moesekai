@@ -70,9 +70,10 @@ export function getValidScores(
     targetPoint: number,
     eventRate: number,
     maxEventBonus: number = 415,
-    maxScore: number = 100000,
+    maxScore: number = 3000000,
 ): ScoreControlResult[] {
     const results: ScoreControlResult[] = [];
+    const actualMaxScore = Math.max(maxScore, 3000000);
 
     for (let eventBonus = 0; eventBonus <= maxEventBonus; eventBonus++) {
         for (const opt of FIRE_OPTIONS) {
@@ -88,17 +89,17 @@ export function getValidScores(
 
             // 查找 score_max: 满足 calc() == targetPoint 的最大分数
             let lo = 0;
-            let hi = maxScore;
+            let hi = actualMaxScore;
             let scoreMax = -1;
 
             // 先检查边界是否有解
             if (calc(0, eventBonus, eventRate, boost) > targetPoint) continue;
-            if (calc(maxScore, eventBonus, eventRate, boost) < targetPoint) continue;
+            if (calc(actualMaxScore, eventBonus, eventRate, boost) < targetPoint) continue;
 
             // 找上界: 最大的 score 使得 calc(score) == targetPoint
             // 等价于找最大的 score 使得 calc(score) <= targetPoint
             lo = 0;
-            hi = maxScore;
+            hi = actualMaxScore;
             while (lo <= hi) {
                 const mid = Math.floor((lo + hi) / 2);
                 const pt = calc(mid, eventBonus, eventRate, boost);
@@ -190,7 +191,7 @@ function findScoreMaxForPT(
     eventRate: number,
     boost: number,
     targetPT: number,
-    maxScore: number = 100000,
+    maxScore: number = 3000000,
 ): number {
     let lo = 0;
     let hi = maxScore;
@@ -226,7 +227,7 @@ export function planSmartRoutes(
     eventRate: number,
     minEventBonus: number = 0,
     maxEventBonus: number = 415,
-    maxScore: number = 100000,
+    maxScoreLimit: number = 3000000,
     maxPlays: number = 10,
     maxRoutes: number = 20,
     validBonuses?: number[],
@@ -276,7 +277,7 @@ export function planSmartRoutes(
                 const key = `pure_${afk.pt}`;
                 if (!planKeys.has(key)) {
                     planKeys.add(key);
-                    const scoreMax = findScoreMaxForPT(afk.eventBonus, eventRate, afk.boost, afk.pt, maxScore);
+                    const scoreMax = findScoreMaxForPT(afk.eventBonus, eventRate, afk.boost, afk.pt, maxScoreLimit);
                     plans.push({
                         totalPT: targetPoint,
                         steps: [{
@@ -306,7 +307,7 @@ export function planSmartRoutes(
             const remainder = targetPoint - n * afk.pt;
             if (remainder <= 0) continue;
 
-            const controlledRaw = getValidScores(remainder, eventRate, maxEventBonus, maxScore);
+            const controlledRaw = getValidScores(remainder, eventRate, maxEventBonus, maxScoreLimit);
 
             // Filter by minEventBonus AND validBonuses if present
             const controlled = controlledRaw.filter(r => {
@@ -332,7 +333,7 @@ export function planSmartRoutes(
             const key = `mixed_${afk.pt}_${n}_${remainder}`;
             if (!planKeys.has(key)) {
                 planKeys.add(key);
-                const afkScoreMax = findScoreMaxForPT(afk.eventBonus, eventRate, afk.boost, afk.pt, maxScore);
+                const afkScoreMax = findScoreMaxForPT(afk.eventBonus, eventRate, afk.boost, afk.pt, maxScoreLimit);
 
                 plans.push({
                     totalPT: targetPoint,

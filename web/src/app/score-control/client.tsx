@@ -80,12 +80,7 @@ const SERVER_OPTIONS: { value: ServerType; label: string }[] = [
     { value: "tw", label: "繁中服 (TW)" },
 ];
 
-const LIVE_TYPE_OPTIONS = [
-    { value: "multi", label: "多人 (Multi)" },
-    { value: "solo", label: "单人 (Solo)" },
-    { value: "auto", label: "自动 (Auto)" },
-    { value: "cheerful", label: "嘉年华 (Cheerful)" },
-];
+
 
 const RARITY_CONFIG_KEYS = [
     { key: "rarity_1", label: "★1", color: "#888888" },
@@ -162,6 +157,20 @@ export default function ScoreControlClient() {
 
     const dbWorkerRef = useRef<Worker | null>(null);
 
+    // Group deck results by event bonus
+    const dbResultsByBonus = useMemo(() => {
+        if (!dbResults) return {};
+        const grouped: Record<number, any[]> = {};
+        dbResults.forEach((deck) => {
+            const bonus = deck.eventBonus ?? (deck.score || 0); // Handle potentially different field names
+            // Round bonus to 1 decimal place to avoid precision issues
+            const key = Math.round(bonus * 10) / 10;
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(deck);
+        });
+        return grouped;
+    }, [dbResults]);
+
     // Load initial data
     useEffect(() => {
         fetchMasterData<IMusicInfo[]>("musics.json")
@@ -230,14 +239,14 @@ export default function ScoreControlClient() {
                 const bonusMax = Math.min(415, maxBonus);
 
                 const routes = planSmartRoutes(
-                    targetPT, selectedEventRate, bonusMin, bonusMax, 100000, 10, 20,
+                    targetPT, selectedEventRate, bonusMin, bonusMax, 3000000, 10, 20,
                 );
                 setSmartRoutes(routes);
 
                 if (routes.length > 0) {
                     setExpandedRoute(0);
                 } else {
-                    const raw = getValidScores(targetPT, selectedEventRate, 415, 100000);
+                    const raw = getValidScores(targetPT, selectedEventRate, 415, 3000000);
                     const filtered = raw.filter(r => r.eventBonus >= bonusMin && r.eventBonus <= bonusMax);
                     const groups = groupByBoost(filtered);
                     setFallbackResults(groups);
@@ -668,56 +677,38 @@ export default function ScoreControlClient() {
                                         onSelect={setDbEventId}
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Live类型</label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {LIVE_TYPE_OPTIONS.map((lt) => (
-                                            <button
-                                                key={lt.value}
-                                                onClick={() => setDbLiveType(lt.value)}
-                                                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${dbLiveType === lt.value
-                                                    ? "bg-miku text-white shadow-md shadow-miku/20"
-                                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                                    }`}
-                                            >
-                                                {lt.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+
                             </div>
 
-                            {/* Support Character (optional) */}
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">支援角色（可选，仅世界开花）</label>
-                                <CharacterSelector
-                                    selectedCharacterId={dbSupportCharacterId}
-                                    onSelect={setDbSupportCharacterId}
-                                />
-                            </div>
+
 
                             {/* Card Config Toggle */}
                             <div>
                                 <button
                                     onClick={() => setDbShowCardConfig(!dbShowCardConfig)}
-                                    className="text-sm font-medium text-slate-600 hover:text-miku transition-colors flex items-center gap-1"
+                                    className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-miku transition-colors"
                                 >
-                                    <svg className={`w-4 h-4 transition-transform ${dbShowCardConfig ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    <svg
+                                        className={`w-4 h-4 transition-transform ${dbShowCardConfig ? "rotate-180" : ""}`}
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                     </svg>
                                     卡牌养成设置
                                 </button>
                                 {dbShowCardConfig && (
-                                    <div className="mt-2 overflow-x-auto">
-                                        <table className="w-full text-xs border-collapse">
+                                    <div className="mt-3 overflow-x-auto">
+                                        <table className="dr-config-table w-full text-sm">
                                             <thead>
-                                                <tr className="text-slate-400">
-                                                    <th className="text-left py-1 px-2">稀有度</th>
-                                                    <th className="text-center py-1 px-2">启用</th>
-                                                    <th className="text-center py-1 px-2">满级</th>
-                                                    <th className="text-center py-1 px-2">读卡面</th>
-                                                    <th className="text-center py-1 px-2">满破</th>
-                                                    <th className="text-center py-1 px-2">满技能</th>
+                                                <tr>
+                                                    <th className="text-left py-2 px-2 text-slate-500 font-medium">稀有度</th>
+                                                    <th className="py-2 px-2 text-slate-500 font-medium">禁用</th>
+                                                    <th className="py-2 px-2 text-slate-500 font-medium">满级</th>
+                                                    <th className="py-2 px-2 text-slate-500 font-medium">前后篇</th>
+                                                    <th className="py-2 px-2 text-slate-500 font-medium">满突破</th>
+                                                    <th className="py-2 px-2 text-slate-500 font-medium">满技能</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -725,21 +716,47 @@ export default function ScoreControlClient() {
                                                     const cfg = dbCardConfig[rk.key];
                                                     return (
                                                         <tr key={rk.key} className="border-t border-slate-100">
-                                                            <td className="py-1.5 px-2 font-bold" style={{ color: rk.color }}>{rk.label}</td>
-                                                            <td className="py-1.5 px-2 text-center">
-                                                                <input type="checkbox" checked={!cfg.disable} onChange={(e) => updateDbCardConfig(rk.key, 'disable', !e.target.checked)} className="accent-miku" />
+                                                            <td className="py-2 px-2">
+                                                                <div className="flex items-center gap-0.5">
+                                                                    {rk.key === "rarity_birthday" ? (
+                                                                        <div className="w-4 h-4 relative">
+                                                                            <Image
+                                                                                src="/data/icon/birthday.webp"
+                                                                                alt="Birthday"
+                                                                                fill
+                                                                                className="object-contain"
+                                                                                unoptimized
+                                                                            />
+                                                                        </div>
+                                                                    ) : (
+                                                                        Array.from({ length: parseInt(rk.key.split("_")[1]) }).map((_, i) => (
+                                                                            <div key={i} className="w-3 h-3 relative">
+                                                                                <Image
+                                                                                    src="/data/icon/star.webp"
+                                                                                    alt="Star"
+                                                                                    fill
+                                                                                    className="object-contain"
+                                                                                    unoptimized
+                                                                                />
+                                                                            </div>
+                                                                        ))
+                                                                    )}
+                                                                </div>
                                                             </td>
-                                                            <td className="py-1.5 px-2 text-center">
-                                                                <input type="checkbox" checked={cfg.rankMax} onChange={(e) => updateDbCardConfig(rk.key, 'rankMax', e.target.checked)} className="accent-miku" disabled={cfg.disable} />
+                                                            <td className="py-2 px-2 text-center">
+                                                                <input type="checkbox" checked={!cfg.disable} onChange={(e) => updateDbCardConfig(rk.key, 'disable', !e.target.checked)} className="dr-checkbox" />
                                                             </td>
-                                                            <td className="py-1.5 px-2 text-center">
-                                                                <input type="checkbox" checked={cfg.episodeRead} onChange={(e) => updateDbCardConfig(rk.key, 'episodeRead', e.target.checked)} className="accent-miku" disabled={cfg.disable} />
+                                                            <td className="py-2 px-2 text-center">
+                                                                <input type="checkbox" checked={cfg.rankMax} onChange={(e) => updateDbCardConfig(rk.key, 'rankMax', e.target.checked)} className="dr-checkbox" disabled={cfg.disable} />
                                                             </td>
-                                                            <td className="py-1.5 px-2 text-center">
-                                                                <input type="checkbox" checked={cfg.masterMax} onChange={(e) => updateDbCardConfig(rk.key, 'masterMax', e.target.checked)} className="accent-miku" disabled={cfg.disable} />
+                                                            <td className="py-2 px-2 text-center">
+                                                                <input type="checkbox" checked={cfg.episodeRead} onChange={(e) => updateDbCardConfig(rk.key, 'episodeRead', e.target.checked)} className="dr-checkbox" disabled={cfg.disable} />
                                                             </td>
-                                                            <td className="py-1.5 px-2 text-center">
-                                                                <input type="checkbox" checked={cfg.skillMax} onChange={(e) => updateDbCardConfig(rk.key, 'skillMax', e.target.checked)} className="accent-miku" disabled={cfg.disable} />
+                                                            <td className="py-2 px-2 text-center">
+                                                                <input type="checkbox" checked={cfg.masterMax} onChange={(e) => updateDbCardConfig(rk.key, 'masterMax', e.target.checked)} className="dr-checkbox" disabled={cfg.disable} />
+                                                            </td>
+                                                            <td className="py-2 px-2 text-center">
+                                                                <input type="checkbox" checked={cfg.skillMax} onChange={(e) => updateDbCardConfig(rk.key, 'skillMax', e.target.checked)} className="dr-checkbox" disabled={cfg.disable} />
                                                             </td>
                                                         </tr>
                                                     );
@@ -913,12 +930,103 @@ export default function ScoreControlClient() {
                                                                         <span className="text-emerald-600">直接放置即可 ✨</span>
                                                                     ) : (
                                                                         <span className="text-blue-600">
-                                                                            控分到 {step.scoreMin.toLocaleString()}~{step.scoreMax.toLocaleString()}
+                                                                            {step.scoreMin === step.scoreMax ? (
+                                                                                <>目标得分 {step.scoreMin.toLocaleString()}</>
+                                                                            ) : (
+                                                                                <>控分到 {step.scoreMin.toLocaleString()}~{step.scoreMax.toLocaleString()}</>
+                                                                            )}
                                                                         </span>
                                                                     )}
                                                                 </div>
                                                             </div>
                                                         </div>
+                                                        {/* Deck display for this step */}
+                                                        {dbResultsByBonus && dbResultsByBonus[step.eventBonus] && (
+                                                            <div className="mt-2 pt-2 border-t border-slate-100/50">
+                                                                <div className="text-[10px] text-slate-400 mb-1 flex items-center justify-between">
+                                                                    <span>
+                                                                        推荐卡组 (加成 {step.eventBonus}%)
+                                                                    </span>
+                                                                    <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
+                                                                        {dbResultsByBonus[step.eventBonus].length} 个方案
+                                                                    </span>
+                                                                </div>
+                                                                <div className="space-y-2">
+                                                                    {dbResultsByBonus[step.eventBonus].map((deck: any, deckIdx: number) => (
+                                                                        <div key={deckIdx} className="bg-white/50 rounded-lg p-2 border border-slate-100">
+                                                                            <div className="flex gap-2 flex-wrap mb-1">
+                                                                                {deck.cards?.slice(0, 5).map((card: any, i: number) => {
+                                                                                    const masterCard = getCardMaster(card.cardId);
+                                                                                    const userCard = dbUserCards.find((u: any) => u.cardId === card.cardId);
+                                                                                    let rarity = masterCard?.rarity || 1;
+                                                                                    const rarityType = masterCard?.cardRarityType || card.cardRarityType;
+                                                                                    const isBirthday = rarityType === "rarity_birthday";
+                                                                                    if (rarityType) {
+                                                                                        switch (rarityType) {
+                                                                                            case "rarity_1": rarity = 1; break;
+                                                                                            case "rarity_2": rarity = 2; break;
+                                                                                            case "rarity_3": rarity = 3; break;
+                                                                                            case "rarity_4": rarity = 4; break;
+                                                                                            case "rarity_birthday": rarity = 4; break;
+                                                                                        }
+                                                                                    }
+                                                                                    const masterRank = userCard?.masterRank ?? card.masterRank ?? 0;
+                                                                                    const level = userCard?.level ?? card.level ?? 1;
+                                                                                    const showTrained = ((rarityType === "rarity_3" || rarityType === "rarity_4") && !isBirthday);
+
+                                                                                    if (!masterCard) return <div key={i} className="w-12 h-12 bg-slate-100 rounded"></div>;
+
+                                                                                    return (
+                                                                                        <div key={i} className="flex flex-col items-center gap-0.5">
+                                                                                            <div className="relative w-12 h-12 rounded overflow-hidden ring-1 ring-slate-200" title={`ID:${card.cardId} ${masterCard.prefix || ""} ${CHAR_NAMES[masterCard.characterId]}`}>
+                                                                                                <Link href={`/cards/${card.cardId}`} className="block relative w-full h-full" target="_blank">
+                                                                                                    <Image
+                                                                                                        src={getCardThumbnailUrl(masterCard.characterId, masterCard.assetbundleName, showTrained, assetSource)}
+                                                                                                        alt={`Card ${card.cardId}`}
+                                                                                                        fill
+                                                                                                        className="object-cover"
+                                                                                                        unoptimized
+                                                                                                    />
+                                                                                                </Link>
+                                                                                                {masterCard.attr && (
+                                                                                                    <div className="absolute top-0.5 left-0.5 w-3 h-3 drop-shadow-md z-10">
+                                                                                                        <Image src={`/data/icon/${ATTR_ICON_PATHS[masterCard.attr as import("@/types/types").CardAttribute]}`} alt={masterCard.attr} fill className="object-contain" unoptimized />
+                                                                                                    </div>
+                                                                                                )}
+                                                                                                <div className="absolute top-0.5 right-0.5 z-10">
+                                                                                                    <div className="bg-black/40 backdrop-blur-[2px] rounded-full px-1 py-0 flex items-center gap-0.5 min-h-[10px]">
+                                                                                                        {isBirthday ? (
+                                                                                                            <div className="w-2.5 h-2.5 relative"><Image src="/data/icon/birthday.webp" alt="Birthday" fill className="object-contain" unoptimized /></div>
+                                                                                                        ) : (
+                                                                                                            <>
+                                                                                                                <span className="text-white text-[6px] font-bold leading-none">{rarity}</span>
+                                                                                                                <div className="w-1.5 h-1.5 relative"><Image src="/data/icon/star.webp" alt="Star" fill className="object-contain" unoptimized /></div>
+                                                                                                            </>
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                                {i === 0 && (
+                                                                                                    <div className="absolute bottom-0 right-0 bg-miku/90 text-white text-[8px] font-bold px-1 py-[1px] rounded-tl-md leading-none backdrop-blur-[1px]">L</div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                            <div className="text-[9px] text-slate-500 font-mono leading-none flex items-center gap-0.5">
+                                                                                                <span>Lv.{level}</span>
+                                                                                                {masterRank > 0 && (
+                                                                                                    <span className="bg-slate-100 text-slate-600 rounded-full px-[3px] py-[1px] flex items-center gap-[1px] leading-none border border-slate-200">
+                                                                                                        <span className="text-[7px]">🔷</span>
+                                                                                                        <span className="text-[8px] font-bold">{masterRank}</span>
+                                                                                                    </span>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ))}
 
@@ -1028,17 +1136,13 @@ export default function ScoreControlClient() {
                     </div>
                 )}
 
-                {/* ====== Deck Builder Results ====== */}
+                {/* ====== Deck Builder Status Only (Results moved to Plan) ====== */}
                 {deckBuilderEnabled && (
-                    <div className="sc-result-enter mb-6">
-                        <div className="flex items-center gap-3 mb-4">
-                            <h2 className="text-lg font-bold text-primary-text flex items-center gap-2">
-                                <span className="w-1.5 h-6 bg-gradient-to-b from-amber-400 to-miku rounded-full"></span>
-                                控分组卡结果
-                            </h2>
+                    <div className="mb-6">
+                        <div className="flex items-center gap-3 mb-2">
                             {dbDuration !== null && (
                                 <span className="text-xs text-slate-400">
-                                    耗时 {(dbDuration / 1000).toFixed(1)}s
+                                    计算耗时 {(dbDuration / 1000).toFixed(1)}s
                                 </span>
                             )}
                             {dbUploadTime && (
@@ -1049,13 +1153,12 @@ export default function ScoreControlClient() {
                         </div>
 
                         {dbIsCalculating && (
-                            <div className="glass-card p-8 rounded-2xl text-center">
-                                <svg className="w-8 h-8 animate-spin mx-auto text-miku" fill="none" viewBox="0 0 24 24">
+                            <div className="glass-card p-6 rounded-2xl text-center">
+                                <svg className="w-6 h-6 animate-spin mx-auto text-miku" fill="none" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                 </svg>
-                                <p className="text-slate-500 mt-3 text-sm">控分组卡计算中，请耐心等待...</p>
-                                <p className="text-xs text-slate-400 mt-1">全量搜索可能需要较长时间</p>
+                                <p className="text-slate-500 mt-2 text-xs">正在搜索满足条件的卡组...</p>
                             </div>
                         )}
 
@@ -1071,144 +1174,14 @@ export default function ScoreControlClient() {
                         )}
 
                         {!dbIsCalculating && dbResults !== null && dbResults.length === 0 && (
-                            <div className="glass-card p-8 rounded-2xl text-center">
-                                <div className="text-4xl mb-3">🤔</div>
-                                <p className="text-slate-500 font-medium">
+                            <div className="glass-card p-6 rounded-2xl text-center">
+                                <div className="text-2xl mb-2">🤔</div>
+                                <p className="text-slate-500 font-medium text-sm">
                                     未找到匹配目标加成的卡组
                                 </p>
                                 <p className="text-xs text-slate-400 mt-1">
-                                    试试调整目标加成范围、开启更多稀有度、或检查用户数据
+                                    请尝试调整加成范围，或检查是否启用了足够的卡牌用于计算
                                 </p>
-                            </div>
-                        )}
-
-                        {!dbIsCalculating && dbResults !== null && dbResults.length > 0 && (
-                            <div className="space-y-3">
-                                {dbResults.map((deck: any, idx: number) => {
-                                    const eventBonus = deck.eventBonus ?? (deck.score || 0);
-                                    return (
-                                        <div key={idx} className="glass-card rounded-2xl overflow-hidden">
-                                            <div className="px-5 py-4">
-                                                <div className="flex items-center gap-3 mb-3 flex-wrap">
-                                                    <span className="text-sm font-bold text-primary-text">推荐卡组</span>
-                                                    <span className="text-xs font-bold text-miku bg-miku/10 px-2 py-0.5 rounded-full">
-                                                        活动加成 {eventBonus.toFixed(1)}%
-                                                    </span>
-                                                </div>
-
-                                                {/* Card Thumbnails */}
-                                                <div className="flex gap-2 flex-wrap mb-3">
-                                                    {deck.cards?.slice(0, 5).map((card: any, i: number) => {
-                                                        const masterCard = getCardMaster(card.cardId);
-                                                        const userCard = dbUserCards.find((u: any) => u.cardId === card.cardId);
-                                                        let rarity = masterCard?.rarity || 1;
-                                                        const rarityType = masterCard?.cardRarityType || card.cardRarityType;
-                                                        const isBirthday = rarityType === "rarity_birthday";
-                                                        if (rarityType) {
-                                                            switch (rarityType) {
-                                                                case "rarity_1": rarity = 1; break;
-                                                                case "rarity_2": rarity = 2; break;
-                                                                case "rarity_3": rarity = 3; break;
-                                                                case "rarity_4": rarity = 4; break;
-                                                                case "rarity_birthday": rarity = 4; break;
-                                                            }
-                                                        }
-                                                        const masterRank = userCard?.masterRank ?? card.masterRank ?? 0;
-                                                        const level = userCard?.level ?? card.level ?? 1;
-                                                        const showTrained = ((rarityType === "rarity_3" || rarityType === "rarity_4") && !isBirthday);
-
-                                                        if (!masterCard) {
-                                                            return (
-                                                                <div key={i} className="w-12 h-12 rounded bg-slate-100 flex items-center justify-center text-slate-400 text-xs">?</div>
-                                                            );
-                                                        }
-                                                        return (
-                                                            <div key={i} className="relative flex flex-col items-center gap-0.5">
-                                                                <div className="relative w-12 h-12 rounded overflow-hidden ring-1 ring-slate-200">
-                                                                    <Link href={`/cards/${card.cardId}`} className="block relative w-full h-full" target="_blank">
-                                                                        <Image
-                                                                            src={getCardThumbnailUrl(masterCard.characterId, masterCard.assetbundleName, showTrained, assetSource)}
-                                                                            alt={`Card ${card.cardId}`}
-                                                                            fill
-                                                                            className="object-cover"
-                                                                            unoptimized
-                                                                        />
-                                                                    </Link>
-                                                                    {masterCard.attr && (
-                                                                        <div className="absolute top-0.5 left-0.5 w-3 h-3 drop-shadow-md z-10">
-                                                                            <Image src={`/data/icon/${ATTR_ICON_PATHS[masterCard.attr as import("@/types/types").CardAttribute]}`} alt={masterCard.attr} fill className="object-contain" unoptimized />
-                                                                        </div>
-                                                                    )}
-                                                                    <div className="absolute top-0.5 right-0.5 z-10">
-                                                                        <div className="bg-black/40 backdrop-blur-[2px] rounded-full px-1 py-0 flex items-center gap-0.5 min-h-[10px]">
-                                                                            {isBirthday ? (
-                                                                                <div className="w-2.5 h-2.5 relative"><Image src="/data/icon/birthday.webp" alt="Birthday" fill className="object-contain" unoptimized /></div>
-                                                                            ) : (
-                                                                                <>
-                                                                                    <span className="text-white text-[6px] font-bold leading-none">{rarity}</span>
-                                                                                    <div className="w-1.5 h-1.5 relative"><Image src="/data/icon/star.webp" alt="Star" fill className="object-contain" unoptimized /></div>
-                                                                                </>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                    {i === 0 && (
-                                                                        <div className="absolute bottom-0 right-0 bg-miku/90 text-white text-[8px] font-bold px-1 py-[1px] rounded-tl-md leading-none backdrop-blur-[1px]">L</div>
-                                                                    )}
-                                                                </div>
-                                                                <div className="text-[9px] text-slate-500 font-mono leading-none flex items-center gap-0.5">
-                                                                    <span>Lv.{level}</span>
-                                                                    {masterRank > 0 && (
-                                                                        <span className="bg-slate-100 text-slate-600 rounded-full px-[3px] py-[1px] flex items-center gap-[1px] leading-none border border-slate-200">
-                                                                            <span className="text-[7px]">🔷</span>
-                                                                            <span className="text-[8px] font-bold">{masterRank}</span>
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-
-                                                {/* Detail Table */}
-                                                <div className="overflow-x-auto">
-                                                    <table className="w-full text-xs">
-                                                        <thead>
-                                                            <tr className="text-slate-400">
-                                                                <th className="text-left py-1 px-1">队长</th>
-                                                                <th className="text-left py-1 px-1">卡牌ID</th>
-                                                                <th className="text-left py-1 px-1">卡面名称</th>
-                                                                <th className="text-right py-1 px-1">综合力</th>
-                                                                <th className="text-right py-1 px-1">活动加成</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {deck.cards?.map((card: any, i: number) => {
-                                                                const mc = getCardMaster(card.cardId);
-                                                                const basePower = card.power
-                                                                    ? (card.power.base || 0) + (card.power.areaItem || 0) + (card.power.characterRank || 0) +
-                                                                    (card.power.honor || 0) + (card.power.mysekaiGate || 0) + (card.power.mysekaiCanvas || 0) + (card.power.masterRank || 0)
-                                                                    : 0;
-                                                                const eb = card.eventBonus;
-                                                                const cardName = mc?.prefix || (mc ? CHAR_NAMES[mc.characterId] : `ID:${card.characterId}`);
-                                                                return (
-                                                                    <tr key={i} className="border-t border-slate-50">
-                                                                        <td className="py-1.5 px-1 font-bold text-slate-500">{i === 0 ? "队长" : `#${i + 1}`}</td>
-                                                                        <td className="py-1.5 px-1 font-mono text-slate-600">{card.cardId}</td>
-                                                                        <td className="py-1.5 px-1 text-slate-600">{cardName}</td>
-                                                                        <td className="py-1.5 px-1 text-right font-mono text-slate-600">{basePower.toLocaleString()}</td>
-                                                                        <td className="py-1.5 px-1 text-right font-bold text-amber-600">
-                                                                            {typeof eb === "string" ? eb : (eb?.total || eb?.all || 0) > 0 ? `${eb?.total || eb?.all}%` : "-"}
-                                                                        </td>
-                                                                    </tr>
-                                                                );
-                                                            })}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
                             </div>
                         )}
                     </div>
