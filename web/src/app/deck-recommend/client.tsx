@@ -846,13 +846,17 @@ function DeckResultRow({
                                             unoptimized
                                         />
                                     </Link>
-                                    <Image
-                                        src={`/data/icon/${ATTR_ICON_PATHS[masterCard.attr as import("@/types/types").CardAttribute]}`}
-                                        alt={masterCard.attr}
-                                        fill
-                                        className="object-contain"
-                                        unoptimized
-                                    />
+                                    {masterCard.attr && (
+                                        <div className="absolute top-0.5 left-0.5 w-3 h-3 drop-shadow-md z-10">
+                                            <Image
+                                                src={`/data/icon/${ATTR_ICON_PATHS[masterCard.attr as import("@/types/types").CardAttribute]}`}
+                                                alt={masterCard.attr}
+                                                fill
+                                                className="object-contain"
+                                                unoptimized
+                                            />
+                                        </div>
+                                    )}
                                     {/* Rarity & Birthday Badge */}
                                     <div className="absolute top-0.5 right-0.5 z-10">
                                         <div className="bg-black/40 backdrop-blur-[2px] rounded-full px-1 py-0 flex items-center gap-0.5 min-h-[10px]">

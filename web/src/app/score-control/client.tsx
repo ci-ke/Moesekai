@@ -586,13 +586,18 @@ export default function ScoreControlClient() {
         const masterRank = userCard?.masterRank ?? card.masterRank ?? 0;
         const level = userCard?.level ?? card.level ?? 1;
         const showTrained = ((rarityType === "rarity_3" || rarityType === "rarity_4") && !isBirthday);
-        const w = size === "sm" ? "w-10 h-10" : "w-12 h-12";
 
-        if (!masterCard) return <div key={i} className={`${w} bg-slate-100 rounded`}></div>;
+        if (!masterCard) {
+            return (
+                <div key={i} className="w-10 h-10 sm:w-12 sm:h-12 rounded bg-slate-100 flex items-center justify-center text-slate-400 text-xs flex-shrink-0">
+                    ?
+                </div>
+            );
+        }
 
         return (
-            <div key={i} className="flex flex-col items-center gap-0.5">
-                <div className={`relative ${w} rounded overflow-hidden ring-1 ring-slate-200`} title={`ID:${card.cardId} ${masterCard.prefix || ""} ${CHAR_NAMES[masterCard.characterId]}`}>
+            <div key={i} className="relative flex flex-col items-center gap-0.5 flex-shrink-0">
+                <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded overflow-hidden flex-shrink-0 ring-1 ring-slate-200" title={`ID:${card.cardId} ${masterCard.prefix || ""} ${CHAR_NAMES[masterCard.characterId]}`}>
                     <Link href={`/cards/${card.cardId}`} className="block relative w-full h-full" target="_blank">
                         <Image
                             src={getCardThumbnailUrl(masterCard.characterId, masterCard.assetbundleName, showTrained, assetSource)}
@@ -623,16 +628,14 @@ export default function ScoreControlClient() {
                         <div className="absolute bottom-0 right-0 bg-miku/90 text-white text-[8px] font-bold px-1 py-[1px] rounded-tl-md leading-none backdrop-blur-[1px]">L</div>
                     )}
                 </div>
-                <div className="text-[9px] text-slate-500 font-mono leading-none flex items-center gap-0.5">
+                <div className="text-[9px] sm:text-[10px] text-slate-500 font-mono leading-none flex items-center gap-0.5">
                     <span>Lv.{level}</span>
-
                     {masterRank > 0 && (
                         <span className="bg-slate-100 text-slate-600 rounded-full px-[3px] py-[1px] flex items-center gap-[1px] leading-none border border-slate-200">
                             <span className="text-[7px]">🔷</span>
                             <span className="text-[8px] font-bold">{masterRank}</span>
                         </span>
                     )}
-
                 </div>
             </div>
         );
@@ -1192,7 +1195,7 @@ export default function ScoreControlClient() {
                                                                 <div className="space-y-2">
                                                                     {dbResultsByBonus[step.eventBonus].map((deck: any, deckIdx: number) => (
                                                                         <div key={deckIdx} className="bg-white/50 rounded-lg p-2 border border-slate-100">
-                                                                            <div className="flex gap-2 flex-wrap mb-1">
+                                                                            <div className="flex gap-1 flex-wrap mb-1">
                                                                                 {deck.cards?.slice(0, 5).map((card: any, i: number) => renderDeckCard(card, i))}
                                                                             </div>
                                                                         </div>
@@ -1385,7 +1388,7 @@ export default function ScoreControlClient() {
 
                                                                     <Link key={si} href={`/music/${song.musicId}`} target="_blank" className="flex items-center gap-2 bg-white px-2 py-1.5 rounded-lg border border-slate-100 hover:border-miku/30 hover:shadow-sm transition-all group">
 
-                                                                        {song.assetbundleName && (
+                                                                        {song.assetbundleName && result.songs.length < 5 && (
                                                                             <div className="relative w-8 h-8 rounded overflow-hidden flex-shrink-0 ring-1 ring-slate-200">
                                                                                 <Image src={getMusicJacketUrl(song.assetbundleName, assetSource)} alt={song.musicTitle} fill className="object-cover" unoptimized />
                                                                             </div>
@@ -1426,7 +1429,7 @@ export default function ScoreControlClient() {
                                                                             <div className="text-[10px] text-slate-400 mb-1">推荐卡组</div>
                                                                             {matchingDecks.slice(0, 2).map((deck: any, di: number) => (
                                                                                 <div key={di} className="bg-white/50 rounded-lg p-2 border border-slate-100 mb-1">
-                                                                                    <div className="flex gap-2 flex-wrap mb-1">
+                                                                                    <div className="flex gap-1 flex-wrap mb-1">
                                                                                         {deck.cards?.slice(0, 5).map((card: any, ci: number) => renderDeckCard(card, ci, "sm"))}
                                                                                     </div>
                                                                                     <span className="text-[10px] text-slate-400">加成 {Math.round((deck.eventBonus ?? deck.score ?? 0) * 10) / 10}%</span>
