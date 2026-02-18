@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import SettingsPanel from "./SettingsPanel";
 
@@ -74,6 +74,21 @@ export default function MainNavbar({ activeItem = "首页" }: MainNavbarProps) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [expandedDropdown, setExpandedDropdown] = useState<string | null>(null);
+    const [showDomainNotice, setShowDomainNotice] = useState(false);
+
+    useEffect(() => {
+        const isDismissed = localStorage.getItem("moesekai_domain_notice_dismissed");
+        if (!isDismissed) {
+            setShowDomainNotice(true);
+        }
+    }, []);
+
+    const dismissDomainNotice = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowDomainNotice(false);
+        localStorage.setItem("moesekai_domain_notice_dismissed", "true");
+    };
 
     // Check if dropdown has active child
     const hasActiveChild = (item: DropdownItem): boolean => {
@@ -100,8 +115,23 @@ export default function MainNavbar({ activeItem = "首页" }: MainNavbarProps) {
                         }}
                     />
                     <div className="flex items-center gap-1.5 h-full">
-
                         <span className="text-[8px] px-1.5 py-0.5 bg-amber-400 text-white font-bold rounded-full leading-none">BETA1.108</span>
+
+                        {showDomainNotice && (
+                            <div className="flex items-center gap-1 ml-2 px-2 py-0.5 bg-blue-50 border border-blue-100 rounded-full animate-fade-in">
+                                <span className="text-[10px] text-blue-600 font-bold whitespace-nowrap">
+                                    新域名 pjsk.moe
+                                </span>
+                                <button
+                                    onClick={dismissDomainNotice}
+                                    className="w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-blue-100 text-blue-400 transition-colors"
+                                >
+                                    <svg viewBox="0 0 24 24" className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth="3">
+                                        <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </Link>
 
