@@ -13,9 +13,10 @@ import {
     EVENT_STATUS_DISPLAY,
     EventType
 } from "@/types/events";
-import { getEventLogoUrl, getCharacterIconUrl, getCardThumbnailUrl, getEventBannerUrl, getEventCharacterUrl, getMusicJacketUrl, getVirtualLiveBannerUrl, getEventBgmUrl } from "@/lib/assets";
+import { getEventLogoUrl, getCharacterIconUrl, getEventBannerUrl, getEventCharacterUrl, getMusicJacketUrl, getVirtualLiveBannerUrl, getEventBgmUrl } from "@/lib/assets";
 import { CHARACTER_NAMES, getRarityNumber, RARITY_DISPLAY, isTrainableCard } from "@/types/types";
 import { useTheme } from "@/contexts/ThemeContext";
+import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
 import { fetchMasterData, fetchWithCompression } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
 
@@ -672,9 +673,6 @@ export default function EventDetailPage() {
                                 <div className="p-4">
                                     <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-6 xl:grid-cols-8 gap-1.5">
                                         {eventCardsWithInfo.map(({ cardId, card }) => {
-                                            const rarityNum = getRarityNumber(card.cardRarityType as any);
-                                            const attrIcon = LOCAL_ATTR_ICONS[card.attr] || LOCAL_ATTR_ICONS.cool;
-                                            // Cards that only have trained images
                                             const TRAINED_ONLY_CARDS = [1167];
                                             const isTrainedOnlyCard = TRAINED_ONLY_CARDS.includes(cardId);
                                             const showTrained = isTrainedOnlyCard || (useTrainedThumbnail &&
@@ -687,59 +685,7 @@ export default function EventDetailPage() {
                                                     className="group block"
                                                 >
                                                     <div className="relative rounded-lg overflow-hidden bg-white ring-1 ring-slate-200 hover:ring-miku hover:shadow-lg transition-all">
-                                                        {/* Card Image */}
-                                                        <div className="aspect-square w-full bg-slate-50 p-1 relative">
-                                                            <div className="w-full h-full relative rounded overflow-hidden">
-                                                                <Image
-                                                                    src={getCardThumbnailUrl(card.characterId, card.assetbundleName, showTrained, assetSource)}
-                                                                    alt={card.prefix}
-                                                                    fill
-                                                                    className="object-cover group-hover:scale-105 transition-transform"
-                                                                    unoptimized
-                                                                />
-                                                            </div>
-
-                                                            {/* Attribute Badge - Top Left */}
-                                                            <div className="absolute top-0.5 left-0.5 w-3.5 h-3.5 drop-shadow-md z-10">
-                                                                <Image
-                                                                    src={attrIcon}
-                                                                    alt={card.attr}
-                                                                    fill
-                                                                    className="object-contain"
-                                                                    unoptimized
-                                                                />
-                                                            </div>
-
-                                                            {/* Rarity Badge - Top Right */}
-                                                            <div className="absolute top-0.5 right-0.5 z-10">
-                                                                <div className="bg-black/40 backdrop-blur-[2px] rounded-full px-1 py-0 flex items-center gap-0.5 min-h-[12px]">
-                                                                    {card.cardRarityType === "rarity_birthday" ? (
-                                                                        <div className="w-2.5 h-2.5 relative">
-                                                                            <Image
-                                                                                src="/data/icon/birthday.webp"
-                                                                                alt="Birthday"
-                                                                                fill
-                                                                                className="object-contain"
-                                                                                unoptimized
-                                                                            />
-                                                                        </div>
-                                                                    ) : (
-                                                                        <>
-                                                                            <span className="text-white text-[7px] font-bold leading-none">{rarityNum}</span>
-                                                                            <div className="w-2 h-2 relative">
-                                                                                <Image
-                                                                                    src="/data/icon/star.webp"
-                                                                                    alt="Star"
-                                                                                    fill
-                                                                                    className="object-contain"
-                                                                                    unoptimized
-                                                                                />
-                                                                            </div>
-                                                                        </>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
+                                                        <SekaiCardThumbnail card={card as any} trained={showTrained} className="w-full" />
                                                     </div>
                                                 </Link>
                                             );

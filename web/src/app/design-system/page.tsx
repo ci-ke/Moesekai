@@ -3,6 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import MainLayout from "@/components/MainLayout";
+import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
 
 export default function DesignSystemPage() {
     return (
@@ -254,89 +255,7 @@ export default function DesignSystemPage() {
                             </div>
                         </div>
 
-                        {/* Card Item */}
-                        <div>
-                            <h3 className="text-lg font-bold mb-4 text-slate-600">Card Item (Event Related Style)</h3>
-                            <div className="flex gap-4">
-                                {/* Normal Card */}
-                                <div className="w-24">
-                                    <div className="group block cursor-pointer">
-                                        <div className="relative rounded-lg overflow-hidden bg-white ring-1 ring-slate-200 hover:ring-miku hover:shadow-lg transition-all">
-                                            {/* Card Image */}
-                                            <div className="aspect-square w-full bg-slate-50 p-1 relative">
-                                                <div className="w-full h-full relative rounded overflow-hidden bg-slate-200 flex items-center justify-center text-xs text-slate-400">
-                                                    Img
-                                                </div>
 
-                                                {/* Attribute Badge - Top Left */}
-                                                <div className="absolute top-0.5 left-0.5 w-3.5 h-3.5 drop-shadow-md z-10">
-                                                    <Image
-                                                        src="/data/icon/cool.webp"
-                                                        alt="cool"
-                                                        fill
-                                                        className="object-contain"
-                                                        unoptimized
-                                                    />
-                                                </div>
-
-                                                {/* Rarity Badge - Top Right */}
-                                                <div className="absolute top-0.5 right-0.5 z-10">
-                                                    <div className="bg-black/40 backdrop-blur-[2px] rounded-full px-1 py-0 flex items-center gap-0.5 min-h-[12px]">
-                                                        <span className="text-white text-[7px] font-bold leading-none">4</span>
-                                                        <div className="w-2 h-2 relative">
-                                                            <Image
-                                                                src="/data/icon/star.webp"
-                                                                alt="Star"
-                                                                fill
-                                                                className="object-contain"
-                                                                unoptimized
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Birthday Card Variant */}
-                                <div className="w-24">
-                                    <div className="group block cursor-pointer">
-                                        <div className="relative rounded-lg overflow-hidden bg-white ring-1 ring-slate-200 hover:ring-miku hover:shadow-lg transition-all">
-                                            <div className="aspect-square w-full bg-slate-50 p-1 relative">
-                                                <div className="w-full h-full relative rounded overflow-hidden bg-slate-200 flex items-center justify-center text-xs text-slate-400">
-                                                    Img
-                                                </div>
-                                                {/* Attribute Badge */}
-                                                <div className="absolute top-0.5 left-0.5 w-3.5 h-3.5 drop-shadow-md z-10">
-                                                    <Image
-                                                        src="/data/icon/cute.webp"
-                                                        alt="cute"
-                                                        fill
-                                                        className="object-contain"
-                                                        unoptimized
-                                                    />
-                                                </div>
-                                                {/* Rarity Badge - Birthday */}
-                                                <div className="absolute top-0.5 right-0.5 z-10">
-                                                    <div className="bg-black/40 backdrop-blur-[2px] rounded-full px-1 py-0 flex items-center gap-0.5 min-h-[12px]">
-                                                        <div className="w-2.5 h-2.5 relative">
-                                                            <Image
-                                                                src="/data/icon/birthday.webp"
-                                                                alt="Birthday"
-                                                                fill
-                                                                className="object-contain"
-                                                                unoptimized
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
 
                         {/* Section Card (Related Events) */}
                         <div>
@@ -377,6 +296,254 @@ export default function DesignSystemPage() {
                         </div>
                     </div>
 
+                </section>
+
+                {/* Sekai Card Thumbnail Section */}
+                <section className="mb-16">
+                    <h2 className="text-2xl font-bold text-primary-text mb-6 flex items-center gap-2">
+                        <span className="w-1.5 h-8 bg-pink-400 rounded-full"></span>
+                        Sekai Card Thumbnail
+                    </h2>
+
+                    <div className="glass-card p-8 rounded-2xl">
+                        <p className="text-slate-500 mb-6">
+                            New SVG-based component that reproduces the official in-game thumbnail layering logic.
+                        </p>
+
+                        <div className="flex flex-wrap gap-8">
+                            {/* Example 1: 4★ Normal */}
+                            <div className="flex flex-col items-center gap-2">
+                                <SekaiCardThumbnail
+                                    card={{
+                                        id: 1,
+                                        seq: 1,
+                                        characterId: 21, // Miku
+                                        cardRarityType: "rarity_4",
+                                        specialTrainingPower1BonusFixed: 0,
+                                        specialTrainingPower2BonusFixed: 0,
+                                        specialTrainingPower3BonusFixed: 0,
+                                        attr: "cool",
+                                        supportUnit: "none",
+                                        skillId: 1,
+                                        cardSkillName: "Skill",
+                                        prefix: "Always Singing",
+                                        assetbundleName: "res021_no018", // Example: 4* Miku
+                                        gachaPhrase: "Phrase",
+                                        archiveDisplayType: "normal",
+                                        archivePublishedAt: 0,
+                                        cardParameters: { param1: [], param2: [], param3: [] },
+                                        specialTrainingCosts: [],
+                                        masterLessonAchieveResources: [],
+                                        releaseAt: 0,
+                                        cardSupplyId: 0,
+                                        cardSupplyType: "normal",
+                                    }}
+                                    width={128}
+                                />
+                                <span className="text-xs text-slate-500 font-mono">4★ Normal</span>
+                            </div>
+
+                            {/* Example 2: 4★ Trained + Mastery 5 */}
+                            <div className="flex flex-col items-center gap-2">
+                                <SekaiCardThumbnail
+                                    card={{
+                                        id: 2,
+                                        seq: 2,
+                                        characterId: 21,
+                                        cardRarityType: "rarity_4",
+                                        specialTrainingPower1BonusFixed: 0,
+                                        specialTrainingPower2BonusFixed: 0,
+                                        specialTrainingPower3BonusFixed: 0,
+                                        attr: "cute",
+                                        supportUnit: "none",
+                                        skillId: 1,
+                                        cardSkillName: "Skill",
+                                        prefix: "Trained Miku",
+                                        assetbundleName: "res021_no018",
+                                        gachaPhrase: "Phrase",
+                                        archiveDisplayType: "normal",
+                                        archivePublishedAt: 0,
+                                        cardParameters: { param1: [], param2: [], param3: [] },
+                                        specialTrainingCosts: [],
+                                        masterLessonAchieveResources: [],
+                                        releaseAt: 0,
+                                        cardSupplyId: 0,
+                                        cardSupplyType: "normal",
+                                    }}
+                                    trained={true}
+                                    mastery={5}
+                                    width={128}
+                                />
+                                <span className="text-xs text-slate-500 font-mono">4★ Trained + M5</span>
+                            </div>
+
+                            {/* Example 3: Birthday */}
+                            <div className="flex flex-col items-center gap-2">
+                                <SekaiCardThumbnail
+                                    card={{
+                                        id: 3,
+                                        seq: 3,
+                                        characterId: 21,
+                                        cardRarityType: "rarity_birthday",
+                                        specialTrainingPower1BonusFixed: 0,
+                                        specialTrainingPower2BonusFixed: 0,
+                                        specialTrainingPower3BonusFixed: 0,
+                                        attr: "happy",
+                                        supportUnit: "none",
+                                        skillId: 1,
+                                        cardSkillName: "Skill",
+                                        prefix: "Happy Birthday",
+                                        assetbundleName: "birthday_miku_2023", // Hypothetical
+                                        gachaPhrase: "Phrase",
+                                        archiveDisplayType: "normal",
+                                        archivePublishedAt: 0,
+                                        cardParameters: { param1: [], param2: [], param3: [] },
+                                        specialTrainingCosts: [],
+                                        masterLessonAchieveResources: [],
+                                        releaseAt: 0,
+                                        cardSupplyId: 0,
+                                        cardSupplyType: "normal",
+                                    }}
+                                    width={128}
+                                />
+                                <span className="text-xs text-slate-500 font-mono">Birthday</span>
+                            </div>
+
+                            {/* Example 4: 2★ Normal */}
+                            <div className="flex flex-col items-center gap-2">
+                                <SekaiCardThumbnail
+                                    card={{
+                                        id: 4,
+                                        seq: 4,
+                                        characterId: 26, // Kaito
+                                        cardRarityType: "rarity_2",
+                                        specialTrainingPower1BonusFixed: 0,
+                                        specialTrainingPower2BonusFixed: 0,
+                                        specialTrainingPower3BonusFixed: 0,
+                                        attr: "mysterious",
+                                        supportUnit: "none",
+                                        skillId: 1,
+                                        cardSkillName: "Skill",
+                                        prefix: "KAITO",
+                                        assetbundleName: "res026_no002",
+                                        gachaPhrase: "Phrase",
+                                        archiveDisplayType: "normal",
+                                        archivePublishedAt: 0,
+                                        cardParameters: { param1: [], param2: [], param3: [] },
+                                        specialTrainingCosts: [],
+                                        masterLessonAchieveResources: [],
+                                        releaseAt: 0,
+                                        cardSupplyId: 0,
+                                        cardSupplyType: "normal",
+                                    }}
+                                    width={128}
+                                />
+                                <span className="text-xs text-slate-500 font-mono">2★ Normal</span>
+                            </div>
+                        </div>
+
+                        {/* Example 5: Scaled Sizes */}
+                        <div className="w-full mt-6 border-t border-slate-100 pt-6">
+                            <h4 className="text-sm font-bold text-slate-500 mb-4">Scalability (Different Sizes)</h4>
+                            <div className="flex items-end gap-4">
+                                {/* 48px */}
+                                <div className="flex flex-col items-center gap-1">
+                                    <SekaiCardThumbnail
+                                        card={{
+                                            id: 5,
+                                            seq: 5,
+                                            characterId: 1, // Ichika
+                                            cardRarityType: "rarity_3",
+                                            specialTrainingPower1BonusFixed: 0,
+                                            specialTrainingPower2BonusFixed: 0,
+                                            specialTrainingPower3BonusFixed: 0,
+                                            attr: "pure",
+                                            supportUnit: "none",
+                                            skillId: 1,
+                                            cardSkillName: "Skill",
+                                            prefix: "Small",
+                                            assetbundleName: "res001_no007",
+                                            gachaPhrase: "Phrase",
+                                            archiveDisplayType: "normal",
+                                            archivePublishedAt: 0,
+                                            cardParameters: { param1: [], param2: [], param3: [] },
+                                            specialTrainingCosts: [],
+                                            masterLessonAchieveResources: [],
+                                            releaseAt: 0,
+                                            cardSupplyId: 0,
+                                            cardSupplyType: "normal",
+                                        }}
+                                        width={48}
+                                    />
+                                    <span className="text-[10px] text-slate-400 font-mono">48px</span>
+                                </div>
+
+                                {/* 64px */}
+                                <div className="flex flex-col items-center gap-1">
+                                    <SekaiCardThumbnail
+                                        card={{
+                                            id: 5,
+                                            seq: 5,
+                                            characterId: 1,
+                                            cardRarityType: "rarity_3",
+                                            specialTrainingPower1BonusFixed: 0,
+                                            specialTrainingPower2BonusFixed: 0,
+                                            specialTrainingPower3BonusFixed: 0,
+                                            attr: "pure",
+                                            supportUnit: "none",
+                                            skillId: 1,
+                                            cardSkillName: "Skill",
+                                            prefix: "Medium",
+                                            assetbundleName: "res001_no007",
+                                            gachaPhrase: "Phrase",
+                                            archiveDisplayType: "normal",
+                                            archivePublishedAt: 0,
+                                            cardParameters: { param1: [], param2: [], param3: [] },
+                                            specialTrainingCosts: [],
+                                            masterLessonAchieveResources: [],
+                                            releaseAt: 0,
+                                            cardSupplyId: 0,
+                                            cardSupplyType: "normal",
+                                        }}
+                                        width={64}
+                                    />
+                                    <span className="text-[10px] text-slate-400 font-mono">64px</span>
+                                </div>
+
+                                {/* 96px */}
+                                <div className="flex flex-col items-center gap-1">
+                                    <SekaiCardThumbnail
+                                        card={{
+                                            id: 5,
+                                            seq: 5,
+                                            characterId: 1,
+                                            cardRarityType: "rarity_3",
+                                            specialTrainingPower1BonusFixed: 0,
+                                            specialTrainingPower2BonusFixed: 0,
+                                            specialTrainingPower3BonusFixed: 0,
+                                            attr: "pure",
+                                            supportUnit: "none",
+                                            skillId: 1,
+                                            cardSkillName: "Skill",
+                                            prefix: "Large",
+                                            assetbundleName: "res001_no007",
+                                            gachaPhrase: "Phrase",
+                                            archiveDisplayType: "normal",
+                                            archivePublishedAt: 0,
+                                            cardParameters: { param1: [], param2: [], param3: [] },
+                                            specialTrainingCosts: [],
+                                            masterLessonAchieveResources: [],
+                                            releaseAt: 0,
+                                            cardSupplyId: 0,
+                                            cardSupplyType: "normal",
+                                        }}
+                                        width={96}
+                                    />
+                                    <span className="text-[10px] text-slate-400 font-mono">96px</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </section>
             </div>
         </MainLayout>

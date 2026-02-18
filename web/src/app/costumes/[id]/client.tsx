@@ -6,8 +6,9 @@ import Link from "next/link";
 import MainLayout from "@/components/MainLayout";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useTranslation } from "@/contexts/TranslationContext";
-import { getCostumeThumbnailUrl, getCharacterIconUrl, getCardThumbnailUrl } from "@/lib/assets";
+import { getCostumeThumbnailUrl, getCharacterIconUrl } from "@/lib/assets";
 import { CHARACTER_NAMES, UNIT_DATA, ICardInfo, getRarityNumber } from "@/types/types";
+import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
 import { TranslatedText } from "@/components/common/TranslatedText";
 import {
     ICostumeInfo,
@@ -795,73 +796,16 @@ export default function CostumeDetailClient() {
                                 </div>
                                 <div className="p-5">
                                     <div className="flex flex-wrap gap-3">
-                                        {relatedCards.map(card => {
-                                            const rarityNum = getRarityNumber(card.cardRarityType as any);
-                                            const attrIcon = LOCAL_ATTR_ICONS[card.attr] || LOCAL_ATTR_ICONS.cool;
-
-                                            return (
-                                                <Link
-                                                    key={card.id}
-                                                    href={`/cards/${card.id}`}
-                                                    className="group relative w-16 h-16 rounded-lg overflow-hidden ring-1 ring-slate-200 hover:ring-blue-400 hover:shadow-md transition-all block"
-                                                    title={`Card #${card.id} - ${card.prefix}`}
-                                                >
-                                                    <Image
-                                                        src={getCardThumbnailUrl(card.characterId, card.assetbundleName, true, assetSource)}
-                                                        alt={card.prefix}
-                                                        fill
-                                                        className="object-cover"
-                                                        unoptimized
-                                                    />
-
-                                                    {/* Attribute Badge - Top Left */}
-                                                    <div className="absolute top-0.5 left-0.5 w-3.5 h-3.5 drop-shadow-md z-10">
-                                                        <Image
-                                                            src={attrIcon}
-                                                            alt={card.attr}
-                                                            fill
-                                                            className="object-contain"
-                                                            unoptimized
-                                                        />
-                                                    </div>
-
-                                                    {/* Rarity & Star - Top Right (Simplified for small thumbnail) or Bottom? 
-                                                       User requested "Corresponding Star Rating".
-                                                       In events/[id] it is top-right for rarity number and stars.
-                                                       Given 64x64 size, let's put it at the bottom or top-right.
-                                                       Events uses: top-right for number + star icon.
-                                                    */}
-                                                    <div className="absolute top-0.5 right-0.5 z-10">
-                                                        <div className="bg-black/40 backdrop-blur-[2px] rounded-full px-1 py-0 flex items-center gap-0.5 min-h-[12px]">
-                                                            {card.cardRarityType === "rarity_birthday" ? (
-                                                                <div className="w-2.5 h-2.5 relative">
-                                                                    <Image
-                                                                        src="/data/icon/birthday.webp"
-                                                                        alt="Birthday"
-                                                                        fill
-                                                                        className="object-contain"
-                                                                        unoptimized
-                                                                    />
-                                                                </div>
-                                                            ) : (
-                                                                <>
-                                                                    <span className="text-white text-[7px] font-bold leading-none">{rarityNum}</span>
-                                                                    <div className="w-2 h-2 relative">
-                                                                        <Image
-                                                                            src="/data/icon/star.webp"
-                                                                            alt="Star"
-                                                                            fill
-                                                                            className="object-contain"
-                                                                            unoptimized
-                                                                        />
-                                                                    </div>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </Link>
-                                            );
-                                        })}
+                                        {relatedCards.map(card => (
+                                            <Link
+                                                key={card.id}
+                                                href={`/cards/${card.id}`}
+                                                className="block"
+                                                title={`Card #${card.id} - ${card.prefix}`}
+                                            >
+                                                <SekaiCardThumbnail card={card} trained={true} width={64} />
+                                            </Link>
+                                        ))}
                                     </div>
                                 </div>
                             </div>

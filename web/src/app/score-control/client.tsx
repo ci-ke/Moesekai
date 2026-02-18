@@ -12,7 +12,8 @@ import MusicSelector from "@/components/deck-recommend/MusicSelector";
 import EventSelector from "@/components/deck-recommend/EventSelector";
 import CharacterSelector from "@/components/deck-recommend/CharacterSelector";
 import { useTheme } from "@/contexts/ThemeContext";
-import { getCardThumbnailUrl, getMusicJacketUrl } from "@/lib/assets";
+import { getMusicJacketUrl } from "@/lib/assets";
+import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
 import {
     getValidScores,
     planSmartRoutes,
@@ -274,42 +275,47 @@ export default function ScoreControlClient() {
         setFallbackCount(0);
         setExpandedRoute(null);
 
-        setTimeout(() => {
-            try {
-                const bonusMin = Math.max(0, minBonus);
-                const bonusMax = Math.min(415, maxBonus);
+        // When deckBuilderEnabled, defer route display until worker completes
+        if (!deckBuilderEnabled) {
+            setTimeout(() => {
+                try {
+                    const bonusMin = Math.max(0, minBonus);
+                    const bonusMax = Math.min(415, maxBonus);
 
-                const routes = planSmartRoutes(
-                    targetPT, selectedEventRate, bonusMin, bonusMax, 3000000, 10, 20,
-                );
-                setSmartRoutes(routes);
+                    const routes = planSmartRoutes(
+                        targetPT, selectedEventRate, bonusMin, bonusMax, 3000000, 10, 20,
+                    );
+                    setSmartRoutes(routes);
 
-                if (routes.length > 0) {
-                    setExpandedRoute(0);
-                } else {
-                    const raw = getValidScores(targetPT, selectedEventRate, 415, 3000000);
-                    const filtered = raw.filter(r => r.eventBonus >= bonusMin && r.eventBonus <= bonusMax);
-                    const groups = groupByBoost(filtered);
-                    setFallbackResults(groups);
-                    setFallbackCount(filtered.length);
+                    if (routes.length > 0) {
+                        setExpandedRoute(0);
+                    } else {
+                        const raw = getValidScores(targetPT, selectedEventRate, 415, 3000000);
+                        const filtered = raw.filter(r => r.eventBonus >= bonusMin && r.eventBonus <= bonusMax);
+                        const groups = groupByBoost(filtered);
+                        setFallbackResults(groups);
+                        setFallbackCount(filtered.length);
+                    }
+                } catch (err: any) {
+                    setError(err.message || "计算出错");
+                    setSmartRoutes(null);
+                    setFallbackResults(null);
+                } finally {
+                    setIsCalculating(false);
                 }
-            } catch (err: any) {
-                setError(err.message || "计算出错");
-                setSmartRoutes(null);
-                setFallbackResults(null);
-            } finally {
-                setIsCalculating(false);
-            }
-        }, 10);
+            }, 10);
+        }
 
         // === Deck Builder: start worker if enabled ===
         if (deckBuilderEnabled) {
             if (!dbUserId.trim()) {
                 setDbError("请输入用户ID");
+                setIsCalculating(false);
                 return;
             }
             if (!dbEventId.trim()) {
                 setDbError("请选择活动");
+                setIsCalculating(false);
                 return;
             }
 
@@ -351,6 +357,23 @@ export default function ScoreControlClient() {
                 const data = event.data;
                 if (data.error) {
                     setDbError(getErrorMessage(data.error));
+                    // When deck builder fails, fall back to non-deck routes
+                    try {
+                        const bonusMin = Math.max(0, minBonus);
+                        const bonusMax = Math.min(415, maxBonus);
+                        const routes = planSmartRoutes(
+                            targetPT, selectedEventRate!, bonusMin, bonusMax, 3000000, 10, 20,
+                        );
+                        setSmartRoutes(routes);
+                        if (routes.length > 0) {
+                            setExpandedRoute(0);
+                        } else {
+                            const raw = getValidScores(targetPT, selectedEventRate!, 415, 3000000);
+                            const filtered = raw.filter(r => r.eventBonus >= bonusMin && r.eventBonus <= bonusMax);
+                            setFallbackResults(groupByBoost(filtered));
+                            setFallbackCount(filtered.length);
+                        }
+                    } catch (_) { /* ignore */ }
                 } else {
                     const results = data.result || [];
                     setDbResults(results);
@@ -373,12 +396,21 @@ export default function ScoreControlClient() {
                         setSmartRoutes(newRoutes);
                         if (newRoutes.length > 0) {
                             setExpandedRoute(0);
+                        } else {
+                            // No routes with deck bonuses, show fallback
+                            const raw = getValidScores(targetPT, selectedEventRate!, 415, 3000000);
+                            const bonusMin = Math.max(0, minBonus);
+                            const bonusMax = Math.min(415, maxBonus);
+                            const filtered = raw.filter(r => r.eventBonus >= bonusMin && r.eventBonus <= bonusMax);
+                            setFallbackResults(groupByBoost(filtered));
+                            setFallbackCount(filtered.length);
                         }
                     } else {
                         // If no decks found, clear smart routes to avoid showing impossible plans
                         setSmartRoutes([]);
                     }
                 }
+                setIsCalculating(false);
                 setDbIsCalculating(false);
                 worker.terminate();
                 dbWorkerRef.current = null;
@@ -386,6 +418,7 @@ export default function ScoreControlClient() {
 
             worker.onerror = (err) => {
                 setDbError(`Worker 错误: ${err.message}`);
+                setIsCalculating(false);
                 setDbIsCalculating(false);
                 worker.terminate();
                 dbWorkerRef.current = null;
@@ -567,22 +600,12 @@ export default function ScoreControlClient() {
         return cardsMaster.find((c: any) => c.id === cardId);
     }, [cardsMaster]);
 
-    /** Render a single deck card with full info (attr, rarity, level, masterRank, leader) — shared renderer */
+    /** Render a single deck card with full info — shared renderer using SekaiCardThumbnail */
     const renderDeckCard = (card: any, i: number, size: "sm" | "md" = "md") => {
         const masterCard = getCardMaster(card.cardId);
         const userCard = dbUserCards.find((u: any) => u.cardId === card.cardId);
-        let rarity = masterCard?.rarity || 1;
         const rarityType = masterCard?.cardRarityType || card.cardRarityType;
         const isBirthday = rarityType === "rarity_birthday";
-        if (rarityType) {
-            switch (rarityType) {
-                case "rarity_1": rarity = 1; break;
-                case "rarity_2": rarity = 2; break;
-                case "rarity_3": rarity = 3; break;
-                case "rarity_4": rarity = 4; break;
-                case "rarity_birthday": rarity = 4; break;
-            }
-        }
         const masterRank = userCard?.masterRank ?? card.masterRank ?? 0;
         const level = userCard?.level ?? card.level ?? 1;
         const showTrained = ((rarityType === "rarity_3" || rarityType === "rarity_4") && !isBirthday);
@@ -595,39 +618,21 @@ export default function ScoreControlClient() {
             );
         }
 
+        const thumbWidth = size === "sm" ? 40 : 48;
+
         return (
-            <div key={i} className="relative flex flex-col items-center gap-0.5 flex-shrink-0">
-                <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded overflow-hidden flex-shrink-0 ring-1 ring-slate-200" title={`ID:${card.cardId} ${masterCard.prefix || ""} ${CHAR_NAMES[masterCard.characterId]}`}>
-                    <Link href={`/cards/${card.cardId}`} className="block relative w-full h-full" target="_blank">
-                        <Image
-                            src={getCardThumbnailUrl(masterCard.characterId, masterCard.assetbundleName, showTrained, assetSource)}
-                            alt={`Card ${card.cardId}`}
-                            fill
-                            className="object-cover"
-                            unoptimized
-                        />
-                    </Link>
-                    {masterCard.attr && (
-                        <div className="absolute top-0.5 left-0.5 w-3 h-3 drop-shadow-md z-10">
-                            <Image src={`/data/icon/${ATTR_ICON_PATHS[masterCard.attr as import("@/types/types").CardAttribute]}`} alt={masterCard.attr} fill className="object-contain" unoptimized />
-                        </div>
-                    )}
-                    <div className="absolute top-0.5 right-0.5 z-10">
-                        <div className="bg-black/40 backdrop-blur-[2px] rounded-full px-1 py-0 flex items-center gap-0.5 min-h-[10px]">
-                            {isBirthday ? (
-                                <div className="w-2.5 h-2.5 relative"><Image src="/data/icon/birthday.webp" alt="Birthday" fill className="object-contain" unoptimized /></div>
-                            ) : (
-                                <>
-                                    <span className="text-white text-[6px] font-bold leading-none">{rarity}</span>
-                                    <div className="w-1.5 h-1.5 relative"><Image src="/data/icon/star.webp" alt="Star" fill className="object-contain" unoptimized /></div>
-                                </>
-                            )}
-                        </div>
-                    </div>
+            <div key={i} className="relative flex flex-col items-center gap-0.5 flex-shrink-0" title={`ID:${card.cardId} ${masterCard.prefix || ""} ${CHAR_NAMES[masterCard.characterId]}`}>
+                <Link href={`/cards/${card.cardId}`} className="block relative" target="_blank">
+                    <SekaiCardThumbnail
+                        card={masterCard}
+                        trained={showTrained}
+                        mastery={masterRank}
+                        width={thumbWidth}
+                    />
                     {i === 0 && (
-                        <div className="absolute bottom-0 right-0 bg-miku/90 text-white text-[8px] font-bold px-1 py-[1px] rounded-tl-md leading-none backdrop-blur-[1px]">L</div>
+                        <div className="absolute bottom-0 right-0 bg-miku/90 text-white text-[8px] font-bold px-1 py-[1px] rounded-tl-md leading-none backdrop-blur-[1px] z-10">L</div>
                     )}
-                </div>
+                </Link>
                 <div className="text-[9px] sm:text-[10px] text-slate-500 font-mono leading-none flex items-center gap-0.5">
                     <span>Lv.{level}</span>
                     {masterRank > 0 && (

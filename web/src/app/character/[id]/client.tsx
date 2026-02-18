@@ -16,8 +16,8 @@ import {
     getCharacterTrimUrl,
     getCharacterLabelHUrl,
     getCharacterLabelVUrl,
-    getCardThumbnailUrl
 } from "@/lib/assets";
+import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
 import { useTheme } from "@/contexts/ThemeContext";
 import { fetchMasterData } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
@@ -393,16 +393,10 @@ export default function CharacterDetailClient({ characterId }: CharacterDetailCl
                                     <Link
                                         key={card.id}
                                         href={`/cards/${card.id}`}
-                                        className="relative aspect-square rounded-lg overflow-hidden ring-1 ring-slate-200 hover:ring-2 hover:ring-miku transition-all hover:scale-105"
+                                        className="block"
                                         title={card.prefix}
                                     >
-                                        <Image
-                                            src={getCardThumbnailUrl(card.characterId, card.assetbundleName, false, assetSource)}
-                                            alt={card.prefix}
-                                            fill
-                                            className="object-cover"
-                                            unoptimized
-                                        />
+                                        <SekaiCardThumbnail card={card} trained={false} className="w-full" />
                                     </Link>
                                 ))}
                             </div>

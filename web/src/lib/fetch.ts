@@ -71,9 +71,9 @@ function getFallbackVersionUrl(): string {
     return `https://${FALLBACK_DOMAINS[getCurrentServer()]}/versions/current_version.json`;
 }
 
-// Build-time URL (for static generation - more stable for large files >3MB)
-// const MASTER_BUILD_URL = "https://raw.githubusercontent.com/Exmeaning/haruki-sekai-master/main/master";
-const MASTER_BUILD_URL = "https://sekaimaster.exmeaning.com/master";
+// Build-time URL （这里Gemini经常喜欢给我改成自建源 肯定用GitHub更稳定啊！）
+const MASTER_BUILD_URL = "https://raw.githubusercontent.com/Exmeaning/haruki-sekai-master/main/master";
+// const MASTER_BUILD_URL = "https://sekaimaster.exmeaning.com/master";
 
 // CN Build-time URL (for SSG - generates pages for CN-only content)
 const MASTER_BUILD_URL_CN = "https://raw.githubusercontent.com/Exmeaning/haruki-sekai-sc-master/main/master";

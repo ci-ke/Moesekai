@@ -5,8 +5,9 @@ import Link from "next/link";
 import Image from "next/image";
 import MainLayout from "@/components/MainLayout";
 import { ICardInfo, IGachaInfo, IGachaDetail, GACHA_TYPE_LABELS, getRarityNumber, isTrainableCard, CardRarityType, IGachaBehavior, IGachaCardRarityRate } from "@/types/types";
-import { getGachaLogoUrl, getGachaScreenUrl, getCardThumbnailUrl } from "@/lib/assets";
+import { getGachaLogoUrl, getGachaScreenUrl } from "@/lib/assets";
 import { useTheme } from "@/contexts/ThemeContext";
+import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
 import { fetchMasterData } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
 
@@ -616,14 +617,9 @@ export default function GachaDetailClient({ gachaId }: GachaDetailClientProps) {
                                 <div className="p-4">
                                     <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-4 xl:grid-cols-6 gap-1.5">
                                         {pickupCards.map(card => {
-                                            const rarityNum = getRarityNumber(card.cardRarityType);
-                                            const attrIcon = LOCAL_ATTR_ICONS[card.attr] || LOCAL_ATTR_ICONS.cool;
-                                            // Cards that only have trained images
                                             const TRAINED_ONLY_CARDS = [1167];
                                             const isTrainedOnlyCard = TRAINED_ONLY_CARDS.includes(card.id);
                                             const showTrained = isTrainedOnlyCard || (useTrainedThumbnail && isTrainableCard(card) && card.cardRarityType !== "rarity_birthday");
-
-                                            // Check if this pickup card has been pulled
                                             const pullCount = history4Stars.filter(h => h.cardId === card.id).length;
                                             const isPulled = pullCount > 0;
 
@@ -633,70 +629,16 @@ export default function GachaDetailClient({ gachaId }: GachaDetailClientProps) {
                                                     href={`/cards/${card.id}`}
                                                     className="group block"
                                                 >
-                                                    <div className={`relative rounded-lg overflow-hidden bg-white hover:shadow-lg transition-all ${isPulled ? 'ring-2 ring-green-400' : 'ring-1 ring-slate-200 hover:ring-miku'}`}>
-                                                        {/* Card Image */}
-                                                        <div className="aspect-square w-full bg-slate-50 p-1 relative">
-                                                            <div className="w-full h-full relative rounded overflow-hidden">
-                                                                <Image
-                                                                    src={getCardThumbnailUrl(card.characterId, card.assetbundleName, showTrained, assetSource)}
-                                                                    alt={card.prefix}
-                                                                    fill
-                                                                    className="object-cover group-hover:scale-105 transition-transform"
-                                                                    unoptimized
-                                                                />
+                                                    <div className={`rounded-lg overflow-hidden bg-white hover:shadow-lg transition-all ${isPulled ? 'ring-2 ring-green-400' : 'ring-1 ring-slate-200 hover:ring-miku'}`}>
+                                                        <SekaiCardThumbnail card={card} trained={showTrained} className="w-full" />
+                                                        {isPulled && (
+                                                            <div className="flex items-center justify-center gap-0.5 bg-gradient-to-r from-green-500 to-green-400 text-white text-[8px] font-black py-0.5 leading-none">
+                                                                <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                                </svg>
+                                                                {pullCount > 1 && <span>×{pullCount}</span>}
                                                             </div>
-
-                                                            {/* Attribute Badge - Top Left */}
-                                                            <div className="absolute top-0.5 left-0.5 w-3.5 h-3.5 drop-shadow-md z-10">
-                                                                <Image
-                                                                    src={attrIcon}
-                                                                    alt={card.attr}
-                                                                    fill
-                                                                    className="object-contain"
-                                                                    unoptimized
-                                                                />
-                                                            </div>
-
-                                                            {/* Rarity Badge - Top Right */}
-                                                            <div className="absolute top-0.5 right-0.5 z-10">
-                                                                <div className="bg-black/40 backdrop-blur-[2px] rounded-full px-1 py-0 flex items-center gap-0.5 min-h-[12px]">
-                                                                    {card.cardRarityType === "rarity_birthday" ? (
-                                                                        <div className="w-2.5 h-2.5 relative">
-                                                                            <Image
-                                                                                src="/data/icon/birthday.webp"
-                                                                                alt="Birthday"
-                                                                                fill
-                                                                                className="object-contain"
-                                                                                unoptimized
-                                                                            />
-                                                                        </div>
-                                                                    ) : (
-                                                                        <>
-                                                                            <span className="text-white text-[7px] font-bold leading-none">{rarityNum}</span>
-                                                                            <div className="w-2 h-2 relative">
-                                                                                <Image
-                                                                                    src="/data/icon/star.webp"
-                                                                                    alt="Star"
-                                                                                    fill
-                                                                                    className="object-contain"
-                                                                                    unoptimized
-                                                                                />
-                                                                            </div>
-                                                                        </>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Pulled Badge - Bottom Right */}
-                                                            {isPulled && (
-                                                                <div className="absolute bottom-0 right-0 z-10 bg-gradient-to-l from-green-500 to-green-400 text-white text-[8px] font-black px-1.5 py-0.5 rounded-tl-lg shadow-sm leading-none flex items-center gap-0.5">
-                                                                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                                                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                                                    </svg>
-                                                                    {pullCount > 1 && <span>×{pullCount}</span>}
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                        )}
                                                     </div>
                                                 </Link>
                                             );
@@ -865,16 +807,10 @@ export default function GachaDetailClient({ gachaId }: GachaDetailClientProps) {
                                             const card = cards.find(c => c.id === detail.cardId);
                                             if (!card) return null;
 
-                                            const rarityNum = getRarityNumber(card.cardRarityType);
-                                            const attrIcon = LOCAL_ATTR_ICONS[card.attr] || LOCAL_ATTR_ICONS.cool;
                                             const TRAINED_ONLY_CARDS = [1167];
                                             const isTrainedOnlyCard = TRAINED_ONLY_CARDS.includes(card.id);
                                             const showTrained = isTrainedOnlyCard || (useTrainedThumbnail && isTrainableCard(card) && card.cardRarityType !== "rarity_birthday");
-
-                                            // Check if card is pickup
-                                            // Check if card is pickup
                                             const isPickup = pickupCards.some(p => p.id === card.id);
-                                            // Check if card is 4-star (or birthday) for highlighting
                                             const is4Star = card.cardRarityType === "rarity_4" || card.cardRarityType === "rarity_birthday";
 
                                             return (
@@ -883,56 +819,18 @@ export default function GachaDetailClient({ gachaId }: GachaDetailClientProps) {
                                                     href={`/cards/${card.id}`}
                                                     className="group block"
                                                 >
-                                                    <div className={`relative rounded-lg overflow-hidden bg-white hover:shadow-lg transition-all ${isPickup
+                                                    <div className={`rounded-lg overflow-hidden bg-white hover:shadow-lg transition-all ${isPickup
                                                         ? 'ring-2 ring-pink-400'
                                                         : is4Star
                                                             ? 'ring-2 ring-yellow-400'
                                                             : 'ring-1 ring-slate-200 hover:ring-miku'
                                                         }`}>
-                                                        <div className="aspect-square w-full bg-slate-50 p-0.5 relative">
-                                                            <div className="w-full h-full relative rounded overflow-hidden">
-                                                                <Image
-                                                                    src={getCardThumbnailUrl(card.characterId, card.assetbundleName, showTrained, assetSource)}
-                                                                    alt={card.prefix}
-                                                                    fill
-                                                                    className="object-cover group-hover:scale-105 transition-transform"
-                                                                    unoptimized
-                                                                />
+                                                        <SekaiCardThumbnail card={card} trained={showTrained} className="w-full" />
+                                                        {(isPickup || is4Star) && (
+                                                            <div className={`text-center text-white text-[8px] sm:text-[9px] font-black py-0.5 leading-none ${isPickup ? 'bg-gradient-to-r from-pink-500 to-pink-400' : 'bg-gradient-to-r from-yellow-400 to-yellow-300'}`}>
+                                                                {isPickup ? 'UP' : '4星'}
                                                             </div>
-                                                            {/* Attribute Badge - Larger */}
-                                                            <div className="absolute top-0.5 left-0.5 w-3.5 h-3.5 sm:w-5 sm:h-5 drop-shadow-md z-10">
-                                                                <Image src={attrIcon} alt={card.attr} fill className="object-contain" unoptimized />
-                                                            </div>
-                                                            {/* Rarity Badge - Larger */}
-                                                            <div className="absolute top-0.5 right-0.5 z-10">
-                                                                <div className="bg-black/60 backdrop-blur-[2px] rounded-full px-1 py-0 sm:px-1.5 sm:py-0.5 flex items-center gap-0.5 min-h-[12px] sm:min-h-[16px]">
-                                                                    {card.cardRarityType === "rarity_birthday" ? (
-                                                                        <div className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 relative">
-                                                                            <Image src="/data/icon/birthday.webp" alt="Birthday" fill className="object-contain" unoptimized />
-                                                                        </div>
-                                                                    ) : (
-                                                                        <>
-                                                                            <span className="text-white text-[7px] sm:text-[10px] font-bold leading-none">{rarityNum}</span>
-                                                                            <div className="w-2 h-2 sm:w-3 sm:h-3 relative">
-                                                                                <Image src="/data/icon/star.webp" alt="Star" fill className="object-contain" unoptimized />
-                                                                            </div>
-                                                                        </>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                            {/* UP Indicator */}
-                                                            {isPickup && (
-                                                                <div className="absolute bottom-0 right-0 z-10 bg-gradient-to-l from-pink-500 to-pink-400 text-white text-[8px] sm:text-[9px] font-black px-1 py-0.5 sm:px-1.5 sm:py-0.5 rounded-tl-lg shadow-sm leading-none">
-                                                                    UP
-                                                                </div>
-                                                            )}
-                                                            {/* 4-Star Indicator (if not pickup) */}
-                                                            {!isPickup && is4Star && (
-                                                                <div className="absolute bottom-0 right-0 z-10 bg-gradient-to-l from-yellow-400 to-yellow-300 text-white text-[8px] sm:text-[9px] font-black px-1 py-0.5 sm:px-1.5 sm:py-0.5 rounded-tl-lg shadow-sm leading-none">
-                                                                    4星
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                        )}
                                                     </div>
                                                 </Link>
                                             );
@@ -959,21 +857,12 @@ export default function GachaDetailClient({ gachaId }: GachaDetailClientProps) {
                                             const card = cards.find(c => c.id === detail.cardId);
                                             if (!card) return null;
 
-                                            const rarityNum = getRarityNumber(card.cardRarityType);
-                                            const attrIcon = LOCAL_ATTR_ICONS[card.attr] || LOCAL_ATTR_ICONS.cool;
                                             const TRAINED_ONLY_CARDS = [1167];
                                             const isTrainedOnlyCard = TRAINED_ONLY_CARDS.includes(card.id);
                                             const showTrained = isTrainedOnlyCard || (useTrainedThumbnail && isTrainableCard(card) && card.cardRarityType !== "rarity_birthday");
-
-                                            // Check if card is pickup
                                             const isPickup = pickupCards.some(p => p.id === card.id);
-                                            // Check if card is 4-star (or birthday) for highlighting
                                             const is4Star = card.cardRarityType === "rarity_4" || card.cardRarityType === "rarity_birthday";
 
-                                            // Calculate Pity Count (Delta from previous 4-star)
-                                            // history4Stars is stored newest-first, so older entries are at higher indices
-                                            // For delta: current pull index - previous 4-star pull index
-                                            // The "previous" 4-star (pulled before this one) is at idx+1 (since history is reversed)
                                             const currentPullIndex = detail.pullIndex || 0;
                                             const olderDetail = history4Stars[idx + 1];
                                             const prevPullIndex = olderDetail ? (olderDetail.pullIndex || 0) : 0;
@@ -986,60 +875,19 @@ export default function GachaDetailClient({ gachaId }: GachaDetailClientProps) {
                                                     href={`/cards/${card.id}`}
                                                     className="group block"
                                                 >
-                                                    <div className={`relative rounded-lg overflow-hidden bg-white hover:shadow-lg transition-all ${isPickup
+                                                    <div className={`rounded-lg overflow-hidden bg-white hover:shadow-lg transition-all ${isPickup
                                                         ? 'ring-2 ring-pink-400'
                                                         : is4Star
                                                             ? 'ring-2 ring-yellow-400'
                                                             : 'ring-1 ring-slate-200 hover:ring-miku'
                                                         }`}>
-                                                        <div className="aspect-square w-full bg-slate-50 p-0.5 relative">
-                                                            <div className="w-full h-full relative rounded overflow-hidden">
-                                                                <Image
-                                                                    src={getCardThumbnailUrl(card.characterId, card.assetbundleName, showTrained, assetSource)}
-                                                                    alt={card.prefix}
-                                                                    fill
-                                                                    className="object-cover group-hover:scale-105 transition-transform"
-                                                                    unoptimized
-                                                                />
-                                                            </div>
-                                                            {/* Attribute Badge - Larger */}
-                                                            <div className="absolute top-0.5 left-0.5 w-3.5 h-3.5 sm:w-5 sm:h-5 drop-shadow-md z-10">
-                                                                <Image src={attrIcon} alt={card.attr} fill className="object-contain" unoptimized />
-                                                            </div>
-                                                            {/* Rarity Badge - Larger */}
-                                                            <div className="absolute top-0.5 right-0.5 z-10">
-                                                                <div className="bg-black/60 backdrop-blur-[2px] rounded-full px-1 py-0 sm:px-1.5 sm:py-0.5 flex items-center gap-0.5 min-h-[12px] sm:min-h-[16px]">
-                                                                    {card.cardRarityType === "rarity_birthday" ? (
-                                                                        <div className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 relative">
-                                                                            <Image src="/data/icon/birthday.webp" alt="Birthday" fill className="object-contain" unoptimized />
-                                                                        </div>
-                                                                    ) : (
-                                                                        <>
-                                                                            <span className="text-white text-[7px] sm:text-[10px] font-bold leading-none">{rarityNum}</span>
-                                                                            <div className="w-2 h-2 sm:w-3 sm:h-3 relative">
-                                                                                <Image src="/data/icon/star.webp" alt="Star" fill className="object-contain" unoptimized />
-                                                                            </div>
-                                                                        </>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                            {/* UP Indicator */}
-                                                            {isPickup && (
-                                                                <div className="absolute bottom-0 right-0 z-10 bg-gradient-to-l from-pink-500 to-pink-400 text-white text-[8px] sm:text-[9px] font-black px-1 py-0.5 sm:px-1.5 sm:py-0.5 rounded-tl-lg shadow-sm leading-none">
-                                                                    UP
-                                                                </div>
-                                                            )}
-                                                            {/* 4-Star Indicator (if not pickup) */}
-                                                            {!isPickup && is4Star && (
-                                                                <div className="absolute bottom-0 right-0 z-10 bg-gradient-to-l from-yellow-400 to-yellow-300 text-white text-[8px] sm:text-[9px] font-black px-1 py-0.5 sm:px-1.5 sm:py-0.5 rounded-tl-lg shadow-sm leading-none">
-                                                                    4星
-                                                                </div>
-                                                            )}
-                                                            {/* Pity Count Badge */}
+                                                        <SekaiCardThumbnail card={card} trained={showTrained} className="w-full" />
+                                                        <div className={`flex items-center justify-between text-white text-[8px] sm:text-[9px] font-black py-0.5 px-1 leading-none ${isPickup ? 'bg-gradient-to-r from-pink-500 to-pink-400' : 'bg-gradient-to-r from-yellow-400 to-yellow-300'}`}>
+                                                            <span>{isPickup ? 'UP' : '4★'}</span>
                                                             {pityCount > 0 && (
-                                                                <div className={`absolute bottom-0 left-0 z-10 text-white text-[8px] sm:text-[10px] font-bold px-1 py-0.5 sm:px-1.5 sm:py-0.5 rounded-tr-lg shadow-sm leading-none ${pityColorClass}`}>
-                                                                    {pityCount}
-                                                                </div>
+                                                                <span className={`px-1 py-0.5 rounded text-[8px] sm:text-[9px] font-bold ${pityColorClass} text-white`}>
+                                                                    {pityCount}抽
+                                                                </span>
                                                             )}
                                                         </div>
                                                     </div>

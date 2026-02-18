@@ -1751,6 +1751,10 @@
     "Path made by faith アフターライブ": {
       "text": "Path made by faith After Live",
       "source": "llm"
+    },
+    "CHANGE！えむは王女さま！？ アフターライブ": {
+      "text": "CHANGE！笑梦是公主殿下！？ 赛后演唱会",
+      "source": "llm"
     }
   }
 }
