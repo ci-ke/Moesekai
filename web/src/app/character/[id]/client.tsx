@@ -80,7 +80,7 @@ export default function CharacterDetailClient({ characterId }: CharacterDetailCl
                 setCharacter(chara);
 
                 // Set page title
-                document.title = `Snowy SekaiViewer - ${CHARACTER_NAMES[id] || "角色详情"}`;
+                document.title = `Moesekai - ${CHARACTER_NAMES[id] || "角色详情"}`;
 
                 // Find related data
                 setProfile(profileData.find(p => p.characterId === id) || null);

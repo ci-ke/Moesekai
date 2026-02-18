@@ -1,4 +1,4 @@
-// Card Types for Snowy Viewer
+// Card Types for Moesekai
 // Based on sekai.best and Haruki master data structure
 
 export type CardRarityType =

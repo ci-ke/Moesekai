@@ -1,4 +1,4 @@
-# Snowy Viewer
+# Moesekai (原Snowy Viewer)
 
 这是一个基于 Next.js 和 Go 的 Project Sekai 查看器项目。
 

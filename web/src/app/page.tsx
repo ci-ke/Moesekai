@@ -175,9 +175,32 @@ export default function Home() {
             </span>
           </div>
 
-          <h1 className="text-4xl lg:text-5xl font-black text-primary-text leading-tight">
-            <span className="text-miku mx-2">Snowybot</span> SekaiViewer
-          </h1>
+          <div className="flex flex-col items-center gap-4">
+            <h1 className="flex flex-col items-center justify-center gap-2">
+              <div
+                className="h-16 w-64 sm:h-20 sm:w-80 lg:h-24 lg:w-96 bg-gradient-to-r from-miku to-miku-dark transition-all hover:brightness-110"
+                style={{
+                  maskImage: "url(https://assets.exmeaning.com/SnowyBot/logo.svg)",
+                  maskSize: "contain",
+                  maskPosition: "center",
+                  maskRepeat: "no-repeat",
+                  WebkitMaskImage: "url(https://assets.exmeaning.com/SnowyBot/logo.svg)",
+                  WebkitMaskSize: "contain",
+                  WebkitMaskPosition: "center",
+                  WebkitMaskRepeat: "no-repeat",
+                }}
+                role="img"
+                aria-label="Moesekai"
+              />
+              <span className="sr-only">Moesekai</span>
+              <span className="text-lg md:text-xl font-bold text-slate-400 opacity-60">(原 Snowy Viewer)</span>
+            </h1>
+
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-miku/5 border border-miku/20 text-miku text-sm sm:text-base font-bold transition-all hover:bg-miku/10 hover:scale-105 duration-300 cursor-default shadow-sm shadow-miku/5">
+              <span className="animate-pulse">✨</span>
+              <span>现已焕新域名 <span className="underline decoration-2 underline-offset-2 decoration-miku/30">pjsk.moe</span></span>
+            </div>
+          </div>
 
           {/* Performance Tip */}
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-xl text-green-700">
@@ -272,10 +295,10 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Link 1: SnowyBot */}
-            <ExternalLink href="https://snowybot.exmeaning.com" target="_blank" className="relative group overflow-hidden rounded-xl h-20 shadow-sm hover:shadow-lg transition-shadow bg-white border border-slate-100">
+            <ExternalLink href="https://pjsk.moe" target="_blank" className="relative group overflow-hidden rounded-xl h-20 shadow-sm hover:shadow-lg transition-shadow bg-white border border-slate-100">
               <div className="relative z-10 h-full flex items-center justify-between px-6">
                 <div className="text-left">
-                  <h3 className="text-md font-bold text-primary-text">SnowyBot 主站</h3>
+                  <h3 className="text-md font-bold text-primary-text">Moesekai 主站</h3>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Main Site</p>
                 </div>
                 <svg className="w-5 h-5 text-slate-300 group-hover:text-miku transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>

@@ -1,4 +1,4 @@
-// Event Types for Snowy Viewer
+// Event Types for Moesekai
 // Based on sekai.best and Haruki master data structure
 
 export type EventType =

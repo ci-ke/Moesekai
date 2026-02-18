@@ -87,7 +87,7 @@ export default function StoryReaderClient() {
 
                 const event = eventsData.find(e => e.id === eventId);
                 const eventName = translationsData?.events?.name?.[event?.name || ""] || event?.name || `活动 ${eventId}`;
-                document.title = `${episodeTitle} - ${eventName} - Snowy SekaiViewer`;
+                document.title = `${episodeTitle} - ${eventName} - Moesekai`;
 
             } catch (err: any) {
                 console.error("Error loading story:", err);

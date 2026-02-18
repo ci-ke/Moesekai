@@ -4,7 +4,7 @@ import path from 'path';
 import GachaClient from './client';
 
 export const metadata: Metadata = {
-    title: 'Snowy SekaiViewer - 谷子盲抽模拟',
+    title: 'Moesekai - 谷子盲抽模拟',
     description: '模拟谷子盲抽，试试你的手气！',
 };
 

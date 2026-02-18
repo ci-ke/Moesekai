@@ -17,14 +17,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
         if (card) {
             return {
-                title: `Snowy SekaiViewer - ${card.prefix}`,
+                title: `Moesekai - ${card.prefix}`,
             };
         }
     } catch (e) {
         console.error("Error generating metadata for card:", e);
     }
     return {
-        title: "Snowy SekaiViewer - 卡牌详情",
+        title: "Moesekai - 卡牌详情",
     };
 }
 

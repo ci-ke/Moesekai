@@ -1,4 +1,4 @@
-// Costume Types for Snowy Viewer
+// Costume Types for Moesekai
 // Based on snowy_costumes.json master data structure
 
 export interface ICostumePart {

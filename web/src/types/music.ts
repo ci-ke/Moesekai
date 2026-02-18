@@ -1,4 +1,4 @@
-// Music Types for Snowy Viewer
+// Music Types for Moesekai
 // Based on sekai.best and sekaimaster data structure
 
 export type MusicCategoryType = "mv" | "mv_2d" | "original" | "image";

@@ -134,7 +134,7 @@ export default function EventStorySummaryClient() {
                     // Admin fetch failed, we will use fallbackChapters
                 }
 
-                document.title = `${event.name} - 剧情总览 - Snowy SekaiViewer`;
+                document.title = `${event.name} - 剧情总览 - Moesekai`;
             } catch (err) {
                 console.error("Error fetching story data:", err);
                 setError("无法加载剧情数据");

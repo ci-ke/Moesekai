@@ -90,7 +90,7 @@ export default function MysekaiFixtureDetailClient() {
                 }
 
                 setFixture(foundFixture);
-                document.title = `Snowy SekaiViewer - ${foundFixture.name}`;
+                document.title = `Moesekai - ${foundFixture.name}`;
                 setGenres(genresData);
                 setSubGenres(subGenresData);
                 setTags(tagsData);

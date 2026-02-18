@@ -6,7 +6,7 @@ import MainLayout from "@/components/MainLayout";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-    title: "SnowyBot Viewer - 关于",
+    title: "Moesekai - 关于",
 };
 
 export default function AboutPage() {
@@ -25,9 +25,9 @@ export default function AboutPage() {
             <div className="container mx-auto px-6 py-12 max-w-5xl flex-grow z-10">
                 {/* Page Title */}
                 <div className="mb-10 animate-fade-in-up">
-                    <h1 className="text-4xl font-black text-primary-text mb-2">关于 SnowyBot Viewer</h1>
+                    <h1 className="text-4xl font-black text-primary-text mb-2">关于 Moesekai</h1>
                     <p className="text-slate-500 max-w-2xl text-lg font-medium">
-                        SnowyBot Viewer 是一个粉丝制作的PROJECT SEKAI 游戏数据查看器
+                        Moesekai 是一个粉丝制作的PROJECT SEKAI 游戏数据查看器
                     </p>
                 </div>
 
@@ -48,27 +48,27 @@ export default function AboutPage() {
                         <hr className="border-slate-100 mb-4" />
                         <div className="text-slate-600 leading-relaxed space-y-4">
                             <p>
-                                SnowyBot 是一个完全由个人开发者维护的非盈利项目。开发者承诺 <b>永久免费</b>，且 <b>不接受任何形式的捐赠</b>。
+                                Moesekai 是一个完全由小型组织维护的非盈利项目。
                             </p>
                             <p>
-                                服务器成本由开发者自行承担。如果您喜欢这个项目，欢迎参与 Snowybot主站的 <Link href="/creator" className="text-miku font-bold">创作者计划</Link>，为社区贡献更多优质的 2D 角色chibi小人，这就是对开发者最大的支持。
+                                如果您喜欢这个项目，欢迎参与 Moesekai主站的 <Link href="/creator" className="text-miku font-bold">创作者计划</Link>，为社区贡献更多优质的 2D 角色chibi小人，这就是对开发者最大的支持。
                             </p>
                         </div>
                     </div>
 
                     {/* Card 2: Developer */}
                     <div className="p-6 rounded-xl shadow-md border-none bg-primary-text text-white flex flex-col items-center justify-center text-center hover:shadow-xl transition-shadow">
-                        <p className="w-full text-left text-xs font-bold opacity-80 uppercase tracking-widest mb-4">Developer</p>
+                        <p className="w-full text-left text-xs font-bold opacity-80 uppercase tracking-widest mb-4">Organization</p>
                         <div className="w-24 h-24 rounded-full border-4 border-white/10 shadow-2xl mb-4 overflow-hidden relative">
                             <Image
-                                src="https://github.com/Exmeaning.png"
+                                src="https://github.com/moe-sekai.png"
                                 alt="Exmeaning"
                                 fill
                                 className="object-cover"
                             />
                         </div>
-                        <h3 className="text-2xl font-bold">Exmeaning (東雪)</h3>
-                        <p className="text-miku text-sm font-bold mt-1">An ordinary developer</p>
+                        <h3 className="text-2xl font-bold">Moesekai</h3>
+                        <p className="text-miku text-sm font-bold mt-1">A small developer group</p>
                         <div className="mt-6 flex flex-col items-center gap-1 opacity-50 text-xs text-white">
                             <span>"Soul by HelloWorld"</span>
                         </div>
@@ -130,12 +130,12 @@ export default function AboutPage() {
                                         本项目已在 GitHub 开源并遵循 <b>AGPL-3.0</b> 协议。
                                     </p>
                                     <ExternalLink
-                                        href="https://github.com/Exmeaning/Snowy_Viewer"
+                                        href="https://github.com/moe-sekai/Moesekai"
                                         target="_blank"
                                         className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 hover:text-miku transition-colors bg-white px-3 py-2 rounded-md border border-slate-200 shadow-sm hover:shadow"
                                     >
                                         <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" /></svg>
-                                        Exmeaning/Snowy_Viewer
+                                        moe-sekai/Moesekai
                                     </ExternalLink>
                                 </div>
                             </div>
@@ -144,11 +144,11 @@ export default function AboutPage() {
                     {/* Card 5: Special Thanks */}
                     <div className="md:col-span-3 p-6 rounded-xl shadow-md border border-slate-100 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow">
                         <div className="flex items-center gap-2 mb-4">
-                            <p className="text-md font-bold text-primary-text">感谢支持snowy的名单（不分先后）</p>
+                            <p className="text-md font-bold text-primary-text">感谢支持Moesekai的名单（不分先后）</p>
                         </div>
                         <p className="text-sm text-slate-600 leading-7 text-justify">
                             深海 Luna茶 Kazuhira 灵潜 咖啡不甜 郁郁葱葱 TONY_ALL# M氏 大梦 Hakuchumu 葡萄柚 Amia 不解 旭光 阳子 弥佑瑶 サクラかぜ luoxia 陈睿ガチ恋势 猫尾草 笨牛奶 霞綾 世说心羽 木口 沧溟 Aya Belos 兔兔 明日天気に シラ
-                            偶像大师希罗酱 性价比……（以上为部分名单 感谢所有默默支持snowybot的人）
+                            偶像大师希罗酱 性价比……（以上为部分名单 感谢所有默默支持Moesekai的人）
                         </p>
                     </div>
 

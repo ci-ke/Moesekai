@@ -104,7 +104,7 @@ export default function GachaDetailClient({ gachaId }: GachaDetailClientProps) {
 
                 setGacha(foundGacha);
                 setCards(cardsData);
-                document.title = `${foundGacha.name} - Snowy SekaiViewer`;
+                document.title = `${foundGacha.name} - Moesekai`;
             } catch (err) {
                 console.error("Error:", err);
                 setError(err instanceof Error ? err.message : "Unknown error");

@@ -8,7 +8,7 @@ import { TranslationProvider } from "@/contexts/TranslationContext";
 
 
 export const metadata: Metadata = {
-  title: "Snowy SekaiViewer",
+  title: "Moesekai (原Snowy Viewer)",
   description: "Project Sekai Viewer",
   icons: {
     icon: "/data/icon/icon.jpg",

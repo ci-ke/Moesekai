@@ -75,7 +75,7 @@ export default function VirtualLiveDetailClient() {
                 }
 
                 setVirtualLive(foundVL);
-                document.title = `Snowy SekaiViewer - ${foundVL.name}`;
+                document.title = `Moesekai - ${foundVL.name}`;
                 setAllMusics(musicsData);
                 setAllMusicVocals(musicVocalsData);
                 setError(null);

@@ -166,7 +166,7 @@ export default function CostumeDetailClient() {
 
                 // Set page title
                 const translatedName = t("costumes", "name", group.name);
-                document.title = `Snowy SekaiViewer - ${translatedName || group.name}`;
+                document.title = `Moesekai - ${translatedName || group.name}`;
 
                 // Fetch Related Cards if any
                 if (group.cardIds && group.cardIds.length > 0) {

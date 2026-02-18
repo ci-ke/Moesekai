@@ -84,7 +84,7 @@ function LeavePageContent() {
                     </div>
 
                     <h2 className="text-2xl font-bold text-slate-800 dark:text-gray-100 mb-3">
-                        即将离开 SnowyViewer
+                        即将离开 Moesekai
                     </h2>
 
                     <p className="text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
@@ -96,7 +96,7 @@ function LeavePageContent() {
                     </div>
 
                     <p className="text-slate-500 dark:text-slate-400 text-xs mb-8 bg-slate-100 dark:bg-slate-800/50 p-3 rounded-lg">
-                        该页面与 SnowyViewer 无关，请谨慎辨别。
+                        该页面与 Moesekai 无关，请谨慎辨别。
                         <br />
                         请注意保护个人信息安全。
                     </p>

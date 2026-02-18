@@ -136,7 +136,7 @@ export default function MusicDetailPage() {
                 }
 
                 setMusic(foundMusic);
-                document.title = `Snowy SekaiViewer - ${foundMusic.title}`;
+                document.title = `Moesekai - ${foundMusic.title}`;
                 setMusicTags(tagsData.filter(t => t.musicId === musicId));
                 setDifficulties(diffisData.filter(d => d.musicId === musicId).sort((a, b) => {
                     return DIFFICULTY_ORDER.indexOf(a.musicDifficulty) - DIFFICULTY_ORDER.indexOf(b.musicDifficulty);

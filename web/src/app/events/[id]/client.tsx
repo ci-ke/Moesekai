@@ -123,7 +123,7 @@ export default function EventDetailPage() {
                 }
 
                 setEvent(foundEvent);
-                document.title = `Snowy SekaiViewer - ${foundEvent.name}`;
+                document.title = `Moesekai - ${foundEvent.name}`;
                 setDeckBonuses(bonusesData.filter(b => b.eventId === eventId));
                 setEventCards(eventCardsData.filter(c => c.eventId === eventId));
                 setEventMusics(eventMusicsData.filter(m => m.eventId === eventId));

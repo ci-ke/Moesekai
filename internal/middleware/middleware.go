@@ -36,8 +36,17 @@ func Gzip(next http.Handler) http.Handler {
 
 // CORS middleware for cross-origin requests
 func CORS(next http.Handler) http.Handler {
+	allowedOrigins := map[string]bool{
+		"https://pjsk.moe":                  true,
+		"https://www.pjsk.moe":              true,
+		"https://snowyviewer.exmeaning.com": true,
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := r.Header.Get("Origin")
+		if allowedOrigins[origin] {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
+		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		if r.Method == "OPTIONS" {
