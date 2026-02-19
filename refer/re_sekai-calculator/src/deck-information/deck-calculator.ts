@@ -124,7 +124,7 @@ export class DeckCalculator {
       try {
         const refSkill = cardDetail.skill.getSkill('ref', 1)
         const refScoreUp = refSkill.scoreUpFixed + (refSkill.scoreUpReferenceMax ?? 0)
-        if (refScoreUp > s2.scoreUpFixed) s2 = { ...refSkill, scoreUpFixed: refScoreUp, scoreUpToReference: refSkill.scoreUpFixed }
+        if (refScoreUp > s2.scoreUpFixed) s2 = { ...refSkill, scoreUpFixed: refScoreUp, scoreUpToReference: refScoreUp }
       } catch (_) { /* no ref */ }
       try {
         const diffSkill = cardDetail.skill.getSkill('diff', unitNum - 1)
@@ -146,8 +146,8 @@ export class DeckCalculator {
           const refScoreUp = refSkill.scoreUpFixed + (refSkill.scoreUpReferenceMax ?? 0)
           if (refScoreUp > s1.scoreUpFixed) {
             // scoreUpFixed 设为 base+refMax（枚举时会减回去再加实际吸分值）
-            // scoreUpToReference 保持为 base（被其他卡吸时只看基础值）
-            s1 = { ...refSkill, scoreUpFixed: refScoreUp, scoreUpToReference: refSkill.scoreUpFixed }
+            // scoreUpToReference 也设为 base+refMax（被其他卡吸时按最高值算）
+            s1 = { ...refSkill, scoreUpFixed: refScoreUp, scoreUpToReference: refScoreUp }
             needEnumerate = true // 吸分技能需要枚举
           }
         } catch (_) { /* no ref */ }
@@ -197,11 +197,8 @@ export class DeckCalculator {
       for (let i = 0; i < cardNum; ++i) {
         const [s1, s2] = prepareSkills[i]
         const s = (mask & (1 << i)) !== 0 ? { ...s1 } : { ...s2 }
-        // 被吸技能时的值：对于吸技能卡，scoreUpToReference 已在预处理中设为基础值（不含吸分上限）
-        // 对于非吸技能卡，scoreUpToReference 等于 scoreUpFixed
-        if (!s.hasScoreUpReference) {
-          s.scoreUpToReference = s.scoreUpFixed
-        }
+        // 被吸技能时的值：所有卡都按 scoreUpFixed 来算（吸技能卡按最高膨胀值）
+        s.scoreUpToReference = s.scoreUpFixed
         skills.push(s)
       }
 
