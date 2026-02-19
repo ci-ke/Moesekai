@@ -9,7 +9,7 @@ import { getEventBannerUrl, getEventLogoUrl } from "@/lib/assets";
 import { loadTranslations, TranslationData } from "@/lib/translations";
 
 export default function CurrentEventTab() {
-    const { assetSource, themeColor } = useTheme();
+    const { assetSource, themeColor, isShowSpoiler } = useTheme();
     const [currentEvent, setCurrentEvent] = useState<IEventInfo | null>(null);
     const [translations, setTranslations] = useState<TranslationData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -32,7 +32,8 @@ export default function CurrentEventTab() {
                     .sort((a, b) => a.startAt - b.startAt);
 
                 const ongoingEvent = sortedEvents.find(e => e.startAt <= now && e.aggregateAt > now);
-                const upcomingEvent = sortedEvents.find(e => e.startAt > now);
+                // Only show upcoming event when spoiler mode is enabled
+                const upcomingEvent = isShowSpoiler ? sortedEvents.find(e => e.startAt > now) : null;
 
                 setCurrentEvent(ongoingEvent || upcomingEvent || null);
                 setError(null);
@@ -44,7 +45,7 @@ export default function CurrentEventTab() {
             }
         }
         fetchData();
-    }, []);
+    }, [isShowSpoiler]);
 
     if (isLoading) {
         return (

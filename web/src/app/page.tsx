@@ -6,11 +6,12 @@ import ExternalLink from "@/components/ExternalLink";
 import CurrentEventTab from "@/components/home/CurrentEventTab";
 import LatestCardsTab from "@/components/home/LatestCardsTab";
 import LatestMusicTab from "@/components/home/LatestMusicTab";
+import UpcomingLiveTab from "@/components/home/UpcomingLiveTab";
 import BilibiliDynamicTab from "@/components/home/BilibiliDynamicTab";
 import BirthdaySection from "@/components/home/BirthdaySection";
 import { getTodayBirthdays } from "@/lib/birthdays";
 
-type TabType = "event" | "cards" | "music";
+type TabType = "event" | "cards" | "music" | "live";
 
 const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
   {
@@ -37,6 +38,16 @@ const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+      </svg>
+    ),
+  },
+  {
+    id: "live",
+    label: "演唱会",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <rect x="2" y="7" width="20" height="15" rx="2" ry="2" strokeWidth={2} />
+        <polyline points="17 2 12 7 7 2" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
   },
@@ -248,6 +259,7 @@ export default function Home() {
               {activeTab === "event" && <CurrentEventTab />}
               {activeTab === "cards" && <LatestCardsTab />}
               {activeTab === "music" && <LatestMusicTab />}
+              {activeTab === "live" && <UpcomingLiveTab />}
             </Suspense>
           </div>
         </div>
