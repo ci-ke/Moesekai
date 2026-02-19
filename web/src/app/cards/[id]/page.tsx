@@ -31,11 +31,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export async function generateStaticParams() {
     try {
         const { fetchMergedBuildIds } = await import("@/lib/fetch");
+        const { appendFutureIds } = await import("@/lib/future-ids");
         const ids = await fetchMergedBuildIds<ICardInfo[]>(
             "cards.json",
             (cards) => cards.map((card) => card.id.toString())
         );
-        return ids.map((id) => ({ id }));
+        return appendFutureIds(ids, "cards").map((id) => ({ id }));
     } catch (e) {
         console.error("Error generating static params for cards:", e);
         return [];

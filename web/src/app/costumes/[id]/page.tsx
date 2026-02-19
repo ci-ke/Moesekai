@@ -6,6 +6,7 @@ import { fetchMasterData } from "@/lib/fetch";
 export async function generateStaticParams() {
     try {
         const { fetchMergedBuildIds } = await import("@/lib/fetch");
+        const { appendFutureIds } = await import("@/lib/future-ids");
         const ids = await fetchMergedBuildIds<ISnowyCostumesData>(
             "snowy_costumes.json",
             (data) => {
@@ -13,7 +14,7 @@ export async function generateStaticParams() {
                 return [...new Set(costumes.map(c => c.costume3dGroupId))].map(id => id.toString());
             }
         );
-        return ids.map((id) => ({ id }));
+        return appendFutureIds(ids, "costumes").map((id) => ({ id }));
     } catch (e) {
         console.error("Error generating static params for costumes:", e);
         return [];

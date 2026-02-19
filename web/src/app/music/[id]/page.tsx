@@ -6,11 +6,12 @@ import { fetchMasterData } from "@/lib/fetch";
 export async function generateStaticParams() {
     try {
         const { fetchMergedBuildIds } = await import("@/lib/fetch");
+        const { appendFutureIds } = await import("@/lib/future-ids");
         const ids = await fetchMergedBuildIds<IMusicInfo[]>(
             "musics.json",
             (musics) => musics.map((music) => music.id.toString())
         );
-        return ids.map((id) => ({ id }));
+        return appendFutureIds(ids, "musics").map((id) => ({ id }));
     } catch (e) {
         console.error("Error generating static params for musics:", e);
         return [];

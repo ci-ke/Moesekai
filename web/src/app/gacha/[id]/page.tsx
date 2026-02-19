@@ -8,12 +8,13 @@ export async function generateStaticParams() {
     console.log("Generating static params for gacha/[id]...");
     try {
         const { fetchMergedBuildIds } = await import("@/lib/fetch");
+        const { appendFutureIds } = await import("@/lib/future-ids");
         const ids = await fetchMergedBuildIds<IGachaInfo[]>(
             "gachas.json",
             (gachas) => gachas.map((gacha) => gacha.id.toString())
         );
         console.log(`Found ${ids.length} gachas (merged JP+CN).`);
-        return ids.map((id) => ({ id }));
+        return appendFutureIds(ids, "gachas").map((id) => ({ id }));
     } catch (e) {
         console.error("Error generating static params for gacha:", e);
         return [];
