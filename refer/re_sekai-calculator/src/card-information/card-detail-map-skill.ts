@@ -2,80 +2,76 @@ import { CardDetailMap } from './card-detail-map'
 import type { DeckCardSkillDetailPrepare } from './card-skill-calculator'
 
 export class CardDetailMapSkill extends CardDetailMap<DeckCardSkillDetailPrepare> {
-  private fixedSkill?: DeckCardSkillDetailPrepare = undefined
-  /**
-   * 设定与其他成员完全无关的固定数值技能（保底技能）
-   * @param value 设定的值
-   */
-  public setFixedSkill (value: DeckCardSkillDetailPrepare): void {
-    super.set('any', 1, 1, value.scoreUpFixed, value)
-    this.fixedSkill = value
+  /** 花前技能独立存储 */
+  private readonly preTrainingMap = new CardDetailMap<DeckCardSkillDetailPrepare>()
+  /** 是否存在花前技能（与花後不同的技能） */
+  private _hasPreTraining = false
+
+  public get hasPreTraining (): boolean {
+    return this._hasPreTraining
   }
 
   /**
-   * Bloom FES原创觉醒前：吸技能
-   * @param value 设定的值
+   * 设定花後（或唯一）技能值
+   * @param unit 组合标识 (any/ref/diff/具体组合名)
+   * @param unitMember 组合人数
+   * @param attrMember 属性人数
+   * @param cmpValue 用于剪枝的可比较值
+   * @param value 实际值
    */
-  public setReferenceSkill (value: DeckCardSkillDetailPrepare): void {
-    if (value.scoreUpReference === undefined) {
-      throw new Error('scoreUpReference is not defined')
-    }
-    // 最小可能值为吸10%技能
-    super.updateMinMax(value.scoreUpReference.base + Math.floor(10 * value.scoreUpReference.rate / 100))
-    super.set('any', 1, 1, value.scoreUpReference.max, value)
-    this.fixedSkill = value
+  public setSkill (unit: string, unitMember: number, attrMember: number, cmpValue: number, value: DeckCardSkillDetailPrepare): void {
+    super.set(unit, unitMember, attrMember, cmpValue, value)
   }
 
   /**
-   * V家限定：根据组合人数确定技能效果
-   * @param unit 特定卡牌组合（虚拟歌手卡牌可能存在两个组合）
-   * @param unitMember 该组合对应的人数（1~5人）
-   * @param value 设定的值
+   * 设定花前技能值（仅当花前花後技能不同时使用）
    */
-  public setSameUnitSkill (unit: string, unitMember: number, value: DeckCardSkillDetailPrepare): void {
-    super.set(unit, unitMember, 1, value.scoreUpFixed, value)
-    this.fixedSkill = undefined
+  public setPreTrainingSkill (unit: string, unitMember: number, attrMember: number, cmpValue: number, value: DeckCardSkillDetailPrepare): void {
+    this.preTrainingMap.setPublic(unit, unitMember, attrMember, cmpValue, value)
+    this._hasPreTraining = true
   }
 
   /**
-   * Bloom Fes V家觉醒前：根据不同组合数量确定技能效果
-   * @param unitMember 不同组合的数量（1~2个）
-   * @param value 设定的值
-   */
-  public setDiffUnitSkill (unitMember: number, value: DeckCardSkillDetailPrepare): void {
-    this.setSameUnitSkill('diff', unitMember, value)
-  }
-
-  /**
-   * 获取给定情况下的技能
-   * 会返回最合适的值，如果给定的条件与卡牌完全不符会给出异常
-   * @param unit 特定卡牌组合（虚拟歌手卡牌可能存在两个组合）
-   * @param unitMember 该组合对应的人数（真实值）
+   * 获取花後（或唯一）技能
    */
   public getSkill (unit: string, unitMember: number): DeckCardSkillDetailPrepare {
-    // 如果当前只有固定技能，返回固定技能
-    if (this.fixedSkill !== undefined) {
-      return this.fixedSkill
+    return CardDetailMapSkill.resolveSkill(this, unit, unitMember)
+  }
+
+  /**
+   * 获取花前技能
+   */
+  public getPreTrainingSkill (unit: string, unitMember: number): DeckCardSkillDetailPrepare {
+    if (!this._hasPreTraining) {
+      throw new Error('no pre-training skill')
     }
-    // 与当前组合相关的技能
-    let best = this.getInternal(unit, unitMember, 1)
-    if (best !== undefined) {
-      return best
+    return CardDetailMapSkill.resolveSkill(this.preTrainingMap, unit, unitMember)
+  }
+
+  /**
+   * 从指定 map 中按优先级查找技能
+   */
+  private static resolveSkill (map: CardDetailMap<DeckCardSkillDetailPrepare>, unit: string, unitMember: number): DeckCardSkillDetailPrepare {
+    // 吸技能
+    if (unit === 'ref') {
+      const best = map.getInternal('ref', 1, 1)
+      if (best !== undefined) return best
     }
-    // 有可能是混组技能，被优化成了1或2
+
+    // 异组技能
     if (unit === 'diff') {
-      best = this.getInternal('diff', Math.min(2, unitMember), 1)
-      if (best !== undefined) {
-        return best
-      }
+      const best = map.getInternal('diff', Math.min(2, unitMember), 1)
+      if (best !== undefined) return best
     }
-    // 有可能因为技能是固定数值，attrMember、unitMember都优化成1了，组合直接为any
-    // 約定：不管是哪种技能，都需要设置any 1 1，不然deck-calculator取技能的时候会报错
-    best = this.getInternal('any', 1, 1)
-    if (best !== undefined) {
-      return best
-    }
-    // 如果这还找不到，说明给的情况就不对
+
+    // 与当前组合相关的技能（组分）
+    const best = map.getInternal(unit, unitMember, 1)
+    if (best !== undefined) return best
+
+    // 固定数值技能（保底）
+    const fallback = map.getInternal('any', 1, 1)
+    if (fallback !== undefined) return fallback
+
     throw new Error('case not found')
   }
 }

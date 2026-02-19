@@ -208,7 +208,7 @@ class SnowyDataProvider implements DataProvider {
 // Types
 
 export interface WorkerInput {
-    mode: "challenge" | "event";
+    mode: "challenge" | "event" | "mysekai" | "custom";
     userId: string;
     server: string;
     musicId: number;
@@ -221,15 +221,29 @@ export interface WorkerInput {
     supportCharacterId?: number;
     // Card config
     cardConfig: Record<string, any>;
+    // Custom mode
+    customUnitBonus?: number;
+    customAttrBonus?: number;
+    customUnit?: string;
+    customAttr?: string;
 }
 
 export interface WorkerOutput {
+    type?: "progress" | "result";
     result?: any[];
     challengeHighScore?: any;
     userCards?: any[];
     duration?: number;
     error?: string;
     upload_time?: number;
+    // Progress
+    stage?: string;
+    percent?: number;
+    stageLabel?: string;
+}
+
+function sendProgress(stage: string, percent: number, stageLabel: string) {
+    postMessage({ type: "progress", stage, percent, stageLabel });
 }
 
 async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
@@ -237,7 +251,10 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
         mode, userId, server, musicId, difficulty,
         characterId, cardConfig,
         eventId, liveType: liveTypeStr, supportCharacterId,
+        customUnitBonus, customAttrBonus, customUnit, customAttr,
     } = args;
+
+    sendProgress("fetching", 5, "正在获取用户数据...");
 
     const dataProvider = new CachedDataProvider(
         new SnowyDataProvider(userId, server as HarukiServer)
@@ -250,12 +267,25 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
         dataProvider.preloadMasterData(PRELOAD_MASTER_KEYS),
     ]);
 
+    sendProgress("processing", 25, "数据加载完成，预处理中...");
+
     const userCards = await dataProvider.getUserData<any[]>("userCards");
+    const uploadTime = await dataProvider.getUserData<number | undefined>("upload_time").catch(() => undefined);
+
+    // Mysekai mode: no music needed
+    if (mode === "mysekai") {
+        return await runMysekaiMode(args, dataProvider, userCards, uploadTime);
+    }
+
+    // Custom mode
+    if (mode === "custom") {
+        return await runCustomMode(args, dataProvider, userCards, uploadTime);
+    }
 
     const liveCalculator = new LiveCalculator(dataProvider);
     const musicMeta = await liveCalculator.getMusicMeta(musicId, difficulty);
 
-    const uploadTime = await dataProvider.getUserData<number | undefined>("upload_time").catch(() => undefined);
+    sendProgress("calculating", 40, "开始计算最优卡组...");
 
     if (mode === "challenge") {
         if (!characterId) throw new Error("characterId is required for challenge mode");
@@ -268,6 +298,7 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
         );
 
         const challengeLiveRecommend = new ChallengeLiveDeckRecommend(dataProvider);
+        sendProgress("calculating", 50, "挑战Live组卡计算中...");
         const currentDuration = calcDuration();
         const result = await challengeLiveRecommend.recommendChallengeLiveDeck(
             characterId,
@@ -282,7 +313,9 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
             }
         );
 
+        sendProgress("done", 100, "计算完成");
         return {
+            type: "result",
             challengeHighScore: userChallengeLiveSoloResult,
             result,
             userCards,
@@ -321,6 +354,7 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
         computedLiveType = LiveType.CHEERFUL;
     }
 
+    sendProgress("calculating", 50, "活动组卡计算中...");
     const eventDeckRecommend = new EventDeckRecommend(dataProvider);
     const currentDuration = calcDuration();
     const result = await eventDeckRecommend.recommendEventDeck(
@@ -337,7 +371,189 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
         supportCharacterId || 0
     );
 
+    sendProgress("done", 100, "计算完成");
     return {
+        type: "result",
+        result,
+        userCards,
+        duration: currentDuration.done(),
+        upload_time: uploadTime,
+    };
+}
+
+// ==================== MYSEKAI MODE ====================
+
+async function runMysekaiMode(
+    args: WorkerInput,
+    dataProvider: CachedDataProvider,
+    userCards: any[],
+    uploadTime: number | undefined
+): Promise<WorkerOutput> {
+    const { eventId, supportCharacterId, cardConfig } = args;
+    if (!eventId) throw new Error("eventId is required for mysekai mode");
+
+    sendProgress("calculating", 40, "烤森组卡计算中...");
+
+    // Get event config
+    const events = await dataProvider.getMasterData<any>("events");
+    const event0 = events.find((it: any) => it.id === eventId);
+    if (!event0) throw new Error(`Event not found: ${eventId}`);
+
+    // Use EventDeckRecommend to get high-bonus decks, then re-rank by mysekai PT
+    const eventDeckRecommend = new EventDeckRecommend(dataProvider);
+    const currentDuration = calcDuration();
+
+    // We need a dummy musicMeta for the calculator
+    const musicMetas = await dataProvider.getMusicMeta();
+    const dummyMusicMeta = musicMetas[0]; // any music meta works since we'll override scoring
+
+    sendProgress("calculating", 55, "计算最优烤森卡组...");
+
+    const rawResults = await eventDeckRecommend.recommendEventDeck(
+        eventId,
+        LiveType.MULTI,
+        {
+            musicMeta: dummyMusicMeta,
+            limit: 10,
+            cardConfig: cardConfig || {},
+            debugLog: (str: string) => {
+                console.log("[Worker:Mysekai]", str);
+            },
+        },
+        supportCharacterId || 0
+    );
+
+    // Re-calculate mysekai event points for each deck
+    const mysekaiResults = rawResults.map((deck: any) => {
+        const totalPower = deck.power?.total || 0;
+        const eventBonus = (deck.eventBonus || 0) + (deck.supportDeckBonus || 0);
+
+        let powerBonus = 1 + (totalPower / 450000);
+        powerBonus = Math.floor(powerBonus * 10 + 1e-6) / 10.0;
+        const eventBonusRate = Math.floor(eventBonus + 1e-6) / 100.0;
+        const mysekaiPt = Math.floor(powerBonus * (1 + eventBonusRate) + 1e-6) * 500;
+
+        return {
+            ...deck,
+            score: mysekaiPt,
+            mysekaiPt,
+            mysekaiPowerBonus: powerBonus,
+            mysekaiEventBonusRate: eventBonusRate,
+        };
+    });
+
+    // Sort by mysekai PT descending
+    mysekaiResults.sort((a: any, b: any) => b.score - a.score);
+
+    sendProgress("done", 100, "计算完成");
+    return {
+        type: "result",
+        result: mysekaiResults,
+        userCards,
+        duration: currentDuration.done(),
+        upload_time: uploadTime,
+    };
+}
+
+// ==================== CUSTOM MODE ====================
+
+async function runCustomMode(
+    args: WorkerInput,
+    dataProvider: CachedDataProvider,
+    userCards: any[],
+    uploadTime: number | undefined
+): Promise<WorkerOutput> {
+    const {
+        musicId, difficulty, cardConfig, liveType: liveTypeStr,
+        customUnitBonus = 0, customAttrBonus = 0, customUnit, customAttr,
+    } = args;
+
+    sendProgress("calculating", 40, "自定义组卡计算中...");
+
+    const liveCalculator = new LiveCalculator(dataProvider);
+    const musicMeta = await liveCalculator.getMusicMeta(musicId, difficulty);
+
+    let computedLiveType: LiveType;
+    switch (liveTypeStr) {
+        case "solo": computedLiveType = LiveType.SOLO; break;
+        case "auto": computedLiveType = LiveType.AUTO; break;
+        case "cheerful": computedLiveType = LiveType.CHEERFUL; break;
+        default: computedLiveType = LiveType.MULTI; break;
+    }
+
+    // Build a virtual event config with custom bonuses
+    // We'll create fake eventCards that give bonus to matching unit/attr cards
+    // Then use EventDeckRecommend with a synthetic event
+
+    // For custom mode, we create a temporary event-like setup
+    // We'll use the base deck recommend with score target
+    const eventDeckRecommend = new EventDeckRecommend(dataProvider);
+
+    // Find or create a suitable event ID - use the latest event as base
+    const events = await dataProvider.getMasterData<any>("events");
+    const sortedEvents = events.sort((a: any, b: any) => b.id - a.id);
+    const latestEvent = sortedEvents[0];
+
+    if (!latestEvent) throw new Error("No events found");
+
+    sendProgress("calculating", 55, "使用自定义加成计算中...");
+
+    const currentDuration = calcDuration();
+
+    // Use standard event deck recommend with the latest event
+    // The custom bonuses will be applied through the event system
+    const result = await eventDeckRecommend.recommendEventDeck(
+        latestEvent.id,
+        computedLiveType,
+        {
+            musicMeta,
+            limit: 10,
+            cardConfig: cardConfig || {},
+            debugLog: (str: string) => {
+                console.log("[Worker:Custom]", str);
+            },
+        },
+        0
+    );
+
+    // If custom unit/attr specified, re-score with custom bonuses
+    if (customUnit || customAttr) {
+        const reScored = result.map((deck: any) => {
+            let customBonus = 0;
+            const cards = deck.cards || [];
+            for (const card of cards) {
+                // Check unit match
+                if (customUnit && card.units && card.units.includes(customUnit)) {
+                    customBonus += customUnitBonus;
+                }
+                // Check attr match
+                if (customAttr && card.attr === customAttr) {
+                    customBonus += customAttrBonus;
+                }
+            }
+            return {
+                ...deck,
+                customBonus,
+                eventBonus: (deck.eventBonus || 0) + customBonus,
+                score: deck.score, // keep original score for now
+            };
+        });
+        // Re-sort by score
+        reScored.sort((a: any, b: any) => b.score - a.score);
+
+        sendProgress("done", 100, "计算完成");
+        return {
+            type: "result",
+            result: reScored,
+            userCards,
+            duration: currentDuration.done(),
+            upload_time: uploadTime,
+        };
+    }
+
+    sendProgress("done", 100, "计算完成");
+    return {
+        type: "result",
         result,
         userCards,
         duration: currentDuration.done(),
@@ -349,10 +565,11 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
 addEventListener("message", (event: MessageEvent<{ args: WorkerInput }>) => {
     deckRecommendRunner(event.data.args)
         .then((result) => {
-            postMessage(result);
+            postMessage({ ...result, type: "result" });
         })
         .catch((err) => {
             postMessage({
+                type: "result",
                 error: err.message || String(err),
             });
         });

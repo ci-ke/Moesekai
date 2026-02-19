@@ -80,7 +80,8 @@ export class CardCalculator {
       skill,
       eventBonus,
       supportDeckBonus,
-      hasCanvasBonus
+      hasCanvasBonus,
+      defaultImage: userCard0.defaultImage ?? 'original'
     }
   }
 
@@ -147,6 +148,8 @@ export interface CardDetail {
   eventBonus?: CardDetailMapEventBonus
   supportDeckBonus?: number
   hasCanvasBonus: boolean
+  /** 卡面状态（original/special_training） */
+  defaultImage: string
 }
 
 export interface CardConfig {

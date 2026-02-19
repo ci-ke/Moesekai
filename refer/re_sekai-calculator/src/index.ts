@@ -26,7 +26,11 @@ export * from './deck-recommend/challenge-live-deck-recommend'
 export * from './deck-recommend/event-deck-recommend'
 export * from './deck-recommend/event-bonus-deck-recommend'
 export * from './deck-recommend/find-best-cards-ga'
+export * from './deck-recommend/mysekai-deck-recommend'
 export * from './music-recommend/music-recommend'
+
+// Mysekai Calculator
+export * from './mysekai-information/mysekai-event-calculator'
 
 // Common struct
 export * from './common/music-meta'

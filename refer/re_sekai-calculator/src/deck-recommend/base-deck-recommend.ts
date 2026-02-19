@@ -2,6 +2,7 @@ import { type DataProvider } from '../data-provider/data-provider'
 import { CardCalculator, type CardConfig, type CardDetail } from '../card-information/card-calculator'
 import {
   DeckCalculator,
+  SkillReferenceChooseStrategy,
   type DeckDetail
 } from '../deck-information/deck-calculator'
 import { LiveType } from '../live-score/live-calculator'
@@ -20,6 +21,20 @@ export enum RecommendAlgorithm {
   DFS = 'dfs',
   /** 遗传算法（快速近似） */
   GA = 'ga'
+}
+
+/** 推荐优化目标 */
+export enum RecommendTarget {
+  /** 分数最高 */
+  Score = 'score',
+  /** 综合力最高 */
+  Power = 'power',
+  /** 技能实效最高 */
+  Skill = 'skill',
+  /** 指定活动加成 */
+  Bonus = 'bonus',
+  /** 烤森活动点数最高 */
+  Mysekai = 'mysekai'
 }
 
 export class BaseDeckRecommend {
@@ -42,6 +57,9 @@ export class BaseDeckRecommend {
     cardDetails: CardDetail[], allCards: CardDetail[], scoreFunc: (deckDetail: DeckDetail) => number, limit: number = 1,
     isChallengeLive: boolean = false, member: number = 5, leaderCharacter: number = 0, honorBonus: number = 0,
     eventConfig: EventConfig = {},
+    skillReferenceChooseStrategy: SkillReferenceChooseStrategy = SkillReferenceChooseStrategy.Average,
+    keepAfterTrainingState: boolean = false,
+    bestSkillAsLeader: boolean = true,
     deckCards: CardDetail[] = [],
     dfsState?: DFSState
   ): RecommendDeck[] {
@@ -58,7 +76,8 @@ export class BaseDeckRecommend {
     if (deckCards.length === member) {
       const deckDetail = DeckCalculator.getDeckDetailByCards(
         deckCards, allCards, honorBonus, eventConfig.cardBonusCountLimit,
-        eventConfig.worldBloomDifferentAttributeBonuses
+        eventConfig.worldBloomDifferentAttributeBonuses,
+        skillReferenceChooseStrategy, keepAfterTrainingState, bestSkillAsLeader
       )
       const score = scoreFunc(deckDetail)
 
@@ -93,7 +112,8 @@ export class BaseDeckRecommend {
       swap(deckCards, 0, bestScoreIndex)
       return BaseDeckRecommend.findBestCardsDFS(
         cardDetails, allCards, scoreFunc, limit, isChallengeLive, member, leaderCharacter, honorBonus,
-        eventConfig, deckCards, dfsState)
+        eventConfig, skillReferenceChooseStrategy, keepAfterTrainingState, bestSkillAsLeader,
+        deckCards, dfsState)
     }
     // 非完整卡组，继续遍历所有情况
     let ans: RecommendDeck[] = []
@@ -144,7 +164,8 @@ export class BaseDeckRecommend {
       // 递归
       const result = BaseDeckRecommend.findBestCardsDFS(
         cardDetails, allCards, scoreFunc, limit, isChallengeLive, member, leaderCharacter, honorBonus,
-        eventConfig, [...deckCards, card], dfsState)
+        eventConfig, skillReferenceChooseStrategy, keepAfterTrainingState, bestSkillAsLeader,
+        [...deckCards, card], dfsState)
       ans = updateDeck(ans, result, limit)
     }
     // 在最外层检查一下是否成功组队
@@ -183,7 +204,11 @@ export class BaseDeckRecommend {
       },
       algorithm = RecommendAlgorithm.GA,
       gaConfig = {},
-      timeoutMs = 30000
+      timeoutMs = 30000,
+      target = RecommendTarget.Score,
+      skillReferenceChooseStrategy = SkillReferenceChooseStrategy.Average,
+      keepAfterTrainingState = false,
+      bestSkillAsLeader = true
     }: DeckRecommendConfig,
     liveType: LiveType,
     eventConfig: EventConfig = {}
@@ -223,7 +248,8 @@ export class BaseDeckRecommend {
       const gaResult = findBestCardsGA(
         cards, cards, scoreFunc, musicMeta, limit,
         liveType === LiveType.CHALLENGE, member, honorBonus, eventConfig,
-        { ...gaConfig, timeoutMs: Math.max(1000, timeoutMs - (Date.now() - startTime)) }
+        { ...gaConfig, timeoutMs: Math.max(1000, timeoutMs - (Date.now() - startTime)) },
+        skillReferenceChooseStrategy, keepAfterTrainingState, bestSkillAsLeader
       )
 
       if (gaResult.length >= limit) {
@@ -250,7 +276,9 @@ export class BaseDeckRecommend {
         const dfsState = new DFSState(Math.max(1000, timeoutMs - (Date.now() - startTime)))
         const recommend = BaseDeckRecommend.findBestCardsDFS(cards0, cards,
           deckDetail => scoreFunc(musicMeta, deckDetail), limit, liveType === LiveType.CHALLENGE, member,
-          leaderCharacter, honorBonus, eventConfig, [], dfsState)
+          leaderCharacter, honorBonus, eventConfig,
+          skillReferenceChooseStrategy, keepAfterTrainingState, bestSkillAsLeader,
+          [], dfsState)
 
         // 合并 GA 和 DFS 结果
         const merged = updateDeck(gaResult, recommend, limit)
@@ -275,7 +303,9 @@ export class BaseDeckRecommend {
       const dfsState = new DFSState(Math.max(1000, timeoutMs - (Date.now() - startTime)))
       const recommend = BaseDeckRecommend.findBestCardsDFS(cards0, cards,
         deckDetail => scoreFunc(musicMeta, deckDetail), limit, liveType === LiveType.CHALLENGE, member,
-        leaderCharacter, honorBonus, eventConfig, [], dfsState)
+        leaderCharacter, honorBonus, eventConfig,
+        skillReferenceChooseStrategy, keepAfterTrainingState, bestSkillAsLeader,
+        [], dfsState)
       if (recommend.length >= limit) return recommend
     }
     throw new Error(`Timeout: Cannot recommend deck in ${timeoutMs}ms`)
@@ -318,4 +348,12 @@ export interface DeckRecommendConfig {
   gaConfig?: GAConfig
   /** 超时时间（毫秒），默认 30 秒 */
   timeoutMs?: number
+  /** 推荐优化目标，默认 Score */
+  target?: RecommendTarget
+  /** 吸技能选择策略，默认 Average */
+  skillReferenceChooseStrategy?: SkillReferenceChooseStrategy
+  /** 是否保持花前花后状态（不自动优化），默认 false */
+  keepAfterTrainingState?: boolean
+  /** 是否自动将技能最高的卡放到队长位，默认 true */
+  bestSkillAsLeader?: boolean
 }

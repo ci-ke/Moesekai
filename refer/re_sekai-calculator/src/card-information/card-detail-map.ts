@@ -22,6 +22,13 @@ export class CardDetailMap<T> {
   }
 
   /**
+   * 公开版本的 set，供外部组合使用
+   */
+  public setPublic (unit: string, unitMember: number, attrMember: number, cmpValue: number, value: T): void {
+    this.set(unit, unitMember, attrMember, cmpValue, value)
+  }
+
+  /**
    * 更新最大最小值（不在values中存储值本身）
    * @param cmpValue 用于比较的值
    */
@@ -30,7 +37,7 @@ export class CardDetailMap<T> {
     this.max = Math.max(this.max, cmpValue)
   }
 
-  protected getInternal (unit: string, unitMember: number, attrMember: number): T | undefined {
+  public getInternal (unit: string, unitMember: number, attrMember: number): T | undefined {
     return this.values.get(CardDetailMap.getKey(unit, unitMember, attrMember))
   }
 

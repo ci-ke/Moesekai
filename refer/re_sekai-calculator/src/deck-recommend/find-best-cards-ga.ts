@@ -1,5 +1,5 @@
 import { type CardDetail } from '../card-information/card-calculator'
-import { DeckCalculator } from '../deck-information/deck-calculator'
+import { DeckCalculator, SkillReferenceChooseStrategy } from '../deck-information/deck-calculator'
 import { type RecommendDeck, type ScoreFunction } from './base-deck-recommend'
 import { type EventConfig } from '../event-point/event-service'
 import { type MusicMeta } from '../common/music-meta'
@@ -118,7 +118,10 @@ export function findBestCardsGA (
   member: number = 5,
   honorBonus: number = 0,
   eventConfig: EventConfig = {},
-  gaConfig: GAConfig = {}
+  gaConfig: GAConfig = {},
+  skillReferenceChooseStrategy: SkillReferenceChooseStrategy = SkillReferenceChooseStrategy.Average,
+  keepAfterTrainingState: boolean = false,
+  bestSkillAsLeader: boolean = true
 ): RecommendDeck[] {
   const cfg = { ...DEFAULT_GA_CONFIG, ...gaConfig }
 
@@ -189,7 +192,8 @@ export function findBestCardsGA (
     const deckDetail = DeckCalculator.getDeckDetailByCards(
       individual.deck, allCards, honorBonus,
       eventConfig.cardBonusCountLimit,
-      eventConfig.worldBloomDifferentAttributeBonuses
+      eventConfig.worldBloomDifferentAttributeBonuses,
+      skillReferenceChooseStrategy, keepAfterTrainingState, bestSkillAsLeader
     )
     const score = scoreFunc(musicMeta, deckDetail)
     individual.fitness = score
