@@ -72,20 +72,20 @@ const DEFAULT_CARD_CONFIG: Record<string, CardConfigItem> = {
 };
 
 const UNIT_OPTIONS = [
-    { value: "light_sound", label: "Leo/need", color: "#4455DD" },
-    { value: "idol", label: "MORE MORE JUMP!", color: "#88DD44" },
-    { value: "street", label: "Vivid BAD SQUAD", color: "#EE1166" },
-    { value: "theme_park", label: "WonderShow", color: "#FF9900" },
-    { value: "school_refusal", label: "25時", color: "#884499" },
-    { value: "piapro", label: "Virtual Singer", color: "#33CCBB" },
+    { value: "light_sound", label: "Leo/need", icon: "ln.webp" },
+    { value: "idol", label: "MORE MORE JUMP!", icon: "mmj.webp" },
+    { value: "street", label: "Vivid BAD SQUAD", icon: "vbs.webp" },
+    { value: "theme_park", label: "WonderShow", icon: "wxs.webp" },
+    { value: "school_refusal", label: "25時", icon: "n25.webp" },
+    { value: "piapro", label: "Virtual Singer", icon: "vs.webp" },
 ];
 
 const ATTR_OPTIONS = [
-    { value: "cool", label: "Cool", color: "#4455dd" },
-    { value: "cute", label: "Cute", color: "#ff6699" },
-    { value: "happy", label: "Happy", color: "#ffaa00" },
-    { value: "mysterious", label: "Mysterious", color: "#bb88ff" },
-    { value: "pure", label: "Pure", color: "#44dd88" },
+    { value: "cool", label: "Cool", icon: "Cool.webp" },
+    { value: "cute", label: "Cute", icon: "cute.webp" },
+    { value: "happy", label: "Happy", icon: "Happy.webp" },
+    { value: "mysterious", label: "Mysterious", icon: "Mysterious.webp" },
+    { value: "pure", label: "Pure", icon: "Pure.webp" },
 ];
 
 function getErrorMessage(error: string): string {
@@ -387,13 +387,15 @@ export default function DeckRecommendClient() {
                                     <span className="w-1 h-4 bg-indigo-400 rounded-full"></span>自定义加成设置
                                 </h3>
                                 <div className="mb-4">
-                                    <label className="block text-xs font-medium text-slate-600 mb-2">团体加成</label>
+                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">团体加成</label>
                                     <div className="flex flex-wrap gap-2 mb-2">
                                         {UNIT_OPTIONS.map((u) => (
                                             <button key={u.value} onClick={() => setCustomUnit(customUnit === u.value ? "" : u.value)}
-                                                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${customUnit === u.value ? "text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-                                                style={customUnit === u.value ? { backgroundColor: u.color, boxShadow: `0 4px 6px ${u.color}33` } : {}}>
-                                                {u.label}
+                                                className={`p-1.5 rounded-xl transition-all ${customUnit === u.value ? "ring-2 ring-miku shadow-lg bg-white" : "hover:bg-slate-100 border border-transparent bg-slate-50"}`}
+                                                title={u.label}>
+                                                <div className="w-8 h-8 relative">
+                                                    <Image src={`/data/icon/${u.icon}`} alt={u.label} fill className="object-contain" unoptimized />
+                                                </div>
                                             </button>
                                         ))}
                                     </div>
@@ -407,13 +409,15 @@ export default function DeckRecommendClient() {
                                     )}
                                 </div>
                                 <div className="mb-2">
-                                    <label className="block text-xs font-medium text-slate-600 mb-2">属性加成</label>
+                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">属性加成</label>
                                     <div className="flex flex-wrap gap-2 mb-2">
                                         {ATTR_OPTIONS.map((a) => (
                                             <button key={a.value} onClick={() => setCustomAttr(customAttr === a.value ? "" : a.value)}
-                                                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${customAttr === a.value ? "text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-                                                style={customAttr === a.value ? { backgroundColor: a.color, boxShadow: `0 4px 6px ${a.color}33` } : {}}>
-                                                {a.label}
+                                                className={`p-1.5 rounded-xl transition-all ${customAttr === a.value ? "ring-2 ring-miku shadow-lg bg-white" : "hover:bg-slate-100 border border-transparent bg-slate-50"}`}
+                                                title={a.label}>
+                                                <div className="w-6 h-6 relative">
+                                                    <Image src={`/data/icon/${a.icon}`} alt={a.label} fill className="object-contain" unoptimized />
+                                                </div>
                                             </button>
                                         ))}
                                     </div>
@@ -633,9 +637,9 @@ function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards
                         );
                     })}
                 </div>
-                {(mode === "event" || mode === "mysekai") && eventBonus > 0 && (
+                {(mode === "event" || mode === "mysekai" || mode === "custom") && eventBonus > 0 && (
                     <div className="flex-shrink-0 text-right hidden sm:block">
-                        <div className="text-xs text-slate-400">加成</div>
+                        <div className="text-xs text-slate-400">{mode === "custom" ? "自定义加成" : "加成"}</div>
                         <div className="font-bold text-sm text-miku">{eventBonus}%</div>
                     </div>
                 )}
@@ -653,7 +657,7 @@ function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards
                                 <th className="text-left py-1 px-1">卡面名称</th>
                                 <th className="text-right py-1 px-1">综合力</th>
                                 <th className="text-right py-1 px-1">技能</th>
-                                {(mode === "event" || mode === "mysekai") && <th className="text-right py-1 px-1">活动加成</th>}
+                                {(mode === "event" || mode === "mysekai" || mode === "custom") && <th className="text-right py-1 px-1">{mode === "custom" ? "自定义加成" : "活动加成"}</th>}
                             </tr></thead>
                             <tbody>
                                 {deck.cards?.map((card: any, i: number) => {
@@ -671,7 +675,7 @@ function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards
                                                 <span>{card.skill?.scoreUp || 0}%</span>
                                                 {card.skill?.isPreTrainingSkill && <span className="ml-1 text-[9px] font-medium text-amber-500 bg-amber-50 px-1 py-[1px] rounded" title="该卡使用觉醒前（花前）技能效果">花前</span>}
                                             </td>
-                                            {(mode === "event" || mode === "mysekai") && (
+                                            {(mode === "event" || mode === "mysekai" || mode === "custom") && (
                                                 <td className="py-1.5 px-1 text-right font-bold text-amber-600">
                                                     {typeof eb === "string" ? eb : (eb?.total || eb?.all || 0) > 0 ? `${eb?.total || eb?.all}%` : "-"}
                                                 </td>
@@ -683,8 +687,8 @@ function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards
                         </table>
                     </div>
                     <div className="mt-2 flex gap-4 sm:hidden text-xs">
-                        {(mode === "event" || mode === "mysekai") && eventBonus > 0 && (
-                            <span className="text-slate-500">加成: <span className="font-bold text-miku">{eventBonus}%</span></span>
+                        {(mode === "event" || mode === "mysekai" || mode === "custom") && eventBonus > 0 && (
+                            <span className="text-slate-500">{mode === "custom" ? "自定义加成" : "加成"}: <span className="font-bold text-miku">{eventBonus}%</span></span>
                         )}
                     </div>
                 </div>

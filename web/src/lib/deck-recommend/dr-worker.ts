@@ -6,6 +6,7 @@
  * 部分算法优化修改于: https://github.com/NeuraXmy/sekai-deck-recommend-cpp  作者: luna茶
  */
 import {
+    BaseDeckRecommend,
     CachedDataProvider,
     ChallengeLiveDeckRecommend,
     DataProvider,
@@ -457,6 +458,16 @@ async function runMysekaiMode(
 
 // ==================== CUSTOM MODE ====================
 
+/** Map unit internal name to gameCharacterUnit unit field */
+const CUSTOM_UNIT_MAP: Record<string, string> = {
+    light_sound: "light_sound",
+    idol: "idol",
+    street: "street",
+    theme_park: "theme_park",
+    school_refusal: "school_refusal",
+    piapro: "piapro",
+};
+
 async function runCustomMode(
     args: WorkerInput,
     dataProvider: CachedDataProvider,
@@ -481,30 +492,79 @@ async function runCustomMode(
         default: computedLiveType = LiveType.MULTI; break;
     }
 
-    // Build a virtual event config with custom bonuses
-    // We'll create fake eventCards that give bonus to matching unit/attr cards
-    // Then use EventDeckRecommend with a synthetic event
+    // Build card info lookup: cardId -> { units: string[], attr: string }
+    const masterCards = await dataProvider.getMasterData<any>("cards");
+    const gameCharacterUnits = await dataProvider.getMasterData<any>("gameCharacterUnits");
 
-    // For custom mode, we create a temporary event-like setup
-    // We'll use the base deck recommend with score target
-    const eventDeckRecommend = new EventDeckRecommend(dataProvider);
+    // Build characterId -> units[] map
+    const charUnitsMap = new Map<number, string[]>();
+    for (const gcu of gameCharacterUnits) {
+        const charId = gcu.gameCharacterId;
+        if (!charUnitsMap.has(charId)) charUnitsMap.set(charId, []);
+        charUnitsMap.get(charId)!.push(gcu.unit);
+    }
 
-    // Find or create a suitable event ID - use the latest event as base
-    const events = await dataProvider.getMasterData<any>("events");
-    const sortedEvents = events.sort((a: any, b: any) => b.id - a.id);
-    const latestEvent = sortedEvents[0];
-
-    if (!latestEvent) throw new Error("No events found");
+    // Build cardId -> { attr, units, characterId } map
+    const cardInfoMap = new Map<number, { attr: string; units: string[]; characterId: number }>();
+    for (const card of masterCards) {
+        const units = charUnitsMap.get(card.characterId) || [];
+        cardInfoMap.set(card.id, {
+            attr: card.attr,
+            units,
+            characterId: card.characterId,
+        });
+    }
 
     sendProgress("calculating", 55, "使用自定义加成计算中...");
 
     const currentDuration = calcDuration();
 
-    // Use standard event deck recommend with the latest event
-    // The custom bonuses will be applied through the event system
-    const result = await eventDeckRecommend.recommendEventDeck(
-        latestEvent.id,
-        computedLiveType,
+    // Use BaseDeckRecommend with live score function (no event dependency)
+    const baseRecommend = new BaseDeckRecommend(dataProvider);
+
+    // Helper: calculate custom bonus for a deck's cards
+    const calcDeckCustomBonus = (cards: any[]): number => {
+        let totalCustomBonus = 0;
+        for (const card of cards) {
+            const info = cardInfoMap.get(card.cardId);
+            if (!info) continue;
+            if (customUnit && CUSTOM_UNIT_MAP[customUnit] && info.units.includes(CUSTOM_UNIT_MAP[customUnit])) {
+                totalCustomBonus += customUnitBonus;
+            }
+            if (customAttr && info.attr === customAttr) {
+                totalCustomBonus += customAttrBonus;
+            }
+        }
+        return totalCustomBonus;
+    };
+
+    // Inline event PT formula (from EventCalculator.getEventPoint)
+    // Produces proper PT values (~1k range) instead of raw live scores (millions)
+    const customScoreFunc = (meta: any, deckDetail: any) => {
+        // Get raw live score
+        const selfScore = LiveCalculator.getLiveScoreByDeck(deckDetail, meta, computedLiveType);
+        // Calculate custom bonus for this deck
+        const totalCustomBonus = calcDeckCustomBonus(deckDetail.cards || []);
+
+        const musicRate0 = (meta.event_rate || 100) / 100;
+        const deckRate = totalCustomBonus / 100 + 1;
+
+        let baseScore: number;
+        if (computedLiveType === LiveType.SOLO || computedLiveType === LiveType.AUTO) {
+            // Solo/Auto: 100 + floor(selfScore / 20000)
+            baseScore = 100 + Math.floor(selfScore / 20000);
+        } else {
+            // Multi: 110 + floor(selfScore / 17000) + min(13, floor(4*selfScore / 340000))
+            const otherScore = 4 * selfScore;
+            baseScore = 110 + Math.floor(selfScore / 17000) + Math.min(13, Math.floor(otherScore / 340000));
+        }
+
+        return Math.floor(baseScore * musicRate0 * deckRate);
+    };
+
+    const result = await baseRecommend.recommendHighScoreDeck(
+        userCards,
+        customScoreFunc,
         {
             musicMeta,
             limit: 10,
@@ -513,48 +573,45 @@ async function runCustomMode(
                 console.log("[Worker:Custom]", str);
             },
         },
-        0
+        computedLiveType,
+        {} // empty eventConfig - no event bonuses
     );
 
-    // If custom unit/attr specified, re-score with custom bonuses
-    if (customUnit || customAttr) {
-        const reScored = result.map((deck: any) => {
-            let customBonus = 0;
-            const cards = deck.cards || [];
-            for (const card of cards) {
-                // Check unit match
-                if (customUnit && card.units && card.units.includes(customUnit)) {
-                    customBonus += customUnitBonus;
+    // Enrich results with custom bonus info for display
+    const enriched = result.map((deck: any) => {
+        let totalCustomBonus = 0;
+        const cards = deck.cards || [];
+        const enrichedCards = cards.map((card: any) => {
+            const info = cardInfoMap.get(card.cardId);
+            let cardBonus = 0;
+            if (info) {
+                if (customUnit && CUSTOM_UNIT_MAP[customUnit] && info.units.includes(CUSTOM_UNIT_MAP[customUnit])) {
+                    cardBonus += customUnitBonus;
                 }
-                // Check attr match
-                if (customAttr && card.attr === customAttr) {
-                    customBonus += customAttrBonus;
+                if (customAttr && info.attr === customAttr) {
+                    cardBonus += customAttrBonus;
                 }
             }
+            totalCustomBonus += cardBonus;
             return {
-                ...deck,
-                customBonus,
-                eventBonus: (deck.eventBonus || 0) + customBonus,
-                score: deck.score, // keep original score for now
+                ...card,
+                eventBonus: cardBonus > 0 ? `${cardBonus}%` : undefined,
             };
         });
-        // Re-sort by score
-        reScored.sort((a: any, b: any) => b.score - a.score);
 
-        sendProgress("done", 100, "计算完成");
         return {
-            type: "result",
-            result: reScored,
-            userCards,
-            duration: currentDuration.done(),
-            upload_time: uploadTime,
+            ...deck,
+            cards: enrichedCards,
+            // deck.score is already the PT from EventCalculator.getEventPoint
+            eventBonus: totalCustomBonus,
+            customBonus: totalCustomBonus,
         };
-    }
+    });
 
     sendProgress("done", 100, "计算完成");
     return {
         type: "result",
-        result,
+        result: enriched,
         userCards,
         duration: currentDuration.done(),
         upload_time: uploadTime,
