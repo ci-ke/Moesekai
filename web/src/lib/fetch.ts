@@ -4,7 +4,12 @@
  * 
  * Build-time (SSG): Uses GitHub raw for large file stability
  * Runtime (Client): Uses selected master server (jp or cn)
+ * 
+ * IndexedDB caching: Runtime masterdata is cached in IndexedDB with version-aware
+ * invalidation. Cache is transparent to all callers of fetchMasterData().
  */
+
+import { getMasterDataCache, setMasterDataCache, isIndexedDBAvailable } from "./masterdata-cache";
 
 // Server source type
 export type ServerSourceType = "jp" | "cn";
@@ -148,7 +153,6 @@ export function clearCacheBypassFlag(): void {
  */
 export async function fetchMasterData<T>(path: string, noCache: boolean = false): Promise<T> {
     // Auto-detect if we need to bypass cache (after version sync refresh)
-    // Auto-detect if we need to bypass cache (after version sync refresh)
     const shouldNoCache = noCache || shouldBypassCache();
     const fetchOptions: RequestInit = shouldNoCache ? { cache: "no-store" } : {};
 
@@ -156,8 +160,6 @@ export async function fetchMasterData<T>(path: string, noCache: boolean = false)
     const params = new URLSearchParams();
 
     // 1. Version param (persistence enforcement)
-    // If we have a stored version, append it. This ensures that after a "Force Refresh"
-    // (which updates the stored version), subsequent normal loads use the NEW version's URL.
     const localVersion = getLocalVersion();
     if (localVersion) {
         params.append("v", localVersion);
@@ -169,6 +171,21 @@ export async function fetchMasterData<T>(path: string, noCache: boolean = false)
     }
 
     const queryString = params.toString() ? `?${params.toString()}` : "";
+
+    // ===== IndexedDB Cache Layer (client-side only) =====
+    if (!isBuildTime() && isIndexedDBAvailable() && localVersion) {
+        // Try reading from IndexedDB (skip if force-refreshing)
+        if (!shouldNoCache) {
+            try {
+                const cached = await getMasterDataCache<T>(path, localVersion);
+                if (cached !== null) {
+                    return cached;
+                }
+            } catch {
+                // IndexedDB read failed, fall through to network
+            }
+        }
+    }
 
     // Build-time: use GitHub raw (no fallback needed)
     if (isBuildTime()) {
@@ -205,7 +222,12 @@ export async function fetchMasterData<T>(path: string, noCache: boolean = false)
     try {
         const response = await fetchWithCompression(primaryUrl, fetchOptions);
         if (response.ok) {
-            return response.json();
+            const data: T = await response.json();
+            // Write to IndexedDB cache (async, non-blocking)
+            if (isIndexedDBAvailable() && localVersion) {
+                setMasterDataCache(path, data, localVersion).catch(() => {});
+            }
+            return data;
         }
         // Primary failed with non-ok status, try fallback
         console.warn(`[MasterData] Primary server failed for ${path}, trying fallback...`);
@@ -221,7 +243,14 @@ export async function fetchMasterData<T>(path: string, noCache: boolean = false)
         throw new Error(`Failed to fetch master data: ${path} (both primary and fallback servers failed)`);
     }
     console.log(`[MasterData] Successfully fetched ${path} from fallback server`);
-    return fallbackResponse.json();
+    const fallbackData: T = await fallbackResponse.json();
+
+    // Write to IndexedDB cache (async, non-blocking)
+    if (!isBuildTime() && isIndexedDBAvailable() && localVersion) {
+        setMasterDataCache(path, fallbackData, localVersion).catch(() => {});
+    }
+
+    return fallbackData;
 }
 
 /**

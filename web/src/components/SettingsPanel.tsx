@@ -365,14 +365,14 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                     </p>
                 </div>
 
-                {/* Version Info */}
+                {/* Version Info & Cache */}
                 <div className="border-t border-slate-100 mt-4 pt-4">
                     <div className="mb-3">
-                        <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Masterdata数据版本</span>
+                        <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">数据版本与缓存</span>
                     </div>
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                            <span className="text-xs text-slate-500">SnowyViewer云端最新版本:</span>
+                            <span className="text-xs text-slate-500">云端版本:</span>
                             <span className="text-xs font-mono text-slate-700">
                                 {isLoading ? "检测中..." : (cloudVersion || "加载失败")}
                             </span>
@@ -380,9 +380,31 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                         <div className="flex items-center justify-between">
                             <span className="text-xs text-slate-500">本地缓存版本:</span>
                             <span className={`text-xs font-mono ${(localVersion && localVersion !== cloudVersion) ? "text-amber-500 font-bold" : "text-slate-700"}`}>
-                                {localVersion || "未缓存 (使用默认源)"}
+                                {localVersion ? (
+                                    localVersion === cloudVersion ? (
+                                        <span className="flex items-center gap-1">
+                                            {localVersion}
+                                            <svg className="w-3 h-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </span>
+                                    ) : localVersion
+                                ) : "未缓存"}
                             </span>
                         </div>
+
+                        {/* Cache status indicator */}
+                        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 rounded-lg">
+                            <div className={`w-2 h-2 rounded-full ${localVersion && localVersion === cloudVersion ? "bg-green-400" : localVersion ? "bg-amber-400" : "bg-slate-300"}`} />
+                            <span className="text-[10px] text-slate-500">
+                                {localVersion && localVersion === cloudVersion
+                                    ? "数据已缓存至本地，后续访问将从浏览器数据库加载"
+                                    : localVersion
+                                        ? "检测到新版本，数据将在下次加载时自动更新"
+                                        : "首次访问，数据将从服务器加载并缓存到本地"}
+                            </span>
+                        </div>
+
                         <button
                             onClick={forceRefreshData}
                             disabled={isRefreshing || isLoading}
@@ -401,12 +423,12 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                     </svg>
-                                    强制刷新数据（实验性功能）
+                                    强制刷新全部数据
                                 </>
                             )}
                         </button>
                         <p className="text-[10px] text-slate-400 leading-relaxed">
-                            如果数据显示异常（如新卡片/歌曲不显示），请点击上方按钮强制刷新数据缓存。虽然也可能依旧不起作用，因为这个功能正在测试。SnowyViewer服务器上的版本不一定是最新版本。
+                            数据（Masterdata、翻译文本）已缓存至浏览器本地数据库（IndexedDB），版本更新时自动刷新。翻译文本每6小时在后台静默检查更新。图片资源通过 Service Worker 缓存，再次访问时秒加载。如遇数据异常可点击上方按钮清除所有缓存并重新拉取。
                         </p>
                     </div>
                 </div>
@@ -414,4 +436,3 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         </div>
     );
 }
-

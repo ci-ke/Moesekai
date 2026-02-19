@@ -1,7 +1,13 @@
 /**
  * Translation utilities for Japanese -> Chinese translations
  * Translation data is stored as static JSON files in /public/data/translations/
+ * 
+ * IndexedDB caching: Translation data is persisted in IndexedDB and keyed by
+ * a version hash derived from the masterdata version. On version change,
+ * stale translation cache entries are automatically invalidated.
  */
+
+import { getTranslationCache, setTranslationCache, isIndexedDBAvailable } from "./masterdata-cache";
 
 // Translation map type: original Japanese text -> Chinese translation
 export interface TranslationMap {
@@ -76,17 +82,107 @@ const emptyTranslationData: TranslationData = {
     costumes: { name: {}, colorName: {}, designer: {} },
 };
 
-// Cache for loaded translations
+// Cache for loaded translations (in-memory, per session)
 let translationCache: TranslationData | null = null;
 let loadingPromise: Promise<TranslationData> | null = null;
 
+// IndexedDB cache key for the combined translation bundle
+const TRANSLATION_IDB_KEY = "translations-bundle";
+
+// Translation cache TTL: 6 hours (translations may update independently of masterdata)
+const TRANSLATION_CACHE_TTL = 6 * 60 * 60 * 1000;
+
+// Key for storing translation cache timestamp in localStorage
+const TRANSLATION_CACHE_TIME_KEY = "translation-cache-time";
+
+/**
+ * Get the current translation version hash.
+ * Uses masterdata version from localStorage as the invalidation key.
+ * Falls back to a static string if no version is available.
+ */
+function getTranslationVersionHash(): string {
+    if (typeof window === "undefined") return "build";
+    return localStorage.getItem("masterdata-version") || "unknown";
+}
+
+/**
+ * Check if translation cache has expired (TTL-based)
+ */
+function isTranslationCacheStale(): boolean {
+    if (typeof window === "undefined") return true;
+    const cachedTime = localStorage.getItem(TRANSLATION_CACHE_TIME_KEY);
+    if (!cachedTime) return true;
+    return Date.now() - Number(cachedTime) > TRANSLATION_CACHE_TTL;
+}
+
+/**
+ * Fetch all translation files from network
+ */
+async function fetchAllTranslations(): Promise<TranslationData> {
+    const baseUrl = "/data/translations";
+
+    const [cards, events, music, virtualLive, mysekai, gacha, sticker, comic, characters, units, costumes] = await Promise.all([
+        fetchTranslationFile<TranslationData["cards"]>(`${baseUrl}/cards.json`),
+        fetchTranslationFile<TranslationData["events"]>(`${baseUrl}/events.json`),
+        fetchTranslationFile<TranslationData["music"]>(`${baseUrl}/music.json`),
+        fetchTranslationFile<TranslationData["virtualLive"]>(`${baseUrl}/virtualLive.json`),
+        fetchTranslationFile<TranslationData["mysekai"]>(`${baseUrl}/mysekai.json`),
+        fetchTranslationFile<TranslationData["gacha"]>(`${baseUrl}/gacha.json`),
+        fetchTranslationFile<TranslationData["sticker"]>(`${baseUrl}/sticker.json`),
+        fetchTranslationFile<TranslationData["comic"]>(`${baseUrl}/comic.json`),
+        fetchTranslationFile<TranslationData["characters"]>(`${baseUrl}/characters.json`),
+        fetchTranslationFile<TranslationData["units"]>(`${baseUrl}/units.json`),
+        fetchTranslationFile<TranslationData["costumes"]>(`${baseUrl}/costumes.json`),
+    ]);
+
+    return {
+        cards: cards ?? emptyTranslationData.cards,
+        events: events ?? emptyTranslationData.events,
+        music: music ?? emptyTranslationData.music,
+        virtualLive: virtualLive ?? emptyTranslationData.virtualLive,
+        mysekai: mysekai ?? emptyTranslationData.mysekai,
+        gacha: gacha ?? emptyTranslationData.gacha,
+        sticker: sticker ?? emptyTranslationData.sticker,
+        comic: comic ?? emptyTranslationData.comic,
+        characters: characters ?? emptyTranslationData.characters,
+        units: units ?? emptyTranslationData.units,
+        costumes: costumes ?? emptyTranslationData.costumes,
+    };
+}
+
+/**
+ * Background revalidation: fetch fresh translations and update cache if changed.
+ * Runs silently without blocking the UI.
+ */
+function backgroundRevalidateTranslations(versionHash: string): void {
+    fetchAllTranslations()
+        .then((fresh) => {
+            // Update in-memory cache
+            translationCache = fresh;
+            // Update IndexedDB cache
+            if (isIndexedDBAvailable()) {
+                setTranslationCache(TRANSLATION_IDB_KEY, fresh, versionHash).catch(() => {});
+            }
+            // Update timestamp
+            localStorage.setItem(TRANSLATION_CACHE_TIME_KEY, Date.now().toString());
+        })
+        .catch(() => {
+            // Silent fail — stale data is better than no data
+        });
+}
+
 /**
  * Load all translation data from JSON files
- * Returns cached data if already loaded
+ * Returns cached data if already loaded (memory → IndexedDB → network)
+ * Uses stale-while-revalidate: returns cached data immediately, refreshes in background if stale.
  */
 export async function loadTranslations(): Promise<TranslationData> {
-    // Return cached data if available
+    // 1. Return in-memory cache if available
     if (translationCache) {
+        // If cache is stale, trigger background revalidation
+        if (isTranslationCacheStale()) {
+            backgroundRevalidateTranslations(getTranslationVersionHash());
+        }
         return translationCache;
     }
 
@@ -97,39 +193,39 @@ export async function loadTranslations(): Promise<TranslationData> {
 
     // Start loading
     loadingPromise = (async (): Promise<TranslationData> => {
+        const versionHash = getTranslationVersionHash();
+
+        // 2. Try IndexedDB cache
+        if (isIndexedDBAvailable()) {
+            try {
+                const cached = await getTranslationCache<TranslationData>(TRANSLATION_IDB_KEY, versionHash);
+                if (cached) {
+                    translationCache = cached;
+                    // If stale, revalidate in background (stale-while-revalidate)
+                    if (isTranslationCacheStale()) {
+                        backgroundRevalidateTranslations(versionHash);
+                    }
+                    return cached;
+                }
+            } catch {
+                // IndexedDB read failed, fall through to network
+            }
+        }
+
+        // 3. Fetch from network (cache miss)
         try {
-            const baseUrl = "/data/translations";
-
-            // Load all translation files in parallel
-            const [cards, events, music, virtualLive, mysekai, gacha, sticker, comic, characters, units, costumes] = await Promise.all([
-                fetchTranslationFile<TranslationData["cards"]>(`${baseUrl}/cards.json`),
-                fetchTranslationFile<TranslationData["events"]>(`${baseUrl}/events.json`),
-                fetchTranslationFile<TranslationData["music"]>(`${baseUrl}/music.json`),
-                fetchTranslationFile<TranslationData["virtualLive"]>(`${baseUrl}/virtualLive.json`),
-                fetchTranslationFile<TranslationData["mysekai"]>(`${baseUrl}/mysekai.json`),
-                fetchTranslationFile<TranslationData["gacha"]>(`${baseUrl}/gacha.json`),
-                fetchTranslationFile<TranslationData["sticker"]>(`${baseUrl}/sticker.json`),
-                fetchTranslationFile<TranslationData["comic"]>(`${baseUrl}/comic.json`),
-                fetchTranslationFile<TranslationData["characters"]>(`${baseUrl}/characters.json`),
-                fetchTranslationFile<TranslationData["units"]>(`${baseUrl}/units.json`),
-                fetchTranslationFile<TranslationData["costumes"]>(`${baseUrl}/costumes.json`),
-            ]);
-
-            const result: TranslationData = {
-                cards: cards ?? emptyTranslationData.cards,
-                events: events ?? emptyTranslationData.events,
-                music: music ?? emptyTranslationData.music,
-                virtualLive: virtualLive ?? emptyTranslationData.virtualLive,
-                mysekai: mysekai ?? emptyTranslationData.mysekai,
-                gacha: gacha ?? emptyTranslationData.gacha,
-                sticker: sticker ?? emptyTranslationData.sticker,
-                comic: comic ?? emptyTranslationData.comic,
-                characters: characters ?? emptyTranslationData.characters,
-                units: units ?? emptyTranslationData.units,
-                costumes: costumes ?? emptyTranslationData.costumes,
-            };
-
+            const result = await fetchAllTranslations();
             translationCache = result;
+
+            // 4. Write to IndexedDB (async, non-blocking)
+            if (isIndexedDBAvailable()) {
+                setTranslationCache(TRANSLATION_IDB_KEY, result, versionHash).catch(() => {});
+            }
+            // Update timestamp
+            if (typeof window !== "undefined") {
+                localStorage.setItem(TRANSLATION_CACHE_TIME_KEY, Date.now().toString());
+            }
+
             return result;
         } catch (error) {
             console.error("Failed to load translations:", error);
@@ -180,8 +276,13 @@ export function hasTranslation(map: TranslationMap | undefined, key: string): bo
 
 /**
  * Clear the translation cache (useful for testing or forced refresh)
+ * Clears both in-memory and IndexedDB caches.
  */
 export function clearTranslationCache(): void {
     translationCache = null;
     loadingPromise = null;
+    // Also clear IndexedDB translation cache
+    if (isIndexedDBAvailable()) {
+        import("./masterdata-cache").then(m => m.clearTranslationCache()).catch(() => {});
+    }
 }

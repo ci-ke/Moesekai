@@ -1,6 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { fetchVersionInfoNoCache, MASTERDATA_VERSION_KEY, clearCacheBypassFlag, setCacheBypassFlag } from "@/lib/fetch";
+import { clearAllCache } from "@/lib/masterdata-cache";
 
 interface MasterDataContextType {
     cloudVersion: string | null;
@@ -42,11 +43,25 @@ export function MasterDataProvider({ children }: { children: React.ReactNode }) 
 
                 // Store the version after successful refresh
                 if (justRefreshed) {
+                    // Clear all IndexedDB cache on force refresh
+                    await clearAllCache();
                     localStorage.setItem(MASTERDATA_VERSION_KEY, cloud);
                     setLocalVersion(cloud);
                 } else {
-                    // Otherwise load from local storage
-                    setLocalVersion(localStorage.getItem(MASTERDATA_VERSION_KEY));
+                    const storedVersion = localStorage.getItem(MASTERDATA_VERSION_KEY);
+                    // If cloud version differs from stored version, clear stale cache
+                    if (storedVersion && storedVersion !== cloud) {
+                        console.log(`[MasterData] Version changed: ${storedVersion} → ${cloud}, clearing cache...`);
+                        await clearAllCache();
+                        localStorage.setItem(MASTERDATA_VERSION_KEY, cloud);
+                        setLocalVersion(cloud);
+                    } else if (!storedVersion) {
+                        // First visit, store the version
+                        localStorage.setItem(MASTERDATA_VERSION_KEY, cloud);
+                        setLocalVersion(cloud);
+                    } else {
+                        setLocalVersion(storedVersion);
+                    }
                 }
             } catch (e) {
                 console.warn("Failed to fetch cloud version:", e);

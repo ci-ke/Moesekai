@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { MasterDataProvider } from "@/contexts/MasterDataContext";
 import { TranslationProvider } from "@/contexts/TranslationContext";
+import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 
 
 
@@ -75,8 +76,8 @@ export default function RootLayout({
             </TranslationProvider>
           </MasterDataProvider>
         </ThemeProvider>
+        <ServiceWorkerRegistrar />
       </body>
     </html>
   );
 }
-
