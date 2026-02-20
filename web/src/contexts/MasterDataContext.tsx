@@ -3,6 +3,40 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { fetchVersionInfoNoCache, MASTERDATA_VERSION_KEY, clearCacheBypassFlag, setCacheBypassFlag } from "@/lib/fetch";
 import { clearAllCache } from "@/lib/masterdata-cache";
 
+// Circuit breaker: prevent infinite refresh loops
+const REFRESH_COUNT_KEY = "masterdata-refresh-count";
+const REFRESH_TS_KEY = "masterdata-refresh-ts";
+const MAX_REFRESHES = 2;          // max refreshes allowed within the time window
+const REFRESH_WINDOW_MS = 15_000; // 15 seconds
+
+function isRefreshAllowed(): boolean {
+    if (typeof window === "undefined") return false;
+    const now = Date.now();
+    const ts = parseInt(sessionStorage.getItem(REFRESH_TS_KEY) || "0", 10);
+    let count = parseInt(sessionStorage.getItem(REFRESH_COUNT_KEY) || "0", 10);
+
+    // Reset counter if outside the time window
+    if (now - ts > REFRESH_WINDOW_MS) {
+        count = 0;
+    }
+
+    return count < MAX_REFRESHES;
+}
+
+function recordRefresh(): void {
+    if (typeof window === "undefined") return;
+    const now = Date.now();
+    const ts = parseInt(sessionStorage.getItem(REFRESH_TS_KEY) || "0", 10);
+    let count = parseInt(sessionStorage.getItem(REFRESH_COUNT_KEY) || "0", 10);
+
+    if (now - ts > REFRESH_WINDOW_MS) {
+        count = 0;
+    }
+
+    sessionStorage.setItem(REFRESH_COUNT_KEY, String(count + 1));
+    sessionStorage.setItem(REFRESH_TS_KEY, String(now));
+}
+
 interface MasterDataContextType {
     cloudVersion: string | null;
     localVersion: string | null;
@@ -22,20 +56,31 @@ export function MasterDataProvider({ children }: { children: React.ReactNode }) 
     // Check version on mount and handle refresh param
     useEffect(() => {
         async function init() {
-            try {
-                // Check if we just refreshed (via _refresh param)
-                const url = new URL(window.location.href);
-                const justRefreshed = url.searchParams.has('_refresh');
+            // Check if we just refreshed (via _refresh param)
+            const url = new URL(window.location.href);
+            const justRefreshed = url.searchParams.has('_refresh');
 
-                // IMPORTANT: Set sessionStorage flag BEFORE cleaning URL
-                // This ensures other components can detect cache bypass mode
-                if (justRefreshed) {
-                    setCacheBypassFlag();
-                    // Now clean up the URL (visual cleanup only)
-                    url.searchParams.delete('_refresh');
-                    window.history.replaceState({}, '', url.toString());
+            // If this is a refresh landing, clean the URL immediately regardless of outcome
+            if (justRefreshed) {
+                url.searchParams.delete('_refresh');
+                window.history.replaceState({}, '', url.toString());
+
+                // Circuit breaker: if we've refreshed too many times recently, bail out
+                if (!isRefreshAllowed()) {
+                    console.warn("[MasterData] Refresh circuit breaker triggered — skipping refresh to prevent loop");
+                    clearCacheBypassFlag();
+                    // Still try to load normally with whatever version we have
+                    const storedVersion = localStorage.getItem(MASTERDATA_VERSION_KEY);
+                    if (storedVersion) setLocalVersion(storedVersion);
+                    setIsLoading(false);
+                    return;
                 }
 
+                recordRefresh();
+                setCacheBypassFlag();
+            }
+
+            try {
                 // Fetch cloud version (no cache)
                 const versionInfo = await fetchVersionInfoNoCache();
                 const cloud = versionInfo.dataVersion;
@@ -65,17 +110,16 @@ export function MasterDataProvider({ children }: { children: React.ReactNode }) 
                 }
             } catch (e) {
                 console.warn("Failed to fetch cloud version:", e);
+                // On failure, clear the bypass flag so we don't leave stale state
+                clearCacheBypassFlag();
+                // Fall back to stored version if available
+                const storedVersion = localStorage.getItem(MASTERDATA_VERSION_KEY);
+                if (storedVersion) setLocalVersion(storedVersion);
             } finally {
                 setIsLoading(false);
             }
         }
         init();
-
-        // Clean up cache bypass flag after initial page load (give time for data to load)
-        // This runs on unmount or when user navigates away
-        return () => {
-            // Don't clear on unmount - we want the flag to persist during the refresh
-        };
     }, []);
 
     // Clear cache bypass flag after page has fully loaded (delayed cleanup)
@@ -91,6 +135,10 @@ export function MasterDataProvider({ children }: { children: React.ReactNode }) 
 
     // Force refresh: reload page with cache bypass
     const forceRefreshData = useCallback(() => {
+        if (!isRefreshAllowed()) {
+            console.warn("[MasterData] Refresh blocked by circuit breaker");
+            return;
+        }
         setIsRefreshing(true);
         const url = new URL(window.location.href);
         url.searchParams.set('_refresh', Date.now().toString());
