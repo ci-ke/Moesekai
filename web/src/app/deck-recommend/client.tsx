@@ -10,6 +10,8 @@ import CharacterSelector from "@/components/deck-recommend/CharacterSelector";
 import { useTheme } from "@/contexts/ThemeContext";
 import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
 import { fetchMasterData } from "@/lib/fetch";
+import { saveToolState, getAccount } from "@/lib/account";
+import AccountSelector from "@/components/AccountSelector";
 import EventSelector from "@/components/deck-recommend/EventSelector";
 import MusicSelector from "@/components/deck-recommend/MusicSelector";
 import "./deck-recommend.css";
@@ -183,10 +185,17 @@ export default function DeckRecommendClient() {
 
     useEffect(() => {
         fetchMasterData<any[]>("cards.json").then(setCardsMaster).catch(console.error);
-        const savedUserId = localStorage.getItem("deck_recommend_userid");
-        const savedServer = localStorage.getItem("deck_recommend_server");
-        if (savedUserId) { setUserId(savedUserId); setAllowSaveUserId(true); }
-        if (savedServer && ["jp", "cn", "tw"].includes(savedServer)) setServer(savedServer as ServerType);
+        const account = getAccount();
+        if (account?.toolStates.deckRecommend) {
+            setUserId(account.toolStates.deckRecommend.userId);
+            setServer(account.toolStates.deckRecommend.server as ServerType);
+            setAllowSaveUserId(true);
+        } else {
+            const savedUserId = localStorage.getItem("deck_recommend_userid");
+            const savedServer = localStorage.getItem("deck_recommend_server");
+            if (savedUserId) { setUserId(savedUserId); setAllowSaveUserId(true); }
+            if (savedServer && ["jp", "cn", "tw"].includes(savedServer)) setServer(savedServer as ServerType);
+        }
     }, []);
 
     const updateCardConfig = useCallback((rarity: string, field: keyof CardConfigItem, value: boolean) => {
@@ -294,7 +303,20 @@ export default function DeckRecommendClient() {
                         <p className="text-xs text-slate-400 mt-1.5">{MODE_OPTIONS.find(m => m.value === mode)?.desc}</p>
                     </div>
 
-                    {/* User ID + Server */}
+                    {/* Account Selector + User ID + Server */}
+                    <AccountSelector
+                        onSelect={(gameId, srv) => {
+                            setUserId(gameId);
+                            setServer(srv);
+                            if (allowSaveUserId) {
+                                localStorage.setItem("deck_recommend_userid", gameId);
+                                localStorage.setItem("deck_recommend_server", srv);
+                                saveToolState("deckRecommend", gameId, srv);
+                            }
+                        }}
+                        currentUserId={userId}
+                        currentServer={server}
+                    />
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">用户ID <span className="text-red-400">*</span></label>
@@ -302,7 +324,7 @@ export default function DeckRecommendClient() {
                                 placeholder="输入游戏ID" className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-miku/20 focus:border-miku transition-all text-sm" />
                             <div className="flex items-center justify-between mt-2 px-1">
                                 <span className="text-sm text-slate-500">保存在浏览器本地</span>
-                                <button onClick={() => { const ns = !allowSaveUserId; setAllowSaveUserId(ns); if (ns) { localStorage.setItem("deck_recommend_userid", userId); localStorage.setItem("deck_recommend_server", server); } else { localStorage.removeItem("deck_recommend_userid"); localStorage.removeItem("deck_recommend_server"); } }}
+                                <button onClick={() => { const ns = !allowSaveUserId; setAllowSaveUserId(ns); if (ns) { localStorage.setItem("deck_recommend_userid", userId); localStorage.setItem("deck_recommend_server", server); saveToolState("deckRecommend", userId, server as any); } else { localStorage.removeItem("deck_recommend_userid"); localStorage.removeItem("deck_recommend_server"); } }}
                                     className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${allowSaveUserId ? 'bg-miku' : 'bg-slate-200'}`}>
                                     <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${allowSaveUserId ? 'translate-x-5' : 'translate-x-0'}`} />
                                 </button>

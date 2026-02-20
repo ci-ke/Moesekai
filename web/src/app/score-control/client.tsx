@@ -6,6 +6,8 @@ import Link from "next/link";
 import { IMusicInfo, IMusicMeta } from "@/types/music";
 import { CHAR_NAMES, ATTR_ICON_PATHS } from "@/types/types";
 import { fetchMasterData } from "@/lib/fetch";
+import { saveToolState, getAccount } from "@/lib/account";
+import AccountSelector from "@/components/AccountSelector";
 import MainLayout from "@/components/MainLayout";
 import ExternalLink from "@/components/ExternalLink";
 import MusicSelector from "@/components/deck-recommend/MusicSelector";
@@ -283,12 +285,23 @@ export default function ScoreControlClient() {
 
         fetchMasterData<any[]>("cards.json").then(setCardsMaster).catch(console.error);
 
-        // Load saved deck builder preferences
-        const savedUserId = localStorage.getItem("deck_recommend_userid");
-        const savedServer = localStorage.getItem("deck_recommend_server");
-        if (savedUserId) { setDbUserId(savedUserId); setDbAllowSave(true); }
-        if (savedServer && ["jp", "cn", "tw"].includes(savedServer)) {
-            setDbServer(savedServer as ServerType);
+        // 优先从账号系统读取
+        const account = getAccount();
+        if (account?.toolStates.scoreControl) {
+            setDbUserId(account.toolStates.scoreControl.userId);
+            setDbServer(account.toolStates.scoreControl.server as ServerType);
+            setDbAllowSave(true);
+        } else if (account?.toolStates.deckRecommend) {
+            setDbUserId(account.toolStates.deckRecommend.userId);
+            setDbServer(account.toolStates.deckRecommend.server as ServerType);
+            setDbAllowSave(true);
+        } else {
+            const savedUserId = localStorage.getItem("deck_recommend_userid");
+            const savedServer = localStorage.getItem("deck_recommend_server");
+            if (savedUserId) { setDbUserId(savedUserId); setDbAllowSave(true); }
+            if (savedServer && ["jp", "cn", "tw"].includes(savedServer)) {
+                setDbServer(savedServer as ServerType);
+            }
         }
     }, []);
 
@@ -1005,7 +1018,20 @@ export default function ScoreControlClient() {
                                 控分组卡设置
                             </h3>
 
-                            {/* User ID + Server */}
+                            {/* Account Selector + User ID + Server */}
+                            <AccountSelector
+                                onSelect={(gameId, srv) => {
+                                    setDbUserId(gameId);
+                                    setDbServer(srv);
+                                    if (dbAllowSave) {
+                                        localStorage.setItem("deck_recommend_userid", gameId);
+                                        localStorage.setItem("deck_recommend_server", srv);
+                                        saveToolState("scoreControl", gameId, srv);
+                                    }
+                                }}
+                                currentUserId={dbUserId}
+                                currentServer={dbServer}
+                            />
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -1030,6 +1056,7 @@ export default function ScoreControlClient() {
                                                 if (n) {
                                                     localStorage.setItem("deck_recommend_userid", dbUserId);
                                                     localStorage.setItem("deck_recommend_server", dbServer);
+                                                    saveToolState("scoreControl", dbUserId, dbServer as any);
                                                 } else {
                                                     localStorage.removeItem("deck_recommend_userid");
                                                     localStorage.removeItem("deck_recommend_server");

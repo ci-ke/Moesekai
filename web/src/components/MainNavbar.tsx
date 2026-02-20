@@ -63,7 +63,13 @@ const menuItems: NavItem[] = [
             { name: "我是谁", href: "/guess-who" },
         ]
     },
-    { name: "关于", href: "/about" },
+    {
+        name: "我的",
+        children: [
+            { name: "我的主页", href: "/profile" },
+            { name: "关于", href: "/about" },
+        ]
+    },
 ];
 
 interface MainNavbarProps {
@@ -115,7 +121,7 @@ export default function MainNavbar({ activeItem = "首页" }: MainNavbarProps) {
                         }}
                     />
                     <div className="flex items-center gap-1.5 h-full">
-                        <span className="text-[8px] px-1.5 py-0.5 bg-amber-400 text-white font-bold rounded-full leading-none">BETA1.113</span>
+                        <span className="text-[8px] px-1.5 py-0.5 bg-amber-400 text-white font-bold rounded-full leading-none">BETA1.114</span>
 
                         {showDomainNotice && (
                             <div className="flex items-center gap-1 ml-2 px-2 py-0.5 bg-blue-50 border border-blue-100 rounded-full animate-fade-in">
@@ -305,4 +311,3 @@ export default function MainNavbar({ activeItem = "首页" }: MainNavbarProps) {
         </nav>
     );
 }
-
