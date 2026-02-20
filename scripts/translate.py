@@ -59,7 +59,7 @@ CN_MASTERDATA_URL = "https://sekaimaster-cn.exmeaning.com/master"
 
 # CN Assets URL for scenario data
 CN_ASSETS_URL = "https://sekai-assets-bdf29c81.seiunx.net/cn-assets/ondemand"
-JP_ASSETS_URL = "https://assets.unipjsk.com/ondemand"
+JP_ASSETS_URL = "https://sekai-assets-bdf29c81.seiunx.net/jp-assets/ondemand"
 
 # Game context prompt for LLM
 GAME_CONTEXT_PROMPT = """你是一个专业的游戏翻译器，专门翻译《世界计划 彩色舞台 feat. 初音未来》(Project SEKAI) 游戏内容。

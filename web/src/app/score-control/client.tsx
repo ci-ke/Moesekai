@@ -188,6 +188,10 @@ export default function ScoreControlClient() {
     const [infiniteStepProgress, setInfiniteStepProgress] = useState<number>(0);
     const infiniteStepTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+    // Infinite search duration tracking
+    const [infiniteSearchDuration, setInfiniteSearchDuration] = useState<number | null>(null);
+    const [infiniteSearchUploadTime, setInfiniteSearchUploadTime] = useState<number | null>(null);
+
     /** 计算路线并设置状态（含 fallback） */
     const computeAndSetRoutes = (
         tp: number, rate: number, bMin: number, bMax: number,
@@ -538,8 +542,21 @@ export default function ScoreControlClient() {
         setInfiniteSearchProgress({ currentRate: VALID_EVENT_RATES[0], totalChecked: 0, found: 0, currentSongTitle: "" });
         setInfiniteExpandedIdx(null);
         setInfiniteStepProgress(0);
+        setInfiniteSearchDuration(null);
+        setInfiniteSearchUploadTime(null);
         setDbError(null);
         setError(null);
+
+        // Hide previous normal deck builder results
+        setSmartRoutes(null);
+        setFallbackResults(null);
+        setFallbackCount(0);
+        setDbResults(null);
+        setDbDuration(null);
+        setDbUploadTime(null);
+        setExpandedRoute(null);
+
+        const infiniteStartTime = performance.now();
 
         const bonusMin = Math.max(0, minBonus);
         const bonusMax = Math.min(415, maxBonus);
@@ -585,6 +602,7 @@ export default function ScoreControlClient() {
         const collected: InfiniteSongResult[] = [];
         let totalChecked = 0;
         let taskIdx = 0;
+        let capturedUploadTime: number | null = null;
         const isMobileInf = typeof window !== 'undefined' && /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         const poolSize = isMobileInf ? 1 : Math.min(navigator.hardwareConcurrency || 4, 4);
 
@@ -611,6 +629,10 @@ export default function ScoreControlClient() {
                     setTimeout(() => startFakeProgress(setInfiniteStepProgress, infiniteStepTimerRef), 100);
 
                     const data = evt.data;
+                    if (!capturedUploadTime && data.upload_time) {
+                        capturedUploadTime = data.upload_time;
+                        setInfiniteSearchUploadTime(data.upload_time);
+                    }
                     if (!data.error && data.result && data.result.length > 0) {
                         const results = data.result;
                         const foundBonuses = Array.from(new Set<number>(results.map((r: any) => {
@@ -709,6 +731,7 @@ export default function ScoreControlClient() {
         await runPool();
 
         stopFakeProgress(setInfiniteStepProgress, infiniteStepTimerRef, false);
+        setInfiniteSearchDuration(performance.now() - infiniteStartTime);
         setInfiniteSearchRunning(false);
         setInfiniteSearchProgress(null);
     }, [musicMetas, musics, difficulty, dbUserId, dbServer, dbEventId, dbLiveType, dbSupportCharacterId, dbCardConfig, minBonus, maxBonus, targetPT]);
@@ -1207,6 +1230,22 @@ export default function ScoreControlClient() {
                     </div>
                 )}
 
+                {/* Deck Builder Duration & Upload Time - above results */}
+                {deckBuilderEnabled && !dbIsCalculating && (dbDuration !== null || dbUploadTime) && (
+                    <div className="flex items-center gap-3 mb-3 flex-wrap">
+                        {dbDuration !== null && <span className="text-xs text-slate-400">计算耗时 {(dbDuration / 1000).toFixed(1)}s</span>}
+                        {dbUploadTime && <span className="text-xs text-slate-400">数据时间: {new Date(dbUploadTime * 1000).toLocaleString()}</span>}
+                    </div>
+                )}
+
+                {/* Infinite Search Duration - above results */}
+                {infiniteSearchEnabled && deckBuilderEnabled && !infiniteSearchRunning && (infiniteSearchDuration !== null || infiniteSearchUploadTime) && (
+                    <div className="flex items-center gap-3 mb-3 flex-wrap">
+                        {infiniteSearchDuration !== null && <span className="text-xs text-slate-400">搜索耗时 {(infiniteSearchDuration / 1000).toFixed(1)}s</span>}
+                        {infiniteSearchUploadTime && <span className="text-xs text-slate-400">数据时间: {new Date(infiniteSearchUploadTime * 1000).toLocaleString()}</span>}
+                    </div>
+                )}
+
                 {/* ===== Smart Route Plans (Primary) ===== */}
                 {smartRoutes !== null && smartRoutes.length > 0 && (
                     <div className="sc-result-enter mb-6">
@@ -1398,10 +1437,6 @@ export default function ScoreControlClient() {
                 {/* Deck Builder Status */}
                 {deckBuilderEnabled && (
                     <div className="mb-6">
-                        <div className="flex items-center gap-3 mb-2">
-                            {dbDuration !== null && <span className="text-xs text-slate-400">计算耗时 {(dbDuration / 1000).toFixed(1)}s</span>}
-                            {dbUploadTime && <span className="text-xs text-slate-400">数据时间: {new Date(dbUploadTime * 1000).toLocaleString()}</span>}
-                        </div>
                         {dbIsCalculating && (
                             <div className="glass-card p-6 rounded-2xl">
                                 <div className="flex items-center gap-3 mb-3">
