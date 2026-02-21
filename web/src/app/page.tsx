@@ -204,7 +204,7 @@ export default function Home() {
                 aria-label="Moesekai"
               />
               <span className="sr-only">Moesekai</span>
-              <span className="text-lg md:text-xl font-bold text-slate-400 opacity-60">(原 Snowy Viewer)</span>
+              <span className="text-lg md:text-xl font-bold text-slate-400 opacity-60">(原 Snowy SekaiViewer)</span>
             </h1>
 
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-miku/5 border border-miku/20 text-miku text-sm sm:text-base font-bold transition-all hover:bg-miku/10 hover:scale-105 duration-300 cursor-default shadow-sm shadow-miku/5">

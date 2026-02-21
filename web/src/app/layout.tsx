@@ -9,7 +9,7 @@ import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 
 
 export const metadata: Metadata = {
-  title: "Moesekai (原Snowy Viewer)",
+  title: "Moesekai (原Snowy SekaiViewer)",
   description: "Project Sekai Viewer",
   icons: {
     icon: "/data/icon/icon.jpg",
