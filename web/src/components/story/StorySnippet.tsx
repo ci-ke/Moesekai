@@ -82,6 +82,16 @@ interface SpecialEffectSnippetProps {
     resource?: string;
 }
 
+
+function isCG(picName) {
+    if (!picName || typeof picName !== 'string') return false;
+    if (picName.startsWith('bg_a')) {
+        const num = parseInt(picName.slice(4), 10);
+        return !isNaN(num) && num >= 1 && num <= 99;
+    }
+    return picName.startsWith('bg_s');
+}
+
 export function SpecialEffectSnippet({ seType, text, resource }: SpecialEffectSnippetProps) {
     const [isImageOpen, setIsImageOpen] = useState(false);
 
@@ -115,13 +125,24 @@ export function SpecialEffectSnippet({ seType, text, resource }: SpecialEffectSn
                 </div>
             );
 
+        case "PlaceInfo":
+            return (
+                <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 my-3 border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-2 mb-3">
+                        <span className="px-2.5 py-0.5 bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-medium rounded-full">
+                            地点：{text?.trimStart()}
+                        </span>
+                    </div>
+                </div>
+            );
+
         case "ChangeBackground":
         case "ChangeBackgroundStill":
             return (
                 <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 my-3 border border-slate-200 dark:border-slate-700">
                     <div className="flex items-center gap-2 mb-3">
                         <span className="px-2.5 py-0.5 bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-medium rounded-full">
-                            场景切换
+                            {isCG(text) ? 'CG插入' : '场景切换'}
                         </span>
                     </div>
 
@@ -141,7 +162,7 @@ export function SpecialEffectSnippet({ seType, text, resource }: SpecialEffectSn
                             onClick={() => setIsImageOpen(true)}
                             className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
                         >
-                            显示背景
+                            {isCG(text) ? '显示CG' : '显示背景'}
                         </button>
                     )}
                 </div>
