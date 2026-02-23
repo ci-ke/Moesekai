@@ -274,7 +274,7 @@ function VirtualLiveContent() {
 
 export default function VirtualLiveClient() {
     return (
-        <MainLayout activeNav="演唱会">
+        <MainLayout>
             <Suspense fallback={<div className="flex h-[50vh] w-full items-center justify-center text-slate-500">正在加载演唱会...</div>}>
                 <VirtualLiveContent />
             </Suspense>

@@ -954,7 +954,7 @@ function AccountSelectorBar({
 
 export default function MyCardsClient() {
     return (
-        <MainLayout activeNav="卡牌进度">
+        <MainLayout>
             <Suspense fallback={<div className="flex h-[50vh] w-full items-center justify-center text-slate-500">正在加载...</div>}>
                 <MyCardsContent />
             </Suspense>

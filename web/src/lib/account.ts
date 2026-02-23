@@ -361,6 +361,36 @@ export function saveToolState(
     setActiveAccount(id);
 }
 
+// ==================== 头像缓存 ====================
+
+const AVATAR_CACHE_KEY = "moesekai_avatar_cache";
+
+/** 获取缓存的头像 URL */
+export function getCachedAvatarUrl(accountId: string): string | null {
+    if (typeof window === "undefined") return null;
+    try {
+        const raw = localStorage.getItem(AVATAR_CACHE_KEY);
+        if (!raw) return null;
+        const cache = JSON.parse(raw) as Record<string, string>;
+        return cache[accountId] || null;
+    } catch {
+        return null;
+    }
+}
+
+/** 缓存头像 URL */
+export function setCachedAvatarUrl(accountId: string, url: string): void {
+    if (typeof window === "undefined") return;
+    try {
+        const raw = localStorage.getItem(AVATAR_CACHE_KEY);
+        const cache: Record<string, string> = raw ? JSON.parse(raw) : {};
+        cache[accountId] = url;
+        localStorage.setItem(AVATAR_CACHE_KEY, JSON.stringify(cache));
+    } catch {
+        // ignore
+    }
+}
+
 export const SERVER_LABELS: Record<ServerType, string> = {
     cn: "简中服",
     jp: "日服",

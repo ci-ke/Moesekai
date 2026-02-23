@@ -775,7 +775,7 @@ function MusicMetaContent() {
 
 export default function MusicMetaClient() {
     return (
-        <MainLayout activeNav="歌曲Meta">
+        <MainLayout>
             <Suspense
                 fallback={
                     <div className="flex h-[50vh] w-full items-center justify-center text-slate-500">

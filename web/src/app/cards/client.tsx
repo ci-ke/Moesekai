@@ -387,7 +387,7 @@ function CardsContent() {
 
 export default function CardsClient() {
     return (
-        <MainLayout activeNav="卡牌">
+        <MainLayout>
             <Suspense fallback={<div className="flex h-[50vh] w-full items-center justify-center text-slate-500">正在加载卡牌...</div>}>
                 <CardsContent />
             </Suspense>

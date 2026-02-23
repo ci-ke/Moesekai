@@ -301,7 +301,7 @@ export default function CardDetailPage() {
     if (isLoading) {
 
         return (
-            <MainLayout activeNav="卡牌">
+            <MainLayout>
                 <div className="container mx-auto px-4 py-16">
                     <div className="flex flex-col items-center justify-center min-h-[50vh]">
                         <div className="loading-spinner"></div>
@@ -314,7 +314,7 @@ export default function CardDetailPage() {
 
     if (error || !card) {
         return (
-            <MainLayout activeNav="卡牌">
+            <MainLayout>
                 <div className="container mx-auto px-4 py-16">
                     <div className="max-w-md mx-auto text-center">
                         <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-amber-100 flex items-center justify-center">
@@ -340,7 +340,7 @@ export default function CardDetailPage() {
     }
 
     return (
-        <MainLayout activeNav="卡牌">
+        <MainLayout>
             {/* Full Image Viewer Modal */}
             {imageViewerOpen && (
                 <div

@@ -740,7 +740,7 @@ function MysekaiContent() {
 
 export default function MysekaiClient() {
     return (
-        <MainLayout activeNav="家具">
+        <MainLayout>
             <Suspense fallback={<div className="flex h-[50vh] w-full items-center justify-center text-slate-500">正在加载家具数据...</div>}>
                 <MysekaiContent />
             </Suspense>

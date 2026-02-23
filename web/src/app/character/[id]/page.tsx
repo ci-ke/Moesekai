@@ -22,7 +22,7 @@ export async function generateStaticParams() {
 export default async function CharacterDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     return (
-        <MainLayout activeNav="角色">
+        <MainLayout>
             <Suspense fallback={<div className="flex h-[50vh] w-full items-center justify-center text-slate-500">正在加载角色详情...</div>}>
                 <CharacterDetailClient characterId={id} />
             </Suspense>

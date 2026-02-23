@@ -170,7 +170,7 @@ export default function Home() {
   const hasTodayBirthday = todayBirthdays.length > 0;
 
   return (
-    <MainLayout activeNav="首页" showLoader={true}>
+    <MainLayout showLoader={true}>
       <div className="container mx-auto px-6 pt-20 pb-20 flex flex-col items-center gap-12 text-center">
 
         {/* Main Title Section */}

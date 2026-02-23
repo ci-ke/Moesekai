@@ -3,7 +3,7 @@ import React from "react";
 
 export default function MainFooter() {
     return (
-        <footer className="w-full py-8 mt-auto bg-white border-t border-slate-100 relative z-50">
+        <footer className="w-full py-8 mt-auto bg-white border-t border-slate-100 relative z-[5]">
             <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
                 <div className="space-y-1">
                     <p className="text-xs text-slate-400 font-bold tracking-wider uppercase">

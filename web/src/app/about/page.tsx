@@ -21,7 +21,7 @@ export default function AboutPage() {
     ];
 
     return (
-        <MainLayout activeNav="关于" showLoader={true}>
+        <MainLayout showLoader={true}>
             <div className="container mx-auto px-6 py-12 max-w-5xl flex-grow z-10">
                 {/* Page Title */}
                 <div className="mb-10 animate-fade-in-up">

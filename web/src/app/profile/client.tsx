@@ -19,6 +19,7 @@ import {
     getCharacterIconUrl,
     getTopCharacterId,
     getLeaderCardId,
+    setCachedAvatarUrl,
     SERVER_LABELS,
     type MoesekaiAccount,
     type ServerType,
@@ -34,13 +35,20 @@ const SERVER_OPTIONS: { value: ServerType; label: string }[] = [
 function AccountAvatar({ account }: { account: MoesekaiAccount }) {
     const { assetSource } = useTheme();
     const cardThumbnail = useCardThumbnail(account.avatarCardId, assetSource);
-    
+
     // 如果有卡面缩略图，使用卡面；否则回退到角色图标
     const avatarUrl = cardThumbnail || getCharacterIconUrl(
-        account.avatarCharacterId || 
+        account.avatarCharacterId ||
         (account.userCharacters ? getTopCharacterId(account.userCharacters) : 21)
     );
-    
+
+    // 将头像 URL 缓存到 localStorage，供侧边栏等组件直接读取
+    useEffect(() => {
+        if (avatarUrl) {
+            setCachedAvatarUrl(account.id, avatarUrl);
+        }
+    }, [account.id, avatarUrl]);
+
     return (
         <Image
             src={avatarUrl}
@@ -78,7 +86,7 @@ export default function ProfileClient() {
     useEffect(() => {
         reload();
         setLoaded(true);
-        
+
         // 自动刷新没有 userGamedata 的旧账号
         const refreshOldAccounts = async () => {
             const accs = getAccounts();
@@ -86,7 +94,7 @@ export default function ProfileClient() {
                 if (!acc.userGamedata) {
                     console.log(`刷新旧账号数据: ${acc.gameId} (${acc.server})`);
                     const result = await verifyHarukiApi(acc.server, acc.gameId);
-                    
+
                     if (!result.success) {
                         console.warn(`账号 ${acc.gameId} 刷新失败，删除账号`);
                         removeAccount(acc.id);
@@ -95,7 +103,7 @@ export default function ProfileClient() {
                         const userDecks = result.userDecks || null;
                         const uploadTime = result.uploadTime || null;
                         const avatarCardId = getLeaderCardId(userGamedata, userDecks);
-                        
+
                         updateAccount(acc.id, {
                             userGamedata,
                             userDecks,
@@ -109,7 +117,7 @@ export default function ProfileClient() {
             // 刷新完成后重新加载
             reload();
         };
-        
+
         refreshOldAccounts();
     }, [reload]);
 
@@ -135,7 +143,7 @@ export default function ProfileClient() {
         const userGamedata = result.userGamedata || null;
         const userDecks = result.userDecks || null;
         const uploadTime = result.uploadTime || null;
-        
+
         // 获取 leader 卡面 ID
         const avatarCardId = getLeaderCardId(userGamedata, userDecks);
         const nickname = userGamedata?.name || "";
@@ -175,7 +183,7 @@ export default function ProfileClient() {
 
     if (!loaded) {
         return (
-            <MainLayout activeNav="我的主页">
+            <MainLayout>
                 <div className="container mx-auto px-4 sm:px-6 py-8 max-w-3xl">
                     <div className="text-center py-20 text-slate-400">加载中...</div>
                 </div>
@@ -184,7 +192,7 @@ export default function ProfileClient() {
     }
 
     return (
-        <MainLayout activeNav="我的主页">
+        <MainLayout>
             <div className="container mx-auto px-4 sm:px-6 py-8 max-w-3xl">
                 {/* Header */}
                 <div className="text-center mb-8">
@@ -241,13 +249,13 @@ export default function ProfileClient() {
                                 const isActive = acc.id === activeId;
                                 // 优先使用 userGamedata.name，否则使用 nickname
                                 const displayName = acc.userGamedata?.name || acc.nickname;
-                                
+
                                 return (
                                     <div
                                         key={acc.id}
                                         className={`relative p-4 rounded-xl border transition-all ${isActive
-                                                ? "border-miku/40 bg-miku/5 shadow-sm"
-                                                : "border-slate-100 bg-slate-50/50 hover:border-slate-200"
+                                            ? "border-miku/40 bg-miku/5 shadow-sm"
+                                            : "border-slate-100 bg-slate-50/50 hover:border-slate-200"
                                             }`}
                                     >
                                         <div className="flex items-center gap-3">
@@ -362,8 +370,8 @@ export default function ProfileClient() {
                                                 onClick={() => setFormServer(s.value)}
                                                 disabled={isVerifying}
                                                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${formServer === s.value
-                                                        ? "bg-miku text-white shadow-md shadow-miku/20"
-                                                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                                    ? "bg-miku text-white shadow-md shadow-miku/20"
+                                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                                                     }`}
                                             >
                                                 {s.label}

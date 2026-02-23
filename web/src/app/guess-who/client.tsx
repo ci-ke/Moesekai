@@ -568,7 +568,7 @@ function GuessWhoContent() {
     const formatTime = (seconds: number) => Math.max(0, seconds).toFixed(1) + "s";
 
     if (isLoading) {
-        return <MainLayout activeNav="我是谁"><div className="flex h-screen items-center justify-center">Loading...</div></MainLayout>;
+        return <MainLayout><div className="flex h-screen items-center justify-center">Loading...</div></MainLayout>;
     }
 
     const currentTotalScore = currentResults.reduce((acc, r) => acc + r.score, 0);
@@ -584,7 +584,7 @@ function GuessWhoContent() {
         const getDifficultyLabel = (d: Difficulty) => d === "easy" ? "简单" : d === "normal" ? "普通" : d === "hard" ? "困难" : "极限";
 
         return (
-            <MainLayout activeNav="我是谁">
+            <MainLayout>
                 <div className="min-h-screen">
                     <div className="container mx-auto px-4 py-8 pb-20">
                         <div className="max-w-4xl mx-auto rounded-3xl overflow-hidden bg-white/60 backdrop-blur-md shadow-lg border border-slate-100">
@@ -744,7 +744,7 @@ function GuessWhoClientPlayingAndSetup({
 
     if (gameState === "playing") {
         return (
-            <MainLayout activeNav="我是谁">
+            <MainLayout>
                 <div className="min-h-screen">
                     <div className="container mx-auto px-4 py-4 flex flex-col min-h-screen relative">
                         {/* Feedback Overlay */}
@@ -842,7 +842,7 @@ function GuessWhoClientPlayingAndSetup({
 
     // SETUP SCREEN
     return (
-        <MainLayout activeNav="我是谁">
+        <MainLayout>
             <div className="min-h-screen pt-8 pb-20">
                 <div className="container mx-auto px-4 max-w-2xl">
                     <div className="text-center mb-10">

@@ -228,7 +228,7 @@ function ComicContent() {
 
 export default function ComicClient() {
     return (
-        <MainLayout activeNav="漫画">
+        <MainLayout>
             <Suspense fallback={<div className="flex h-[50vh] w-full items-center justify-center text-slate-500">正在加载漫画...</div>}>
                 <ComicContent />
             </Suspense>

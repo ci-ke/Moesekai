@@ -365,7 +365,7 @@ function StickerContent() {
 
 export default function StickerClient() {
     return (
-        <MainLayout activeNav="贴纸">
+        <MainLayout>
             <Suspense fallback={<div className="flex h-[50vh] w-full items-center justify-center text-slate-500">正在加载贴纸...</div>}>
                 <StickerContent />
             </Suspense>

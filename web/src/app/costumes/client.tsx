@@ -419,7 +419,7 @@ function CostumesContent() {
 }
 export default function CostumesClient() {
     return (
-        <MainLayout activeNav="服装">
+        <MainLayout>
             <Suspense fallback={<div className="flex h-[50vh] w-full items-center justify-center text-slate-500">正在加载服装数据...</div>}>
                 <CostumesContent />
             </Suspense>

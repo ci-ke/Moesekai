@@ -250,7 +250,7 @@ function GachaContent() {
 
 export default function GachaClient() {
     return (
-        <MainLayout activeNav="扭蛋">
+        <MainLayout>
             <Suspense fallback={<div className="flex h-[50vh] w-full items-center justify-center text-slate-500">正在加载扭蛋...</div>}>
                 <GachaContent />
             </Suspense>

@@ -213,7 +213,7 @@ export default function DeckComparatorClient() {
     };
 
     return (
-        <MainLayout activeNav="工具">
+        <MainLayout>
             <div className="container mx-auto px-4 sm:px-6 py-8 max-w-5xl">
                 {/* Page Header */}
                 <div className="text-center mb-8">

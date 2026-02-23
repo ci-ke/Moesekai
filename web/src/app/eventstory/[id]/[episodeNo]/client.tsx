@@ -118,7 +118,7 @@ export default function StoryReaderClient() {
     const nextEpisode = eventStory?.eventStoryEpisodes.find(ep => ep.episodeNo === episodeNo + 1);
 
     return (
-        <MainLayout activeNav="活动剧情">
+        <MainLayout>
             <div className="container mx-auto px-4 sm:px-6 py-8">
                 {/* Back Navigation */}
                 <Link

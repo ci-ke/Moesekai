@@ -479,7 +479,7 @@ function MusicContent() {
 
 export default function MusicClient() {
     return (
-        <MainLayout activeNav="音乐">
+        <MainLayout>
             <Suspense fallback={<div className="flex h-[50vh] w-full items-center justify-center text-slate-500">正在加载音乐...</div>}>
                 <MusicContent />
             </Suspense>

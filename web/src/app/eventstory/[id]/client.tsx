@@ -150,7 +150,7 @@ export default function EventStorySummaryClient() {
 
     if (isLoading) {
         return (
-            <MainLayout activeNav="活动剧情">
+            <MainLayout>
                 <div className="flex h-[50vh] w-full items-center justify-center text-slate-500">
                     <div className="loading-spinner mr-2"></div>
                     正在加载剧情档案...
@@ -161,7 +161,7 @@ export default function EventStorySummaryClient() {
 
     if (!eventInfo) {
         return (
-            <MainLayout activeNav="活动剧情">
+            <MainLayout>
                 <div className="container mx-auto px-4 py-16 text-center">
                     <h2 className="text-xl font-bold text-slate-700 mb-2">未找到活动</h2>
                     <Link href="/eventstory" className="text-miku hover:underline">返回列表</Link>
@@ -178,7 +178,7 @@ export default function EventStorySummaryClient() {
     // I'll show what I have.
 
     return (
-        <MainLayout activeNav="活动剧情">
+        <MainLayout>
             <div className="container mx-auto px-4 sm:px-6 py-8">
                 {/* Back Link */}
                 <Link

@@ -205,7 +205,7 @@ export default function PredictionClient() {
     }, [selectedEventId, events, masterEvents, predictionData, now]);
 
     return (
-        <MainLayout activeNav="活动预测">
+        <MainLayout>
             <div className="container mx-auto px-4 sm:px-6 py-8">
                 {/* Page Header - matching events page style */}
                 <div className="text-center mb-8">
