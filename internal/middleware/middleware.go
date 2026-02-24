@@ -20,18 +20,59 @@ func (w gzipResponseWriter) Write(b []byte) (int, error) {
 }
 
 // Gzip middleware for response compression
+// Skips compression if the upstream (e.g., Next.js proxy) already compressed the response
 func Gzip(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			next.ServeHTTP(w, r)
 			return
 		}
-		w.Header().Set("Content-Encoding", "gzip")
-		gz := gzip.NewWriter(w)
-		defer gz.Close()
-		gzw := gzipResponseWriter{Writer: gz, ResponseWriter: w}
-		next.ServeHTTP(gzw, r)
+
+		// Use a wrapper that decides whether to gzip based on upstream response
+		grw := &gzipGuardWriter{ResponseWriter: w}
+		next.ServeHTTP(grw, r)
+
+		// If we started gzip compression, close the writer
+		if grw.gzWriter != nil {
+			grw.gzWriter.Close()
+		}
 	})
+}
+
+// gzipGuardWriter only applies gzip if upstream hasn't already set Content-Encoding
+type gzipGuardWriter struct {
+	http.ResponseWriter
+	gzWriter    *gzip.Writer
+	wroteHeader bool
+}
+
+func (w *gzipGuardWriter) WriteHeader(code int) {
+	if w.wroteHeader {
+		return
+	}
+	w.wroteHeader = true
+
+	// If upstream already set Content-Encoding, don't compress
+	if w.ResponseWriter.Header().Get("Content-Encoding") != "" {
+		w.ResponseWriter.WriteHeader(code)
+		return
+	}
+
+	// Apply gzip compression
+	w.ResponseWriter.Header().Set("Content-Encoding", "gzip")
+	w.ResponseWriter.Header().Del("Content-Length")
+	w.ResponseWriter.WriteHeader(code)
+	w.gzWriter = gzip.NewWriter(w.ResponseWriter)
+}
+
+func (w *gzipGuardWriter) Write(b []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	if w.gzWriter != nil {
+		return w.gzWriter.Write(b)
+	}
+	return w.ResponseWriter.Write(b)
 }
 
 // CORS middleware for cross-origin requests
