@@ -1,7 +1,7 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
     getActiveAccount,
     getCharacterIconUrl,
@@ -24,6 +24,7 @@ interface NavGroup {
 interface SidebarProps {
     isOpen: boolean;
     onClose: () => void;
+    hasMounted?: boolean;
 }
 
 const navigationGroups: NavGroup[] = [
@@ -265,14 +266,31 @@ const navigationGroups: NavGroup[] = [
     },
 ];
 
-export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, hasMounted = true }: SidebarProps) {
     const pathname = usePathname();
+    const router = useRouter();
     // 默认展开所有分组
     const [expandedGroups, setExpandedGroups] = useState<string[]>(
         navigationGroups.map(group => group.title)
     );
     const [activeAccount, setActiveAccountState] = useState<MoesekaiAccount | null>(null);
     const navRef = useRef<HTMLElement>(null);
+
+    // 键盘导航状态：-1 表示无焦点
+    const [focusedIndex, setFocusedIndex] = useState(-1);
+
+    // 构建当前可见的所有导航项列表（考虑折叠分组）
+    const visibleItems = useMemo(() => {
+        const items: { name: string; href: string }[] = [{ name: "首页", href: "/" }];
+        for (const group of navigationGroups) {
+            if (expandedGroups.includes(group.title)) {
+                for (const item of group.items) {
+                    items.push({ name: item.name, href: item.href });
+                }
+            }
+        }
+        return items;
+    }, [expandedGroups]);
 
     // 加载当前激活账号
     useEffect(() => {
@@ -299,6 +317,60 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         return () => nav.removeEventListener('scroll', handleScroll);
     }, []);
 
+    // 键盘导航：↑↓ 移动焦点，Enter 导航，Escape 取消
+    useEffect(() => {
+        if (!isOpen || window.innerWidth < 768) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // 输入框中不触发
+            const tag = (e.target as HTMLElement).tagName.toLowerCase();
+            if (tag === "input" || tag === "textarea" || (e.target as HTMLElement).isContentEditable) return;
+            // 有修饰键时不触发
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setFocusedIndex(prev => {
+                    const next = prev + 1;
+                    return next >= visibleItems.length ? 0 : next;
+                });
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setFocusedIndex(prev => {
+                    const next = prev - 1;
+                    return next < 0 ? visibleItems.length - 1 : next;
+                });
+            } else if (e.key === "Enter" && focusedIndex >= 0) {
+                e.preventDefault();
+                const item = visibleItems[focusedIndex];
+                if (item) {
+                    router.push(item.href);
+                    setFocusedIndex(-1);
+                }
+            } else if (e.key === "Escape" && focusedIndex >= 0) {
+                e.preventDefault();
+                setFocusedIndex(-1);
+            }
+        };
+
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [isOpen, focusedIndex, visibleItems, router]);
+
+    // 聚焦项滚动到可见区域
+    useEffect(() => {
+        if (focusedIndex < 0 || !navRef.current) return;
+        const el = navRef.current.querySelector(`[data-nav-index="${focusedIndex}"]`);
+        if (el) {
+            el.scrollIntoView({ block: "nearest" });
+        }
+    }, [focusedIndex]);
+
+    // 侧边栏关闭时重置焦点
+    useEffect(() => {
+        if (!isOpen) setFocusedIndex(-1);
+    }, [isOpen]);
+
     const toggleGroup = (title: string) => {
         setExpandedGroups((prev) =>
             prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title]
@@ -319,10 +391,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
     // 仅在移动端点击导航时关闭侧边栏
     const handleNavClick = () => {
+        setFocusedIndex(-1);
         if (window.innerWidth < 768) {
             onClose();
         }
     };
+
+    // 当前可见项的平坦索引计数器
+    let flatIdx = 0;
 
     return (
         <>
@@ -336,7 +412,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
             {/* Sidebar */}
             <aside
-                className={`fixed top-[4.5rem] left-0 h-[calc(100vh-4.5rem)] w-64 bg-white/95 backdrop-blur-lg border-r border-slate-200 z-[60] transition-transform duration-300 ease-out overflow-y-auto flex flex-col ${isOpen ? "translate-x-0" : "-translate-x-full"
+                className={`fixed top-[4.5rem] left-0 h-[calc(100vh-4.5rem)] w-64 bg-white/95 backdrop-blur-lg border-r border-slate-200 z-[60] ${hasMounted ? 'transition-transform duration-300 ease-out' : ''} overflow-y-auto flex flex-col ${isOpen ? "translate-x-0" : "-translate-x-full"
                     }`}
             >
 
@@ -347,9 +423,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     <Link
                         href="/"
                         onClick={handleNavClick}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${pathname === "/"
-                            ? "bg-miku/10 text-miku"
-                            : "text-slate-600 hover:bg-slate-50 hover:text-miku"
+                        data-nav-index={(() => { const i = flatIdx; flatIdx++; return i; })()}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${focusedIndex === 0
+                            ? "bg-miku/15 text-miku ring-2 ring-miku/30"
+                            : pathname === "/"
+                                ? "bg-miku/10 text-miku"
+                                : "text-slate-600 hover:bg-slate-50 hover:text-miku"
                             }`}
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -386,14 +465,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                 >
                                     {group.items.map((item) => {
                                         const active = isActive(item.href);
+                                        const thisIdx = flatIdx;
+                                        flatIdx++;
+                                        const isFocused = focusedIndex === thisIdx;
                                         return (
                                             <Link
                                                 key={item.href}
                                                 href={item.href}
                                                 onClick={handleNavClick}
-                                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${active
-                                                    ? "bg-miku/10 text-miku"
-                                                    : "text-slate-600 hover:bg-slate-50 hover:text-miku"
+                                                data-nav-index={thisIdx}
+                                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${isFocused
+                                                    ? "bg-miku/15 text-miku ring-2 ring-miku/30"
+                                                    : active
+                                                        ? "bg-miku/10 text-miku"
+                                                        : "text-slate-600 hover:bg-slate-50 hover:text-miku"
                                                     }`}
                                             >
                                                 {item.icon}

@@ -1026,14 +1026,208 @@ def extract_event_story_translations(dry_run: bool = False, force: bool = False)
     print(f"\n  Summary: {stats['events_processed']} events processed, {stats['episodes_processed']} episodes, {stats['events_skipped']} skipped")
 
 
+# ============================================================================
+# Search Index Generation
+# ============================================================================
+
+# Character names for search (mirrors web/src/types/types.ts CHARACTER_NAMES)
+CHARACTER_NAMES = {
+    1: "星乃一歌", 2: "天馬咲希", 3: "望月穂波", 4: "日野森志歩",
+    5: "花里みのり", 6: "桐谷遥", 7: "桃井愛莉", 8: "日野森雫",
+    9: "小豆沢こはね", 10: "白石杏", 11: "東雲彰人", 12: "青柳冬弥",
+    13: "天馬司", 14: "鳳えむ", 15: "草薙寧々", 16: "神代類",
+    17: "宵崎奏", 18: "朝比奈まふゆ", 19: "東雲絵名", 20: "暁山瑞希",
+    21: "初音ミク", 22: "鏡音リン", 23: "鏡音レン", 24: "巡音ルカ",
+    25: "MEIKO", 26: "KAITO",
+}
+
+# Character short names (Chinese, mirrors CHAR_NAMES in types.ts)
+CHAR_NAMES_CN = {
+    1: "一歌", 2: "咲希", 3: "穗波", 4: "志步",
+    5: "实乃理", 6: "遥", 7: "爱莉", 8: "雫",
+    9: "心羽", 10: "杏", 11: "彰人", 12: "冬弥",
+    13: "司", 14: "笑梦", 15: "宁宁", 16: "类",
+    17: "奏", 18: "真冬", 19: "绘名", 20: "瑞希",
+    21: "Miku", 22: "Rin", 23: "Len", 24: "Luka", 25: "MEIKO", 26: "KAITO",
+}
+
+
+def generate_search_index(dry_run: bool = False):
+    """Generate search-index.json for CommandPalette search.
+    
+    Fetches masterdata for cards, musics, events, and gachas,
+    then combines with existing translations to produce a compact
+    search index file.
+    """
+    print(f"\n{'='*60}")
+    print(f"Generating Search Index")
+    print(f"{'='*60}")
+    
+    index = []
+    
+    # Load existing translations for CN names
+    cards_trans = load_existing_translations("cards")
+    events_trans = load_existing_translations("events")
+    gacha_trans = load_existing_translations("gacha")
+    vl_trans = load_existing_translations("virtualLive")
+    mysekai_trans = load_existing_translations("mysekai")
+    costumes_trans = load_existing_translations("costumes")
+    sticker_trans = load_existing_translations("sticker")
+
+    def _get_cn(trans_data: Dict, field: str, jp_text: str) -> str:
+        """Helper to extract CN translation text from translation data."""
+        cn_entry = trans_data.get(field, {}).get(jp_text, {})
+        if isinstance(cn_entry, dict):
+            return cn_entry.get("text", "")
+        elif isinstance(cn_entry, str):
+            return cn_entry
+        return ""
+    
+    # --- Events (priority 1) ---
+    events = fetch_masterdata("events.json", "jp")
+    if events:
+        for event in events:
+            entry: Dict[str, Any] = {
+                "id": event["id"],
+                "n": event.get("name", ""),
+                "g": "events",
+            }
+            jp_name = event.get("name", "")
+            cn_text = _get_cn(events_trans, "name", jp_name)
+            if cn_text and cn_text != jp_name:
+                entry["cn"] = cn_text
+            if entry["n"]:
+                index.append(entry)
+        print(f"  Events: {len(events)} entries")
+    
+    # --- Music (priority 2) ---
+    musics = fetch_masterdata("musics.json", "jp")
+    if musics:
+        for music in musics:
+            entry = {
+                "id": music["id"],
+                "n": music.get("title", ""),
+                "g": "music",
+            }
+            if entry["n"]:
+                index.append(entry)
+        print(f"  Music: {len(musics)} entries")
+    
+    # --- Cards (priority 3) ---
+    cards = fetch_masterdata("cards.json", "jp")
+    if cards:
+        for card in cards:
+            entry: Dict[str, Any] = {
+                "id": card["id"],
+                "n": card.get("prefix", ""),
+                "g": "cards",
+                "c": card.get("characterId", 0),
+            }
+            jp_prefix = card.get("prefix", "")
+            cn_text = _get_cn(cards_trans, "prefix", jp_prefix)
+            if cn_text and cn_text != jp_prefix:
+                entry["cn"] = cn_text
+            if entry["n"]:
+                index.append(entry)
+        print(f"  Cards: {len(cards)} entries")
+    
+    # --- Gacha (priority 4) ---
+    gachas = fetch_masterdata("gachas.json", "jp")
+    if gachas:
+        for gacha in gachas:
+            entry: Dict[str, Any] = {
+                "id": gacha["id"],
+                "n": gacha.get("name", ""),
+                "g": "gacha",
+            }
+            jp_name = gacha.get("name", "")
+            cn_text = _get_cn(gacha_trans, "name", jp_name)
+            if cn_text and cn_text != jp_name:
+                entry["cn"] = cn_text
+            if entry["n"]:
+                index.append(entry)
+        print(f"  Gacha: {len(gachas)} entries")
+
+    # --- Mysekai / 家具 (priority 5) ---
+    fixtures = fetch_masterdata("mysekaiFixtures.json", "jp")
+    if fixtures:
+        count = 0
+        for f in fixtures:
+            entry: Dict[str, Any] = {
+                "id": f["id"],
+                "n": f.get("name", ""),
+                "g": "mysekai",
+            }
+            jp_name = f.get("name", "")
+            cn_text = _get_cn(mysekai_trans, "fixtureName", jp_name)
+            if cn_text and cn_text != jp_name:
+                entry["cn"] = cn_text
+            if entry["n"]:
+                index.append(entry)
+                count += 1
+        print(f"  Mysekai: {count} entries")
+
+    # --- Costumes / 服装 (priority 6) ---
+    costumes_data = fetch_masterdata("snowy_costumes.json", "jp")
+    if costumes_data:
+        costume_list = costumes_data.get("costumes", []) if isinstance(costumes_data, dict) else []
+        count = 0
+        for costume in costume_list:
+            entry: Dict[str, Any] = {
+                "id": costume["id"],
+                "n": costume.get("name", ""),
+                "g": "costumes",
+            }
+            jp_name = costume.get("name", "")
+            cn_text = _get_cn(costumes_trans, "name", jp_name)
+            if cn_text and cn_text != jp_name:
+                entry["cn"] = cn_text
+            if entry["n"] and entry["n"] != "-":
+                index.append(entry)
+                count += 1
+        print(f"  Costumes: {count} entries")
+
+    # --- Virtual Live / 演唱会 (priority 7) ---
+    vlives = fetch_masterdata("virtualLives.json", "jp")
+    if vlives:
+        count = 0
+        for vl in vlives:
+            entry: Dict[str, Any] = {
+                "id": vl["id"],
+                "n": vl.get("name", ""),
+                "g": "live",
+            }
+            jp_name = vl.get("name", "")
+            cn_text = _get_cn(vl_trans, "name", jp_name)
+            if cn_text and cn_text != jp_name:
+                entry["cn"] = cn_text
+            if entry["n"]:
+                index.append(entry)
+                count += 1
+        print(f"  Virtual Live: {count} entries")
+    
+    print(f"  Total: {len(index)} entries")
+    
+    # Save to web/public/data/search-index.json
+    output_path = PROJECT_ROOT / "web" / "public" / "data" / "search-index.json"
+    if not dry_run:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(index, f, ensure_ascii=False, separators=(',', ':'))
+        file_size = output_path.stat().st_size
+        print(f"  Saved to {output_path} ({file_size / 1024:.1f} KB)")
+    else:
+        print(f"  [DRY RUN] Would save to {output_path}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Translate Snowy Viewer masterdata to Chinese")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be translated without calling API")
     parser.add_argument("--force", action="store_true", help="Overwrite existing translation files")
     parser.add_argument("--cn-only", action="store_true", help="Only use CN server translations, skip LLM")
     parser.add_argument("--llm", choices=["qwen", "gemini"], default="qwen", help="LLM to use (default: qwen)")
-    parser.add_argument("--category", choices=["cards", "events", "music", "virtualLive", "gacha", "mysekai", "sticker", "comic", "costumes", "eventStory"],
-                        help="Translate only a specific category")
+    parser.add_argument("--category", choices=["cards", "events", "music", "virtualLive", "gacha", "mysekai", "sticker", "comic", "costumes", "eventStory", "search-index"],
+                        help="Translate only a specific category (or 'search-index' to regenerate search index)")
     args = parser.parse_args()
     
     api_key = ""
@@ -1062,6 +1256,8 @@ def main():
         if args.category == "eventStory":
             # Event story uses special handling (per-event files)
             extract_event_story_translations(args.dry_run, args.force)
+        elif args.category == "search-index":
+            generate_search_index(args.dry_run)
         else:
             translate_category_enhanced(api_key, args.category, categories[args.category], args.llm, args.dry_run, args.cn_only)
     else:
@@ -1070,6 +1266,8 @@ def main():
                 translate_category_enhanced(api_key, cat, categories[cat], args.llm, args.dry_run, args.cn_only)
         # Also process event stories
         extract_event_story_translations(args.dry_run, args.force)
+        # Generate search index at the end of a full run
+        generate_search_index(args.dry_run)
     
     print("\n" + "="*60)
     print("Translation complete!")
