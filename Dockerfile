@@ -43,7 +43,7 @@ RUN apk add --no-cache ca-certificates
 # Create startup script that runs both servers
 RUN printf '#!/bin/sh\n\
     # Start Next.js standalone server on port 3000\n\
-    cd /app/nextjs/web && node server.js &\n\
+    cd /app/nextjs/web && PORT=3000 HOSTNAME=0.0.0.0 node server.js &\n\
     NEXTJS_PID=$!\n\
     \n\
     # Start Go API server on port 8080\n\
@@ -54,7 +54,7 @@ RUN printf '#!/bin/sh\n\
     wait -n $NEXTJS_PID $GO_PID\n\
     exit $?\n' > /app/start.sh && chmod +x /app/start.sh
 
-# Go server runs on 8080, Next.js on 3000
-EXPOSE 8080 3000
+# Go server is the single entry point, proxying frontend to Next.js internally
+EXPOSE 8080
 
 CMD ["/app/start.sh"]
