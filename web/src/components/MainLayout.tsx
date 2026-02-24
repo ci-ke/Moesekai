@@ -94,7 +94,7 @@ export default function MainLayout({
     useKeyboardShortcuts(shortcutHandlers);
 
     return (
-        <main className="min-h-screen relative selection:bg-miku selection:text-white font-sans flex flex-col overflow-x-hidden">
+        <main className="min-h-screen relative selection:bg-miku selection:text-white font-sans flex flex-col">
             {/* Loading Animation */}
             {showLoader && <SekaiLoader />}
 
