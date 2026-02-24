@@ -1,35 +1,16 @@
+
 import { Suspense } from "react";
 import GachaDetailClient from "./client";
-import { fetchMasterData } from "@/lib/fetch";
-import { IGachaInfo } from "@/types/types";
+import { Metadata } from "next";
 
+export const metadata: Metadata = {
+    title: "Moesekai - 卡池详情",
+};
 
-export async function generateStaticParams() {
-    console.log("Generating static params for gacha/[id]...");
-    try {
-        const { fetchMergedBuildIds } = await import("@/lib/fetch");
-        const { appendFutureIds } = await import("@/lib/future-ids");
-        const ids = await fetchMergedBuildIds<IGachaInfo[]>(
-            "gachas.json",
-            (gachas) => gachas.map((gacha) => gacha.id.toString())
-        );
-        console.log(`Found ${ids.length} gachas (merged JP+CN).`);
-        return appendFutureIds(ids, "gachas").map((id) => ({ id }));
-    } catch (e) {
-        console.error("Error generating static params for gacha:", e);
-        return [];
-    }
-}
-
-interface PageProps {
-    params: Promise<{ id: string }>;
-}
-
-export default async function GachaDetailPage({ params }: PageProps) {
-    const { id } = await params;
+export default function GachaDetailPage() {
     return (
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="loading-spinner"></div></div>}>
-            <GachaDetailClient gachaId={id} />
+            <GachaDetailClient />
         </Suspense>
     );
 }

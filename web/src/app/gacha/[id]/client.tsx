@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import MainLayout from "@/components/MainLayout";
@@ -50,12 +50,10 @@ const LOCAL_ATTR_ICONS: Record<string, string> = {
     pure: "/data/icon/Pure.webp",
 };
 
-interface GachaDetailClientProps {
-    gachaId: string;
-}
-
-export default function GachaDetailClient({ gachaId }: GachaDetailClientProps) {
+export default function GachaDetailClient() {
     const router = useRouter();
+    const params = useParams();
+    const gachaId = params.id as string;
     const searchParams = useSearchParams();
     const isScreenshotMode = searchParams.get('mode') === 'screenshot';
     const [gacha, setGacha] = useState<IGachaInfo | null>(null);

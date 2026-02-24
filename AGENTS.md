@@ -8,11 +8,11 @@
 
 ## 项目概况
 
-这是一个PROJECT SEKAI 的查看器项目。前端 Next.js 16 静态导出 (`web/`)，后端 Go API (`internal/`)，部署域名 `pjsk.moe`。
+这是一个PROJECT SEKAI 的查看器项目。前端 Next.js 16 纯 CSR (`web/`)，后端 Go API (`internal/`)，部署域名 `pjsk.moe`。
 
 ## 技术栈
 
-- **前端**: Next.js 16 (`output: "export"`, `trailingSlash: true`), React 19, TypeScript, **Tailwind CSS 4**, framer-motion, echarts
+- **前端**: Next.js 16 (`output: "export"`, 纯 CSR), React 19, TypeScript, **Tailwind CSS 4**, framer-motion, echarts
 - **后端**: Go (net/http), Redis 缓存 + 内存回退
 
 ## 核心架构
@@ -35,11 +35,11 @@
 
 ## 项目概况
 
-这是一个PROJECT SEKAI 的查看器项目。前端 Next.js 16 静态导出 (`web/`)，后端 Go API (`internal/`)，部署域名 `pjsk.moe`。
+这是一个PROJECT SEKAI 的查看器项目。前端 Next.js 16 纯 CSR (`web/`)，后端 Go API (`internal/`)，部署域名 `pjsk.moe`。
 
 ## 技术栈
 
-- **前端**: Next.js 16 (`output: "export"`, `trailingSlash: true`), React 19, TypeScript, **Tailwind CSS 4**, framer-motion, echarts
+- **前端**: Next.js 16 (`output: "export"`, 纯 CSR), React 19, TypeScript, **Tailwind CSS 4**, framer-motion, echarts
 - **后端**: Go (net/http), Redis 缓存 + 内存回退
 
 ## 核心架构
@@ -61,9 +61,9 @@
 
 ```
 web/src/app/<module>/
-├── page.tsx       # SSG 入口：仅导出 metadata + 渲染 Client 组件
+├── page.tsx       # 入口：导出 metadata + 渲染 Client 组件
 ├── client.tsx     # "use client" 主逻辑组件
-├── [id]/          # 动态路由（如适用）
+├── [id]/          # 动态路由（如适用），纯 CSR
 └── detail/        # 详情子页（如适用）
 ```
 
@@ -130,10 +130,9 @@ const updateURL = (params: Record<string, string>) => {
 
 ## 关键规则
 
-1. **构建时数据源不可改**: `fetch.ts` 中的 `MASTER_BUILD_URL` 必须使用 GitHub raw，不要改成自建源
-2. **外链需过 ExternalLink**: 所有站外链接使用 `<ExternalLink>` 组件
-3. **静态导出兼容**: 项目 `output: "export"`，不能使用 Server Components 的运行时功能（`getServerSideProps`, API Routes 等）
-4. **资源路径大小写敏感**: 生产环境部署区分大小写，资源路径需与实际文件名完全一致
+1. **外链需过 ExternalLink**: 所有站外链接使用 `<ExternalLink>` 组件
+2. **资源路径大小写敏感**: 生产环境部署区分大小写，资源路径需与实际文件名完全一致
+3. **纯 CSR 模式**: 所有页面逻辑在 `client.tsx` 中实现，`page.tsx` 仅导出 metadata
 
 ## 新模块/重大变更
 

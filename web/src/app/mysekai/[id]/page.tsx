@@ -1,22 +1,11 @@
-import { Suspense } from "react";
-import { IMysekaiFixtureInfo } from "@/types/mysekai";
-import MysekaiFixtureDetailClient from "./client";
-import { fetchMasterData } from "@/lib/fetch";
 
-export async function generateStaticParams() {
-    try {
-        const { fetchMergedBuildIds } = await import("@/lib/fetch");
-        const { appendFutureIds } = await import("@/lib/future-ids");
-        const ids = await fetchMergedBuildIds<IMysekaiFixtureInfo[]>(
-            "mysekaiFixtures.json",
-            (fixtures) => fixtures.map((fixture) => fixture.id.toString())
-        );
-        return appendFutureIds(ids, "mysekai").map((id) => ({ id }));
-    } catch (e) {
-        console.error("Error generating static params for mysekai fixtures:", e);
-        return [];
-    }
-}
+import { Suspense } from "react";
+import MysekaiFixtureDetailClient from "./client";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Moesekai - 家具详情",
+};
 
 export default function MysekaiFixtureDetailPage() {
     return (

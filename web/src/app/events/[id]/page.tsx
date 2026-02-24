@@ -1,22 +1,11 @@
-import { Suspense } from "react";
-import { IEventInfo } from "@/types/events";
-import EventDetailClient from "./client";
-import { fetchMasterData } from "@/lib/fetch";
 
-export async function generateStaticParams() {
-    try {
-        const { fetchMergedBuildIds } = await import("@/lib/fetch");
-        const { appendFutureIds } = await import("@/lib/future-ids");
-        const ids = await fetchMergedBuildIds<IEventInfo[]>(
-            "events.json",
-            (events) => events.map((event) => event.id.toString())
-        );
-        return appendFutureIds(ids, "events").map((id) => ({ id }));
-    } catch (e) {
-        console.error("Error generating static params for events:", e);
-        return [];
-    }
-}
+import { Suspense } from "react";
+import EventDetailClient from "./client";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Moesekai - 活动详情",
+};
 
 export default function EventDetailPage() {
     return (

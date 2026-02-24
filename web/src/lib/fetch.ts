@@ -2,7 +2,6 @@
  * Fetch utilities with compression header support
  * Ensures requests include Accept-Encoding: gzip, deflate, br, zstd
  * 
- * Build-time (SSG): Uses GitHub raw for large file stability
  * Runtime (Client): Uses selected master server (jp or cn)
  * 
  * IndexedDB caching: Runtime masterdata is cached in IndexedDB with version-aware
@@ -76,19 +75,7 @@ function getFallbackVersionUrl(): string {
     return `https://${FALLBACK_DOMAINS[getCurrentServer()]}/versions/current_version.json`;
 }
 
-// Build-time URL （这里Gemini经常喜欢给我改成自建源 肯定用GitHub更稳定啊！）
-const MASTER_BUILD_URL = "https://raw.githubusercontent.com/Exmeaning/haruki-sekai-master/main/master";
-// const MASTER_BUILD_URL = "https://sekaimaster.exmeaning.com/master";
 
-// CN Build-time URL (for SSG - generates pages for CN-only content)
-const MASTER_BUILD_URL_CN = "https://raw.githubusercontent.com/Exmeaning/haruki-sekai-sc-master/main/master";
-
-/**
- * Detect if we're in a build/SSG context (server-side, no window)
- */
-function isBuildTime(): boolean {
-    return typeof window === "undefined";
-}
 
 // Version info type
 export interface VersionInfo {
@@ -145,9 +132,8 @@ export function clearCacheBypassFlag(): void {
 }
 
 /**
- * Fetch master data from appropriate source based on environment
- * - Build-time (SSG): Uses GitHub raw for large file stability (>3MB files)
- * - Runtime (Client): Uses sekaimaster.exmeaning.com with fallback to sk.exmeaning.com
+ * Fetch master data from the runtime server
+ * Uses sekaimaster.exmeaning.com with fallback to sk.exmeaning.com
  * @param path - Path relative to master directory (e.g., "gachas.json", "cards.json")
  * @param noCache - If true, bypass browser cache by adding timestamp
  */
@@ -166,14 +152,14 @@ export async function fetchMasterData<T>(path: string, noCache: boolean = false)
     }
 
     // 2. Cache buster (bypass enforcement)
-    if (shouldNoCache && !isBuildTime()) {
+    if (shouldNoCache) {
         params.append("_t", Date.now().toString());
     }
 
     const queryString = params.toString() ? `?${params.toString()}` : "";
 
-    // ===== IndexedDB Cache Layer (client-side only) =====
-    if (!isBuildTime() && isIndexedDBAvailable() && localVersion) {
+    // ===== IndexedDB Cache Layer =====
+    if (isIndexedDBAvailable() && localVersion) {
         // Try reading from IndexedDB (skip if force-refreshing)
         if (!shouldNoCache) {
             try {
@@ -187,36 +173,6 @@ export async function fetchMasterData<T>(path: string, noCache: boolean = false)
         }
     }
 
-    // Build-time: use GitHub raw (no fallback needed)
-    if (isBuildTime()) {
-        const url = `${MASTER_BUILD_URL}/${path}`;
-        // Only log once per path to avoid spamming build logs
-        if (!(global as any).__fetchedPaths) (global as any).__fetchedPaths = new Set();
-        if (!(global as any).__fetchedPaths.has(path)) {
-            console.log(`[Build] Fetching ${path} from GitHub raw...`);
-            (global as any).__fetchedPaths.add(path);
-        }
-
-        try {
-            const response = await fetchWithCompression(url, fetchOptions);
-            if (!response.ok) {
-                // If main master fails, try CN master (for cn-specific assets)
-                const cnUrl = `${MASTER_BUILD_URL_CN}/${path}`;
-                if (!(global as any).__fetchedPaths.has(path + "_cn")) {
-                    console.log(`[Build] Fetching ${path} from CN GitHub raw...`);
-                    (global as any).__fetchedPaths.add(path + "_cn");
-                }
-                const cnResponse = await fetchWithCompression(cnUrl, fetchOptions);
-                if (cnResponse.ok) return cnResponse.json();
-
-                throw new Error(`Failed to fetch master data: ${path}`);
-            }
-            return response.json();
-        } catch (e) {
-            throw e;
-        }
-    }
-
     // Runtime: try primary server first, then fallback
     const primaryUrl = `${getMasterBaseUrl()}/${path}${queryString}`;
     try {
@@ -225,7 +181,7 @@ export async function fetchMasterData<T>(path: string, noCache: boolean = false)
             const data: T = await response.json();
             // Write to IndexedDB cache (async, non-blocking)
             if (isIndexedDBAvailable() && localVersion) {
-                setMasterDataCache(path, data, localVersion).catch(() => {});
+                setMasterDataCache(path, data, localVersion).catch(() => { });
             }
             return data;
         }
@@ -246,8 +202,8 @@ export async function fetchMasterData<T>(path: string, noCache: boolean = false)
     const fallbackData: T = await fallbackResponse.json();
 
     // Write to IndexedDB cache (async, non-blocking)
-    if (!isBuildTime() && isIndexedDBAvailable() && localVersion) {
-        setMasterDataCache(path, fallbackData, localVersion).catch(() => {});
+    if (isIndexedDBAvailable() && localVersion) {
+        setMasterDataCache(path, fallbackData, localVersion).catch(() => { });
     }
 
     return fallbackData;
@@ -356,48 +312,4 @@ export async function fetchMasterDataForServer<T>(server: "cn" | "jp" | "tw", pa
     return fallbackResponse.json();
 }
 
-/**
- * Fetch master data from the CN build source (GitHub raw)
- * Used at build time (SSG) to get CN-only content IDs
- * @param path - Path relative to master directory (e.g., "cards.json")
- */
-export async function fetchCnBuildMasterData<T>(path: string): Promise<T> {
-    const url = `${MASTER_BUILD_URL_CN}/${path}`;
-    console.log(`[Build-CN] Fetching ${path} from CN GitHub raw...`);
-    const response = await fetchWithCompression(url);
-    if (!response.ok) {
-        throw new Error(`Failed to fetch CN master data: ${path} from ${MASTER_BUILD_URL_CN}`);
-    }
-    return response.json();
-}
 
-/**
- * Merge unique IDs from JP and CN master data at build time.
- * Fetches both JP and CN data, extracts IDs, and returns a deduplicated union.
- * CN fetch failures are silently ignored (CN may not have all files).
- * @param path - Master data file path (e.g., "cards.json")
- * @param idExtractor - Function to extract IDs from the data
- */
-export async function fetchMergedBuildIds<T>(
-    path: string,
-    idExtractor: (data: T) => string[]
-): Promise<string[]> {
-    // Fetch JP data (required)
-    const jpData = await fetchMasterData<T>(path);
-    const jpIds = idExtractor(jpData);
-    const idSet = new Set(jpIds);
-
-    // Fetch CN data (optional - may not exist)
-    try {
-        const cnData = await fetchCnBuildMasterData<T>(path);
-        const cnIds = idExtractor(cnData);
-        for (const id of cnIds) {
-            idSet.add(id);
-        }
-        console.log(`[Build] Merged ${path}: JP=${jpIds.length}, CN=${cnIds.length}, Total=${idSet.size}`);
-    } catch (e) {
-        console.warn(`[Build] CN data not available for ${path}, using JP only.`, e);
-    }
-
-    return Array.from(idSet);
-}

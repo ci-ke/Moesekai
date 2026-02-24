@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import {
     IGameChara,
     ICharaProfile,
@@ -33,14 +33,11 @@ const UNIT_ICONS: Record<string, string> = {
     "piapro": "vs.webp",
 };
 
-interface CharacterDetailClientProps {
-    characterId: string;
-}
-
-export default function CharacterDetailClient({ characterId }: CharacterDetailClientProps) {
+export default function CharacterDetailClient() {
     const router = useRouter();
+    const params = useParams();
     const { assetSource } = useTheme();
-    const id = parseInt(characterId, 10);
+    const id = parseInt(params.id as string, 10);
 
     // State
     const [character, setCharacter] = useState<IGameChara | null>(null);

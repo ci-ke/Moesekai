@@ -1,22 +1,11 @@
-import { Suspense } from "react";
-import { IMusicInfo } from "@/types/music";
-import MusicDetailClient from "./client";
-import { fetchMasterData } from "@/lib/fetch";
 
-export async function generateStaticParams() {
-    try {
-        const { fetchMergedBuildIds } = await import("@/lib/fetch");
-        const { appendFutureIds } = await import("@/lib/future-ids");
-        const ids = await fetchMergedBuildIds<IMusicInfo[]>(
-            "musics.json",
-            (musics) => musics.map((music) => music.id.toString())
-        );
-        return appendFutureIds(ids, "musics").map((id) => ({ id }));
-    } catch (e) {
-        console.error("Error generating static params for musics:", e);
-        return [];
-    }
-}
+import { Suspense } from "react";
+import MusicDetailClient from "./client";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+    title: "Moesekai - 音乐详情",
+};
 
 export default function MusicDetailPage() {
     return (

@@ -77,7 +77,9 @@ func Serve404(w http.ResponseWriter, root string) {
 	http.NotFound(w, nil)
 }
 
-// FileServerWithExtensions serves static files with .html extension fallback
+// FileServerWithExtensions serves static files with SPA fallback routing.
+// For paths without file extensions that don't match existing files/directories,
+// it falls back to serving index.html to support client-side routing.
 func FileServerWithExtensions(root string) http.Handler {
 	fs := http.FileServer(http.Dir(root))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -104,10 +106,16 @@ func FileServerWithExtensions(root string) http.Handler {
 			return
 		}
 
-		if filepath.Ext(cleanPath) != "" {
-			Serve404(w, root)
-			return
+		// SPA fallback: for paths without file extensions, serve root index.html
+		// This enables client-side routing for dynamic routes (e.g., /cards/123/)
+		if filepath.Ext(cleanPath) == "" {
+			rootIndex := filepath.Join(root, "index.html")
+			if _, err := os.Stat(rootIndex); err == nil {
+				http.ServeFile(w, r, rootIndex)
+				return
+			}
 		}
+
 		Serve404(w, root)
 	})
 }
