@@ -126,6 +126,7 @@ export default function StickerMakerContent() {
     const [text, setText] = useState("");
     const [position, setPosition] = useState({ x: 148, y: 58 });
     const [fontSize, setFontSize] = useState(47);
+    const [textColor, setTextColor] = useState("");
     const [spaceSize, setSpaceSize] = useState(1);
     const [charSpacing, setCharSpacing] = useState(0);
     const [rotate, setRotate] = useState(-2);
@@ -309,6 +310,7 @@ export default function StickerMakerContent() {
         setRotate(sticker.defaultText.r);
         setFontSize(sticker.defaultText.s);
         setSpaceSize(1);
+        setTextColor("");
         setCurve(false);
         // setFontFamily("YurukaStd"); // Keep previous font selection or reset? Let's keep.
 
@@ -370,7 +372,7 @@ export default function StickerMakerContent() {
         ctx.rotate(rotate / 10);
         ctx.textAlign = "center";
         ctx.strokeStyle = "white";
-        ctx.fillStyle = selectedSticker.color;
+        ctx.fillStyle = textColor || selectedSticker.color;
 
         const lines = text.split("\n");
         const angle = (Math.PI * text.length) / 7;
@@ -449,7 +451,7 @@ export default function StickerMakerContent() {
             }
         }
         ctx.restore();
-    }, [loaded, fontsReady, selectedSticker, text, position, fontSize, spaceSize, charSpacing, rotate, curve, fontFamily, bgColor]);
+    }, [loaded, fontsReady, selectedSticker, text, position, fontSize, spaceSize, charSpacing, rotate, curve, fontFamily, bgColor, textColor]);
 
     useEffect(() => {
         draw();
@@ -571,43 +573,45 @@ export default function StickerMakerContent() {
                                     <h3 className="text-sm font-bold text-slate-500 mb-3 px-1">
                                         选择底图 ({filteredStickers.length})
                                     </h3>
-                                    <div className="grid grid-cols-3 gap-2 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
-                                        {/* Custom Upload Button */}
-                                        <button
-                                            onClick={() => stickerFileInputRef.current?.click()}
-                                            className="relative rounded-lg overflow-hidden transition-all border-2 border-dashed border-slate-300 hover:border-miku hover:bg-white flex flex-col items-center justify-center gap-1 aspect-[296/256] text-slate-400 hover:text-miku"
-                                            title="上传自定义图片"
-                                        >
-                                            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                            </svg>
-                                            <span className="text-xs font-bold">上传图片</span>
-                                        </button>
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            ref={stickerFileInputRef}
-                                            className="hidden"
-                                            onChange={handleStickerUpload}
-                                        />
-
-                                        {filteredStickers.map((sticker) => (
+                                    <div className="max-h-[400px] overflow-y-auto pr-1 min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {/* Custom Upload Button */}
                                             <button
-                                                key={sticker.id}
-                                                onClick={() => handleStickerClick(sticker)}
-                                                className={`relative rounded-lg overflow-hidden transition-all border-2 ${selectedSticker?.id === sticker.id
-                                                    ? "border-miku shadow-md"
-                                                    : "border-transparent hover:border-slate-200"
-                                                    }`}
+                                                onClick={() => stickerFileInputRef.current?.click()}
+                                                className="relative rounded-lg overflow-hidden transition-all border-2 border-dashed border-slate-300 hover:border-miku hover:bg-white flex flex-col items-center justify-center gap-1 aspect-[296/256] text-slate-400 hover:text-miku"
+                                                title="上传自定义图片"
                                             >
-                                                <img
-                                                    src={`/sticker-maker/img/${sticker.img}`}
-                                                    alt={sticker.name}
-                                                    loading="lazy"
-                                                    className="w-full aspect-[296/256] object-contain bg-slate-50/50"
-                                                />
+                                                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                                </svg>
+                                                <span className="text-xs font-bold">上传图片</span>
                                             </button>
-                                        ))}
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                ref={stickerFileInputRef}
+                                                className="hidden"
+                                                onChange={handleStickerUpload}
+                                            />
+
+                                            {filteredStickers.map((sticker) => (
+                                                <button
+                                                    key={sticker.id}
+                                                    onClick={() => handleStickerClick(sticker)}
+                                                    className={`relative rounded-lg overflow-hidden transition-all border-2 ${selectedSticker?.id === sticker.id
+                                                        ? "border-miku shadow-md"
+                                                        : "border-transparent hover:border-slate-200"
+                                                        }`}
+                                                >
+                                                    <img
+                                                        src={`/sticker-maker/img/${sticker.img}`}
+                                                        alt={sticker.name}
+                                                        loading="lazy"
+                                                        className="w-full aspect-[296/256] object-contain bg-slate-50/50"
+                                                    />
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -798,14 +802,31 @@ export default function StickerMakerContent() {
                                         </div>
 
                                         <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
-                                            <span className="text-xs font-bold text-slate-500">角色颜色:</span>
-                                            <div
-                                                className="w-5 h-5 rounded-full border border-slate-200 shadow-sm"
-                                                style={{ backgroundColor: selectedSticker?.color }}
-                                            />
+                                            <span className="text-xs font-bold text-slate-500 whitespace-nowrap">字体颜色:</span>
+                                            <label className="relative w-7 h-7 rounded-full border-2 border-slate-200 shadow-sm cursor-pointer overflow-hidden flex-shrink-0 hover:border-miku transition-colors" title="选择字体颜色">
+                                                <div
+                                                    className="absolute inset-0 rounded-full"
+                                                    style={{ backgroundColor: textColor || selectedSticker?.color }}
+                                                />
+                                                <input
+                                                    type="color"
+                                                    value={textColor || selectedSticker?.color || '#000000'}
+                                                    onChange={(e) => setTextColor(e.target.value)}
+                                                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                                />
+                                            </label>
                                             <span className="text-xs font-mono text-slate-400">
-                                                {selectedSticker?.color}
+                                                {textColor || selectedSticker?.color}
                                             </span>
+                                            {textColor && (
+                                                <button
+                                                    onClick={() => setTextColor("")}
+                                                    className="text-xs text-slate-400 hover:text-miku transition-colors whitespace-nowrap"
+                                                    title="重置为角色默认颜色"
+                                                >
+                                                    重置
+                                                </button>
+                                            )}
                                         </div>
 
                                         <div className="flex items-center justify-between pt-2 border-t border-slate-200">

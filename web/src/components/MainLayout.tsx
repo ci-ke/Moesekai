@@ -9,6 +9,7 @@ import SekaiLoader from "./SekaiLoader";
 import BackgroundPattern from "./BackgroundPattern";
 import KeyboardShortcutsHelp from "./KeyboardShortcutsHelp";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -20,6 +21,7 @@ export default function MainLayout({
     showLoader = false
 }: MainLayoutProps) {
     const router = useRouter();
+    const { useTrainedThumbnail, setUseTrainedThumbnail } = useTheme();
 
     // 初始值始终为 false，确保 SSR 和客户端首次渲染一致，避免 hydration 不匹配
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -86,10 +88,11 @@ export default function MainLayout({
         onToggleSettings: () => setIsSettingsOpen(prev => !prev),
         onToggleSearch: () => setIsSearchOpen(prev => !prev),
         onToggleShortcutsHelp: () => setIsShortcutsHelpOpen(prev => !prev),
+        onToggleTrainedThumbnail: () => setUseTrainedThumbnail(!useTrainedThumbnail),
         onNavigateBack: () => router.back(),
         onNavigateForward: () => window.history.forward(),
         onNavigateHome: () => router.push("/"),
-    }), [router]);
+    }), [router, useTrainedThumbnail, setUseTrainedThumbnail]);
 
     useKeyboardShortcuts(shortcutHandlers);
 

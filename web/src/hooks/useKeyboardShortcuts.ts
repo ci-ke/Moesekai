@@ -6,6 +6,7 @@ export interface KeyboardShortcutHandlers {
     onToggleSettings: () => void;
     onToggleSearch: () => void;
     onToggleShortcutsHelp: () => void;
+    onToggleTrainedThumbnail: () => void;
     onNavigateBack: () => void;
     onNavigateForward: () => void;
     onNavigateHome: () => void;
@@ -101,6 +102,13 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers) {
             if (e.key === "[") {
                 e.preventDefault();
                 handlers.onToggleSidebar();
+                return;
+            }
+
+            // ] → toggle trained thumbnail for 3★/4★
+            if (e.key === "]") {
+                e.preventDefault();
+                handlers.onToggleTrainedThumbnail();
                 return;
             }
 

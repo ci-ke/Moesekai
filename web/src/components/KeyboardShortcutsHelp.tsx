@@ -24,6 +24,7 @@ const shortcutGroups = [
         title: "界面",
         shortcuts: [
             { keys: ["["], description: "切换侧边栏" },
+            { keys: ["]"], description: "3★/4★缩略图默认特训后" },
             { keys: ["⌘", "X"], description: "打开设置" },
         ],
     },
