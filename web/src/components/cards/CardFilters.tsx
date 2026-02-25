@@ -2,8 +2,8 @@
 import React from "react";
 import Image from "next/image";
 import BaseFilters, { FilterSection } from "@/components/common/BaseFilters";
-import { CardRarityType, CardAttribute, ATTR_NAMES, CHARACTER_NAMES, UNIT_DATA, SupportUnit, SUPPORT_UNIT_NAMES } from "@/types/types";
-import { getCharacterIconUrl } from "@/lib/assets";
+import CharacterFilter from "@/components/common/CharacterFilter";
+import { CardRarityType, CardAttribute, ATTR_NAMES, UNIT_DATA, SupportUnit, SUPPORT_UNIT_NAMES } from "@/types/types";
 import { useCardSupplyTypeMapping } from "@/hooks/useCardSupplyType";
 
 interface CardFiltersProps {
@@ -66,15 +66,6 @@ const SORT_OPTIONS = [
     { id: "rarity", label: "稀有度" },
 ];
 
-const UNIT_ICONS: Record<string, string> = {
-    "ln": "ln.webp",
-    "mmj": "mmj.webp",
-    "vbs": "vbs.webp",
-    "ws": "wxs.webp",
-    "25ji": "n25.webp",
-    "vs": "vs.webp",
-};
-
 const ATTR_ICONS: Record<CardAttribute, string> = {
     "cool": "Cool.webp",
     "cute": "cute.webp",
@@ -108,14 +99,6 @@ export default function CardFilters({
 }: CardFiltersProps) {
 
     const supplyTypes = useCardSupplyTypeMapping();
-
-    const toggleCharacter = (id: number) => {
-        if (selectedCharacters.includes(id)) {
-            onCharacterChange(selectedCharacters.filter(c => c !== id));
-        } else {
-            onCharacterChange([...selectedCharacters, id]);
-        }
-    };
 
     const toggleAttr = (attr: CardAttribute) => {
         if (selectedAttrs.includes(attr)) {
@@ -152,23 +135,6 @@ export default function CardFilters({
     // Check if any virtual singer is selected (characterId >= 21)
     const hasVirtualSingerSelected = selectedCharacters.some(id => id >= 21);
 
-    const handleUnitClick = (unitId: string) => {
-        const unit = UNIT_DATA.find(u => u.id === unitId);
-        if (!unit) return;
-
-        if (selectedUnitIds.includes(unitId)) {
-            // Remove this unit and its characters
-            onUnitIdsChange(selectedUnitIds.filter(id => id !== unitId));
-            const newChars = selectedCharacters.filter(c => !unit.charIds.includes(c));
-            onCharacterChange(newChars);
-        } else {
-            // Add this unit and its characters
-            onUnitIdsChange([...selectedUnitIds, unitId]);
-            const newChars = [...new Set([...selectedCharacters, ...unit.charIds])];
-            onCharacterChange(newChars);
-        }
-    };
-
     const hasActiveFilters =
         selectedCharacters.length > 0 ||
         selectedAttrs.length > 0 ||
@@ -176,10 +142,6 @@ export default function CardFilters({
         selectedSupplyTypes.length > 0 ||
         selectedSupportUnits.length > 0 ||
         searchQuery.length > 0;
-
-    const currentUnits = selectedUnitIds.length > 0
-        ? UNIT_DATA.filter(u => selectedUnitIds.includes(u.id))
-        : [];
 
     const handleReset = () => {
         onReset();
@@ -200,68 +162,13 @@ export default function CardFilters({
             hasActiveFilters={hasActiveFilters}
             onReset={handleReset}
         >
-            {/* Unit Selection */}
-            <FilterSection label="团体">
-                <div className="flex flex-wrap gap-2">
-                    {UNIT_DATA.map(unit => {
-                        const iconName = UNIT_ICONS[unit.id] || "";
-                        return (
-                            <button
-                                key={unit.id}
-                                onClick={() => handleUnitClick(unit.id)}
-                                className={`p-1.5 rounded-xl transition-all ${selectedUnitIds.includes(unit.id)
-                                    ? "ring-2 ring-miku shadow-lg bg-white"
-                                    : "hover:bg-slate-100 border border-transparent bg-slate-50"
-                                    }`}
-                                title={unit.name}
-                            >
-                                <div className="w-8 h-8 relative">
-                                    <Image
-                                        src={`/data/icon/${iconName}`}
-                                        alt={unit.name}
-                                        fill
-                                        className="object-contain"
-                                        unoptimized
-                                    />
-                                </div>
-                            </button>
-                        );
-                    })}
-                </div>
-            </FilterSection>
-
-            {/* Character Selection */}
-            {(currentUnits.length > 0 || selectedCharacters.length > 0) && (
-                <FilterSection label="角色">
-                    <div className="flex flex-wrap gap-2">
-                        {(currentUnits.length > 0
-                            ? currentUnits.flatMap(u => u.charIds)
-                            : [...new Set(selectedCharacters)]
-                        ).map(charId => (
-                            <button
-                                key={charId}
-                                onClick={() => toggleCharacter(charId)}
-                                className={`relative transition-all ${selectedCharacters.includes(charId)
-                                    ? "ring-2 ring-miku scale-110 z-10 rounded-full"
-                                    : "ring-2 ring-transparent hover:ring-slate-200 rounded-full opacity-80 hover:opacity-100"
-                                    }`}
-                                title={CHARACTER_NAMES[charId]}
-                            >
-                                <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100">
-                                    <Image
-                                        src={getCharacterIconUrl(charId)}
-                                        alt={CHARACTER_NAMES[charId]}
-                                        width={40}
-                                        height={40}
-                                        className="w-full h-full object-cover"
-                                        unoptimized
-                                    />
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </FilterSection>
-            )}
+            {/* Unit & Character Selection */}
+            <CharacterFilter
+                selectedCharacters={selectedCharacters}
+                onCharacterChange={onCharacterChange}
+                selectedUnitIds={selectedUnitIds}
+                onUnitIdsChange={onUnitIdsChange}
+            />
 
             {/* Support Unit Filter - Only show when virtual singers are selected */}
             {hasVirtualSingerSelected && (

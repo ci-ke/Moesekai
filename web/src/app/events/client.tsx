@@ -4,11 +4,23 @@ import { useRouter, useSearchParams } from "next/navigation";
 import MainLayout from "@/components/MainLayout";
 import EventGrid from "@/components/events/EventGrid";
 import EventFilters from "@/components/events/EventFilters";
-import { IEventInfo, EventType } from "@/types/events";
+import { IEventInfo, IEventDeckBonus, EventType } from "@/types/events";
 import { useTheme } from "@/contexts/ThemeContext";
 import { fetchMasterData } from "@/lib/fetch";
 import { loadTranslations, TranslationData } from "@/lib/translations";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
+
+/** Convert gameCharacterUnitId to base character ID (1-26) */
+function getBaseCharacterId(id: number): number {
+    if (id <= 26) return id;
+    if (id >= 27 && id <= 31) return 21; // Miku
+    if (id >= 32 && id <= 36) return 22; // Rin
+    if (id >= 37 && id <= 41) return 23; // Len
+    if (id >= 42 && id <= 46) return 24; // Luka
+    if (id >= 47 && id <= 51) return 25; // MEIKO
+    if (id >= 52 && id <= 56) return 26; // KAITO
+    return id;
+}
 
 function EventsContent() {
     const router = useRouter();
@@ -16,6 +28,7 @@ function EventsContent() {
     const { isShowSpoiler } = useTheme();
 
     const [events, setEvents] = useState<IEventInfo[]>([]);
+    const [deckBonuses, setDeckBonuses] = useState<IEventDeckBonus[]>([]);
     const [translations, setTranslations] = useState<TranslationData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -23,6 +36,8 @@ function EventsContent() {
 
     // Filter states
     const [selectedTypes, setSelectedTypes] = useState<EventType[]>([]);
+    const [selectedCharacters, setSelectedCharacters] = useState<number[]>([]);
+    const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
 
     // Sort states
@@ -43,14 +58,18 @@ function EventsContent() {
     // Initialize from URL params first, then fallback to sessionStorage
     useEffect(() => {
         const types = searchParams.get("types");
+        const chars = searchParams.get("characters");
+        const units = searchParams.get("units");
         const search = searchParams.get("search");
         const sort = searchParams.get("sortBy");
         const order = searchParams.get("sortOrder");
 
-        const hasUrlParams = types || search || sort || order;
+        const hasUrlParams = types || chars || units || search || sort || order;
 
         if (hasUrlParams) {
             if (types) setSelectedTypes(types.split(",") as EventType[]);
+            if (chars) setSelectedCharacters(chars.split(",").map(Number));
+            if (units) setSelectedUnitIds(units.split(","));
             if (search) setSearchQuery(search);
             if (sort) setSortBy(sort as "id" | "startAt");
             if (order) setSortOrder(order as "asc" | "desc");
@@ -60,6 +79,8 @@ function EventsContent() {
                 if (saved) {
                     const filters = JSON.parse(saved);
                     if (filters.types?.length) setSelectedTypes(filters.types);
+                    if (filters.characters?.length) setSelectedCharacters(filters.characters);
+                    if (filters.units?.length) setSelectedUnitIds(filters.units);
                     if (filters.search) setSearchQuery(filters.search);
                     if (filters.sortBy) setSortBy(filters.sortBy);
                     if (filters.sortOrder) setSortOrder(filters.sortOrder);
@@ -77,6 +98,8 @@ function EventsContent() {
 
         const filters = {
             types: selectedTypes,
+            characters: selectedCharacters,
+            units: selectedUnitIds,
             search: searchQuery,
             sortBy,
             sortOrder,
@@ -89,6 +112,8 @@ function EventsContent() {
 
         const params = new URLSearchParams();
         if (selectedTypes.length > 0) params.set("types", selectedTypes.join(","));
+        if (selectedCharacters.length > 0) params.set("characters", selectedCharacters.join(","));
+        if (selectedUnitIds.length > 0) params.set("units", selectedUnitIds.join(","));
         if (searchQuery) params.set("search", searchQuery);
         if (sortBy !== "id") params.set("sortBy", sortBy);
         if (sortOrder !== "desc") params.set("sortOrder", sortOrder);
@@ -96,19 +121,20 @@ function EventsContent() {
         const queryString = params.toString();
         const newUrl = queryString ? `/events?${queryString}` : "/events";
         router.replace(newUrl, { scroll: false });
-    }, [selectedTypes, searchQuery, sortBy, sortOrder, router, filtersInitialized]);
+    }, [selectedTypes, selectedCharacters, selectedUnitIds, searchQuery, sortBy, sortOrder, router, filtersInitialized]);
 
     // Fetch events data
     useEffect(() => {
-        // document.title = "Snowy SekaiViewer 活动"; // Moved to metadata
         async function fetchEvents() {
             try {
                 setIsLoading(true);
-                const [data, translationsData] = await Promise.all([
+                const [data, bonusesData, translationsData] = await Promise.all([
                     fetchMasterData<IEventInfo[]>("events.json"),
+                    fetchMasterData<IEventDeckBonus[]>("eventDeckBonuses.json"),
                     loadTranslations(),
                 ]);
                 setEvents(data);
+                setDeckBonuses(bonusesData);
                 setTranslations(translationsData);
                 setError(null);
             } catch (err) {
@@ -121,6 +147,21 @@ function EventsContent() {
         fetchEvents();
     }, []);
 
+    // Build a map: eventId -> Set of bonus character IDs (base IDs 1-26)
+    const eventBonusCharMap = useMemo(() => {
+        const map = new Map<number, Set<number>>();
+        for (const bonus of deckBonuses) {
+            if (bonus.gameCharacterUnitId) {
+                const charId = getBaseCharacterId(bonus.gameCharacterUnitId);
+                if (!map.has(bonus.eventId)) {
+                    map.set(bonus.eventId, new Set());
+                }
+                map.get(bonus.eventId)!.add(charId);
+            }
+        }
+        return map;
+    }, [deckBonuses]);
+
     // Filter and sort events
     const filteredEvents = useMemo(() => {
         let result = [...events];
@@ -128,6 +169,15 @@ function EventsContent() {
         // Apply type filter
         if (selectedTypes.length > 0) {
             result = result.filter(event => selectedTypes.includes(event.eventType as EventType));
+        }
+
+        // Apply character filter (intersection: event must have ALL selected characters as bonus)
+        if (selectedCharacters.length > 0) {
+            result = result.filter(event => {
+                const bonusChars = eventBonusCharMap.get(event.id);
+                if (!bonusChars) return false;
+                return selectedCharacters.every(charId => bonusChars.has(charId));
+            });
         }
 
         // Apply search query (supports both name, ID, and Chinese translations)
@@ -167,18 +217,18 @@ function EventsContent() {
         });
 
         return result;
-    }, [events, selectedTypes, searchQuery, sortBy, sortOrder, isShowSpoiler, translations]);
+    }, [events, selectedTypes, selectedCharacters, eventBonusCharMap, searchQuery, sortBy, sortOrder, isShowSpoiler, translations]);
 
     // Displayed events (with pagination)
     const displayedEvents = useMemo(() => {
         return filteredEvents.slice(0, displayCount);
     }, [filteredEvents, displayCount]);
 
-
-
     // Reset filters
     const resetFilters = useCallback(() => {
         setSelectedTypes([]);
+        setSelectedCharacters([]);
+        setSelectedUnitIds([]);
         setSearchQuery("");
         setSortBy("id");
         setSortOrder("desc");
@@ -229,6 +279,10 @@ function EventsContent() {
                         <EventFilters
                             selectedTypes={selectedTypes}
                             onTypeChange={setSelectedTypes}
+                            selectedCharacters={selectedCharacters}
+                            onCharacterChange={setSelectedCharacters}
+                            selectedUnitIds={selectedUnitIds}
+                            onUnitIdsChange={setSelectedUnitIds}
                             searchQuery={searchQuery}
                             onSearchChange={setSearchQuery}
                             sortBy={sortBy}

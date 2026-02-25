@@ -1,10 +1,18 @@
 "use client";
-import BaseFilters, { FilterSection, FilterButton } from "@/components/common/BaseFilters";
+import BaseFilters, { FilterSection } from "@/components/common/BaseFilters";
+import CharacterFilter from "@/components/common/CharacterFilter";
 import { EventType, EVENT_TYPE_NAMES, EVENT_TYPE_COLORS } from "@/types/events";
 
 interface EventFiltersProps {
     selectedTypes: EventType[];
     onTypeChange: (types: EventType[]) => void;
+
+    // Character filter (bonus characters)
+    selectedCharacters: number[];
+    onCharacterChange: (chars: number[]) => void;
+    selectedUnitIds: string[];
+    onUnitIdsChange: (units: string[]) => void;
+
     searchQuery: string;
     onSearchChange: (query: string) => void;
     sortBy: "id" | "startAt";
@@ -25,6 +33,10 @@ const SORT_OPTIONS = [
 export default function EventFilters({
     selectedTypes,
     onTypeChange,
+    selectedCharacters,
+    onCharacterChange,
+    selectedUnitIds,
+    onUnitIdsChange,
     searchQuery,
     onSearchChange,
     sortBy,
@@ -42,7 +54,7 @@ export default function EventFilters({
         }
     };
 
-    const hasActiveFilters = selectedTypes.length > 0 || searchQuery.trim() !== "";
+    const hasActiveFilters = selectedTypes.length > 0 || selectedCharacters.length > 0 || searchQuery.trim() !== "";
 
     return (
         <BaseFilters
@@ -77,6 +89,16 @@ export default function EventFilters({
                     ))}
                 </div>
             </FilterSection>
+
+            {/* Bonus Character Filter */}
+            <CharacterFilter
+                selectedCharacters={selectedCharacters}
+                onCharacterChange={onCharacterChange}
+                selectedUnitIds={selectedUnitIds}
+                onUnitIdsChange={onUnitIdsChange}
+                unitLabel="加成角色 (团体)"
+                characterLabel="加成角色"
+            />
         </BaseFilters>
     );
 }
