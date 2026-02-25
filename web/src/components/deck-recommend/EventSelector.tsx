@@ -157,6 +157,10 @@ export default function EventSelector({ selectedEventId, onSelect }: EventSelect
                     <EventFilters
                         selectedTypes={selectedTypes}
                         onTypeChange={setSelectedTypes}
+                        selectedCharacters={[]}
+                        onCharacterChange={() => { }}
+                        selectedUnitIds={[]}
+                        onUnitIdsChange={() => { }}
                         searchQuery={searchQuery}
                         onSearchChange={setSearchQuery}
                         sortBy={sortBy}
