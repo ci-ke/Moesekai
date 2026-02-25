@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
-import { IEventInfo, EventType } from "@/types/events";
+import { IEventInfo, IEventDeckBonus, EventType } from "@/types/events";
 import { fetchMasterData } from "@/lib/fetch";
 import { getEventLogoUrl } from "@/lib/assets";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -9,6 +9,18 @@ import { loadTranslations, TranslationData } from "@/lib/translations";
 import SelectorModal from "./SelectorModal";
 import EventFilters from "@/components/events/EventFilters";
 import EventItem from "@/components/events/EventItem";
+
+/** Convert gameCharacterUnitId to base character ID (1-26) */
+function getBaseCharacterId(id: number): number {
+    if (id <= 26) return id;
+    if (id >= 27 && id <= 31) return 21; // Miku
+    if (id >= 32 && id <= 36) return 22; // Rin
+    if (id >= 37 && id <= 41) return 23; // Len
+    if (id >= 42 && id <= 46) return 24; // Luka
+    if (id >= 47 && id <= 51) return 25; // MEIKO
+    if (id >= 52 && id <= 56) return 26; // KAITO
+    return id;
+}
 
 interface EventSelectorProps {
     selectedEventId: string;
@@ -18,12 +30,15 @@ interface EventSelectorProps {
 export default function EventSelector({ selectedEventId, onSelect }: EventSelectorProps) {
     const { assetSource } = useTheme();
     const [events, setEvents] = useState<IEventInfo[]>([]);
+    const [deckBonuses, setDeckBonuses] = useState<IEventDeckBonus[]>([]);
     const [translations, setTranslations] = useState<TranslationData | null>(null);
     const [loading, setLoading] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
 
     // Filters state
     const [selectedTypes, setSelectedTypes] = useState<EventType[]>([]);
+    const [selectedCharacters, setSelectedCharacters] = useState<number[]>([]);
+    const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [sortBy, setSortBy] = useState<"id" | "startAt">("startAt");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -33,10 +48,12 @@ export default function EventSelector({ selectedEventId, onSelect }: EventSelect
         setLoading(true);
         Promise.all([
             fetchMasterData<IEventInfo[]>("events.json"),
+            fetchMasterData<IEventDeckBonus[]>("eventDeckBonuses.json"),
             loadTranslations()
         ])
-            .then(([eventsData, translationsData]) => {
+            .then(([eventsData, bonusesData, translationsData]) => {
                 setEvents(eventsData);
+                setDeckBonuses(bonusesData);
                 setTranslations(translationsData);
                 setLoading(false);
             })
@@ -46,6 +63,21 @@ export default function EventSelector({ selectedEventId, onSelect }: EventSelect
             });
     }, []);
 
+    // Build a map: eventId -> Set of bonus character IDs (base IDs 1-26)
+    const eventBonusCharMap = useMemo(() => {
+        const map = new Map<number, Set<number>>();
+        for (const bonus of deckBonuses) {
+            if (bonus.gameCharacterUnitId) {
+                const charId = getBaseCharacterId(bonus.gameCharacterUnitId);
+                if (!map.has(bonus.eventId)) {
+                    map.set(bonus.eventId, new Set());
+                }
+                map.get(bonus.eventId)!.add(charId);
+            }
+        }
+        return map;
+    }, [deckBonuses]);
+
     // Filter events
     const filteredEvents = useMemo(() => {
         let result = [...events];
@@ -53,6 +85,15 @@ export default function EventSelector({ selectedEventId, onSelect }: EventSelect
         // Type filter
         if (selectedTypes.length > 0) {
             result = result.filter(e => selectedTypes.includes(e.eventType));
+        }
+
+        // Character filter (intersection: event must have ALL selected characters as bonus)
+        if (selectedCharacters.length > 0) {
+            result = result.filter(e => {
+                const bonusChars = eventBonusCharMap.get(e.id);
+                if (!bonusChars) return false;
+                return selectedCharacters.every(charId => bonusChars.has(charId));
+            });
         }
 
         // Search filter
@@ -78,7 +119,7 @@ export default function EventSelector({ selectedEventId, onSelect }: EventSelect
         });
 
         return result;
-    }, [events, selectedTypes, searchQuery, sortBy, sortOrder, translations]);
+    }, [events, selectedTypes, selectedCharacters, eventBonusCharMap, searchQuery, sortBy, sortOrder, translations]);
 
     // Get currently selected event object
     const selectedEvent = useMemo(() => {
@@ -157,10 +198,10 @@ export default function EventSelector({ selectedEventId, onSelect }: EventSelect
                     <EventFilters
                         selectedTypes={selectedTypes}
                         onTypeChange={setSelectedTypes}
-                        selectedCharacters={[]}
-                        onCharacterChange={() => { }}
-                        selectedUnitIds={[]}
-                        onUnitIdsChange={() => { }}
+                        selectedCharacters={selectedCharacters}
+                        onCharacterChange={setSelectedCharacters}
+                        selectedUnitIds={selectedUnitIds}
+                        onUnitIdsChange={setSelectedUnitIds}
                         searchQuery={searchQuery}
                         onSearchChange={setSearchQuery}
                         sortBy={sortBy}
@@ -168,6 +209,8 @@ export default function EventSelector({ selectedEventId, onSelect }: EventSelect
                         onSortChange={setSortBy as any}
                         onReset={() => {
                             setSelectedTypes([]);
+                            setSelectedCharacters([]);
+                            setSelectedUnitIds([]);
                             setSearchQuery("");
                             setSortBy("startAt");
                             setSortOrder("desc");
