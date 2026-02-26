@@ -3985,6 +3985,14 @@
     "sabio/高村風太": {
       "text": "sabio/高村风太",
       "source": "llm"
+    },
+    "世阿弥": {
+      "text": "世阿弥",
+      "source": "llm"
+    },
+    "LindaAI-CUE(BNSI)": {
+      "text": "LindaAI-CUE(BNSI)",
+      "source": "llm"
     }
   },
   "vocalCaption": {

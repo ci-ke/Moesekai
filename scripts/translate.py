@@ -22,6 +22,7 @@ Usage:
 
 import json
 import os
+import re
 import sys
 import argparse
 import time
@@ -43,7 +44,7 @@ LLM_CONFIGS = {
     },
     "gemini": {
         "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent",
-        "model": "gemini-3-flash-preview",
+        "model": "gemini-3.1-pro-preview",
         "env_key": "GEMINI_API_KEY",
     }
 }
@@ -61,13 +62,8 @@ CN_MASTERDATA_URL = "https://sekaimaster-cn.exmeaning.com/master"
 CN_ASSETS_URL = "https://sekai-assets-bdf29c81.seiunx.net/cn-assets/ondemand"
 JP_ASSETS_URL = "https://sekai-assets-bdf29c81.seiunx.net/jp-assets/ondemand"
 
-# Game context prompt for LLM
-GAME_CONTEXT_PROMPT = """你是一个专业的游戏翻译器，专门翻译《世界计划 彩色舞台 feat. 初音未来》(Project SEKAI) 游戏内容。
-
-游戏背景设定：
-游戏中存在一个现实世界和虚拟世界「世界」，游戏的主人公团体（5个团体，每个团有4个角色）各有一个「世界」，他们能够通过电子设备上神秘出现的「Untitled」歌曲往返现实世界和「世界」。在「世界」中，原本在现实世界的虚拟歌手（比如初音未来）变为了真实的存在，能够与主人公团体互动。「世界」反映的是主人的强烈的心愿，而虚拟歌手们会帮助主人公团体一步步达成他们的心愿。
-
-角色译名表（日文 -> 中文）：
+# Character name mapping (shared between prompts)
+CHARACTER_NAME_CONTEXT = """角色译名表（日文 -> 中文）：
 Virtual Singer(虚拟歌手):
 - 初音ミク: 初音未来
 - 鏡音リン: 镜音铃
@@ -105,11 +101,59 @@ Wonderlands×Showtime (奇幻的世界):
 - 朝比奈まふゆ: 朝比奈真冬
 - 東雲絵名: 东云绘名
 - 暁山瑞希: 暁山瑞希
+"""
 
-请将以下日文文本翻译成简体中文。保持翻译简洁、自然，符合游戏风格。
-只返回翻译结果，每行一个，与输入顺序对应。不要添加序号或额外说明。
+# Game context prompt for LLM (general category translation)
+GAME_CONTEXT_PROMPT = f"""你是一个专业的游戏翻译器，专门翻译《世界计划 彩色舞台 feat. 初音未来》(Project SEKAI) 游戏内容。
+
+{CHARACTER_NAME_CONTEXT}
+
+请将以下XML格式的日文文本翻译成简体中文。保持翻译简洁、自然，符合游戏风格。
+
+请严格按照如下XML格式返回翻译结果，每个<t>标签的id必须与输入的<item>标签id一一对应：
+<translations>
+<t id="1">翻译结果1</t>
+<t id="2">翻译结果2</t>
+</translations>
+
+注意：
+- 只返回<translations>标签及其内容，不要添加任何额外说明
+- 保持id与输入完全对应
+- 不要遗漏任何条目
 
 待翻译文本：
+"""
+
+# Story dialog translation prompt (preserves dialog formatting)
+STORY_TRANSLATION_PROMPT = f"""你是一个专业的游戏翻译器，专门翻译《世界计划 彩色舞台 feat. 初音未来》(Project SEKAI) 游戏剧情对话。
+
+游戏背景设定：
+游戏中存在一个现实世界和虚拟世界「世界」，游戏的主人公团体（5个团体，每个团有4个角色）各有一个「世界」，他们能够通过电子设备上神秘出现的「Untitled」歌曲往返现实世界和「世界」。在「世界」中，原本在现实世界的虚拟歌手（比如初音未来）变为了真实的存在，能够与主人公团体互动。「世界」反映的是主人的强烈的心愿，而虚拟歌手们会帮助主人公团体一步步达成他们的心愿。
+
+{CHARACTER_NAME_CONTEXT}
+
+请将以下XML格式的日文游戏剧情对话翻译成简体中文。
+
+翻译要求：
+- 保持对话的语气、情感和角色个性
+- 保留文本中的换行符（\n）
+- 保留情感符号（♪、！、……、？等）
+- 保留引号格式（『』用于表示消息/回忆中的对话）
+- 角色名使用译名表中的中文名
+- 翻译要自然流畅，符合中文口语习惯
+
+请严格按照如下XML格式返回翻译结果，每个<t>标签的id必须与输入的<item>标签id一一对应：
+<translations>
+<t id="1">翻译结果1</t>
+<t id="2">翻译结果2</t>
+</translations>
+
+注意：
+- 只返回<translations>标签及其内容，不要添加任何额外说明
+- 保持id与输入完全对应
+- 不要遗漏任何条目
+
+待翻译对话：
 """
 
 
@@ -145,16 +189,62 @@ def fetch_masterdata(filename: str, server: str = "jp") -> Optional[Any]:
         return None
 
 
-def call_qwen_api(api_key: str, texts: List[str]) -> List[str]:
-    """Call SiliconFlow Qwen API"""
+# ============================================================================
+# XML-based LLM input/output helpers
+# ============================================================================
+
+def build_xml_input(texts: List[str]) -> str:
+    """Build XML-formatted input for LLM translation.
+    
+    Each text is wrapped in an <item> tag with an id attribute.
+    Special XML characters in text are escaped.
+    """
+    lines = []
+    for i, text in enumerate(texts, 1):
+        # Escape XML special characters
+        escaped = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        lines.append(f'<item id="{i}">{escaped}</item>')
+    return "\n".join(lines)
+
+
+def parse_xml_translations(content: str, expected_count: int) -> Dict[int, str]:
+    """Parse XML-formatted translation response from LLM.
+    
+    Extracts <t id="N">translated text</t> from the response.
+    Returns a dict mapping id (1-based) to translated text.
+    """
+    # Remove think blocks (Qwen sometimes adds these)
+    content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+    
+    # Extract translations using regex - allow multiline content inside <t> tags
+    pattern = r'<t\s+id="(\d+)">(.*?)</t>'
+    matches = re.findall(pattern, content, re.DOTALL)
+    
+    result = {}
+    for id_str, text in matches:
+        tid = int(id_str)
+        # Unescape XML entities
+        text = text.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+        result[tid] = text.strip()
+    
+    if len(result) != expected_count:
+        print(f"  Warning: Expected {expected_count} translations, got {len(result)}")
+    
+    return result
+
+
+def call_qwen_api(api_key: str, texts: List[str], prompt_template: str = "") -> List[str]:
+    """Call SiliconFlow Qwen API with XML format"""
     config = LLM_CONFIGS["qwen"]
-    prompt = GAME_CONTEXT_PROMPT + "\n".join(texts)
+    if not prompt_template:
+        prompt_template = GAME_CONTEXT_PROMPT
+    prompt = prompt_template + build_xml_input(texts)
     
     payload = {
         "model": config["model"],
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.3,
-        "max_tokens": 4096,
+        "max_tokens": 8192,
     }
     
     headers = {
@@ -166,30 +256,25 @@ def call_qwen_api(api_key: str, texts: List[str]) -> List[str]:
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(config["url"], data=data, headers=headers, method="POST")
         
-        with urllib.request.urlopen(req, timeout=60) as response:
+        with urllib.request.urlopen(req, timeout=120) as response:
             result = json.loads(response.read().decode("utf-8"))
             content = result["choices"][0]["message"]["content"]
             
-            translations = [line.strip() for line in content.strip().split("\n") if line.strip()]
-            
-            # Handle /no_think markers from Qwen
-            cleaned = []
-            for t in translations:
-                if t.startswith("/no_think") or t.startswith("<think>") or t.endswith("</think>"):
-                    continue
-                cleaned.append(t)
-            
-            return cleaned
+            parsed = parse_xml_translations(content, len(texts))
+            # Convert to ordered list
+            return [parsed.get(i, "") for i in range(1, len(texts) + 1)]
             
     except Exception as e:
         print(f"  Qwen API Error: {e}")
         return []
 
 
-def call_gemini_api(api_key: str, texts: List[str]) -> List[str]:
-    """Call Google Gemini API"""
+def call_gemini_api(api_key: str, texts: List[str], prompt_template: str = "") -> List[str]:
+    """Call Google Gemini API with XML format"""
     config = LLM_CONFIGS["gemini"]
-    prompt = GAME_CONTEXT_PROMPT + "\n".join(texts)
+    if not prompt_template:
+        prompt_template = GAME_CONTEXT_PROMPT
+    prompt = prompt_template + build_xml_input(texts)
     
     url = f"{config['url']}?key={api_key}"
     
@@ -197,7 +282,7 @@ def call_gemini_api(api_key: str, texts: List[str]) -> List[str]:
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "temperature": 0.3,
-            "maxOutputTokens": 4096,
+            "maxOutputTokens": 8192,
         }
     }
     
@@ -207,35 +292,36 @@ def call_gemini_api(api_key: str, texts: List[str]) -> List[str]:
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
         
-        with urllib.request.urlopen(req, timeout=60) as response:
+        with urllib.request.urlopen(req, timeout=120) as response:
             result = json.loads(response.read().decode("utf-8"))
             content = result["candidates"][0]["content"]["parts"][0]["text"]
             
-            translations = [line.strip() for line in content.strip().split("\n") if line.strip()]
-            return translations
+            parsed = parse_xml_translations(content, len(texts))
+            # Convert to ordered list
+            return [parsed.get(i, "") for i in range(1, len(texts) + 1)]
             
     except Exception as e:
         print(f"  Gemini API Error: {e}")
         return []
 
 
-def call_llm(api_key: str, texts: List[str], llm_type: str) -> List[str]:
-    """Call LLM API to translate texts"""
+def call_llm(api_key: str, texts: List[str], llm_type: str, prompt_template: str = "") -> List[str]:
+    """Call LLM API to translate texts using XML format"""
     if not texts:
         return []
     
     if llm_type == "gemini":
-        return call_gemini_api(api_key, texts)
+        return call_gemini_api(api_key, texts, prompt_template)
     else:
-        return call_qwen_api(api_key, texts)
+        return call_qwen_api(api_key, texts, prompt_template)
 
 
-def translate_batch(api_key: str, texts: List[str], llm_type: str, dry_run: bool = False) -> Dict[str, str]:
+def translate_batch(api_key: str, texts: List[str], llm_type: str, dry_run: bool = False, prompt_template: str = "") -> Dict[str, str]:
     """Translate a batch of texts using LLM and return mapping"""
     if dry_run:
         return {t: f"[LLM翻译] {t}" for t in texts}
     
-    translations = call_llm(api_key, texts, llm_type)
+    translations = call_llm(api_key, texts, llm_type, prompt_template)
     
     result = {}
     for i, original in enumerate(texts):
@@ -849,19 +935,81 @@ def fetch_scenario_json_from_url(url: str, retries: int = 3) -> Optional[Any]:
     return None
 
 
-def extract_event_story_translations(dry_run: bool = False, force: bool = False) -> None:
+# Batch size for story dialog translation (larger for better context)
+STORY_BATCH_SIZE = 40
+
+
+def translate_event_story_episode_llm(
+    api_key: str,
+    jp_scenario: Dict[str, Any],
+    llm_type: str,
+    dry_run: bool = False
+) -> Dict[str, str]:
     """
-    Extract event story translations from CN server scenario data.
+    Translate a single episode's TalkData using LLM.
+    Returns a dict mapping JP text -> CN translation.
+    """
+    jp_talk_list = jp_scenario.get("TalkData", [])
+    
+    # Collect unique texts to translate (Body + WindowDisplayName)
+    texts_to_translate = []
+    seen = set()
+    
+    for talk in jp_talk_list:
+        body = talk.get("Body", "")
+        if body and body.strip() and body not in seen:
+            texts_to_translate.append(body)
+            seen.add(body)
+        
+        display_name = talk.get("WindowDisplayName", "")
+        if display_name and display_name.strip() and display_name not in seen:
+            texts_to_translate.append(display_name)
+            seen.add(display_name)
+    
+    if not texts_to_translate:
+        return {}
+    
+    talk_data: Dict[str, str] = {}
+    
+    # Translate in batches
+    for i in range(0, len(texts_to_translate), STORY_BATCH_SIZE):
+        batch = texts_to_translate[i:i + STORY_BATCH_SIZE]
+        batch_num = i // STORY_BATCH_SIZE + 1
+        total_batches = (len(texts_to_translate) - 1) // STORY_BATCH_SIZE + 1
+        print(f"      LLM Batch {batch_num}/{total_batches} ({len(batch)} texts)")
+        
+        translations = translate_batch(api_key, batch, llm_type, dry_run, STORY_TRANSLATION_PROMPT)
+        talk_data.update(translations)
+        
+        if not dry_run and i + STORY_BATCH_SIZE < len(texts_to_translate):
+            time.sleep(RATE_LIMIT_DELAY)
+    
+    return talk_data
+
+
+def extract_event_story_translations(
+    dry_run: bool = False,
+    force: bool = False,
+    api_key: str = "",
+    llm_type: str = "qwen",
+    cn_only: bool = False
+) -> None:
+    """
+    Extract event story translations from CN server scenario data,
+    with LLM fallback for events without CN translations.
     Generates per-event translation files: eventStory/event_{eventId}.json
+    
+    Priority: CN official translation > LLM translation
     
     Args:
         dry_run: If True, do not save files
         force: If True, overwrite existing translation files
-    
-    Start from Event 1 (Stella) because we want to ensure all available CN data is captured/migrated.
+        api_key: LLM API key (required if not cn_only)
+        llm_type: LLM type to use ("qwen" or "gemini")
+        cn_only: If True, skip LLM translation
     """
     print(f"\n{'='*60}")
-    print(f"Extracting Event Story Translations (Official CN)")
+    print(f"Extracting Event Story Translations (CN + LLM Fallback)")
     print(f"{'='*60}")
     
     # Fetch event stories from both servers
@@ -870,12 +1018,12 @@ def extract_event_story_translations(dry_run: bool = False, force: bool = False)
     jp_events = fetch_masterdata("events.json", "jp")
     cn_events = fetch_masterdata("events.json", "cn")
     
-    if not jp_stories or not cn_stories:
-        print("  Error: Could not fetch eventStories.json")
+    if not jp_stories:
+        print("  Error: Could not fetch JP eventStories.json")
         return
     
     # Build lookup maps
-    cn_story_by_event = {s["eventId"]: s for s in cn_stories}
+    cn_story_by_event = {s["eventId"]: s for s in (cn_stories or [])}
     cn_event_ids = {e["id"] for e in (cn_events or [])}
     
     # Create output directory
@@ -883,147 +1031,202 @@ def extract_event_story_translations(dry_run: bool = False, force: bool = False)
     if not dry_run:
         event_story_dir.mkdir(parents=True, exist_ok=True)
     
-    stats = {"events_processed": 0, "episodes_processed": 0, "events_skipped": 0, "events_updated": 0}
+    stats = {"cn_processed": 0, "llm_processed": 0, "episodes_processed": 0, "events_skipped": 0}
+    
+    # Collect events needing LLM translation (no CN data)
+    events_needing_llm: List[Dict[str, Any]] = []
     
     for jp_story in jp_stories:
         event_id = jp_story["eventId"]
-        
-        # Check if this event exists on CN server
-        if event_id not in cn_event_ids:
-            stats["events_skipped"] += 1
-            continue
-        
-        cn_story = cn_story_by_event.get(event_id)
-        if not cn_story:
-            stats["events_skipped"] += 1
-            continue
-        
-        print(f"  Processing Event {event_id}: {jp_story['assetbundleName']}")
-        
         output_file = event_story_dir / f"event_{event_id}.json"
         
-        # Check existing file for priority logic
-        should_process = True
-        if output_file.exists():
-            try:
-                with open(output_file, "r", encoding="utf-8") as f:
-                    existing_data = json.load(f)
-                
-                existing_source = existing_data.get("meta", {}).get("source", "official_cn") # Default to official_cn for old files generated by this script
-                
-                if existing_source == "llm":
-                    print(f"    Overwriting LLM translation with Official CN data")
-                    should_process = True
-                elif existing_source == "official_cn":
-                    if force:
-                        print(f"    Force updating existing Official CN data")
+        # --- Phase 1: CN Official Translation ---
+        has_cn = event_id in cn_event_ids and event_id in cn_story_by_event
+        
+        if has_cn:
+            cn_story = cn_story_by_event[event_id]
+            
+            # Check existing file for priority logic
+            should_process = True
+            if output_file.exists():
+                try:
+                    with open(output_file, "r", encoding="utf-8") as f:
+                        existing_data = json.load(f)
+                    
+                    existing_source = existing_data.get("meta", {}).get("source", "official_cn")
+                    
+                    if existing_source == "llm":
+                        print(f"  Event {event_id}: Overwriting LLM translation with Official CN data")
                         should_process = True
-                    else:
-                        # Even if skipping, check if we need to migrate structure (add meta/titles)
-                        # But for now, let's assume if it's official_cn and not forced, we skip to save time
-                        # UNLESS user specifically asked for "update". 
-                        # Given the requirement "don't read from ep 1 every time", we skip.
-                        print(f"    Skipping (already Official CN)")
-                        should_process = False
-            except Exception:
-                # If file is corrupt or unreadable, overwrite it
-                should_process = True
-        
-        if not should_process:
-            continue
-
-        episodes_translation: Dict[str, Any] = {}
-        
-        # Build map of CN episodes for title extraction
-        cn_episodes_map = {ep["episodeNo"]: ep for ep in cn_story.get("eventStoryEpisodes", [])}
-        
-        for jp_episode in jp_story.get("eventStoryEpisodes", []):
-            episode_no = jp_episode["episodeNo"]
-            scenario_id = jp_episode["scenarioId"]
-            asset_bundle = jp_story["assetbundleName"]
+                    elif existing_source == "official_cn":
+                        if force:
+                            print(f"  Event {event_id}: Force updating existing Official CN data")
+                            should_process = True
+                        else:
+                            should_process = False
+                except Exception:
+                    should_process = True
             
-            # Get CN Title
-            cn_episode = cn_episodes_map.get(episode_no)
-            cn_title = cn_episode.get("title", "") if cn_episode else ""
-            
-            # Construct scenario path
-            scenario_path = f"event_story/{asset_bundle}/scenario/{scenario_id}"
-            
-            # Fetch CN scenario
-            cn_scenario = fetch_scenario_json(scenario_path)
-            
-            if not cn_scenario:
-                print(f"    Episode {episode_no}: CN scenario not found")
+            if not should_process:
+                stats["events_skipped"] += 1
                 continue
             
-            # Fetch JP scenario for mapping (only if available, to improve mapping accuracy)
-            jp_scenario = fetch_scenario_json_from_url(f"{JP_ASSETS_URL}/{scenario_path}.json")
+            print(f"  [CN] Processing Event {event_id}: {jp_story['assetbundleName']}")
             
-            # Extract talk data translations
-            talk_data: Dict[str, str] = {}
+            episodes_translation: Dict[str, Any] = {}
+            cn_episodes_map = {ep["episodeNo"]: ep for ep in cn_story.get("eventStoryEpisodes", [])}
             
-            cn_talk_list = cn_scenario.get("TalkData", [])
-            
-            # Direct extraction from CN (fallback)
-            for talk in cn_talk_list:
-                body = talk.get("Body", "")
-                if body and body.strip():
-                    talk_data[body] = body 
+            for jp_episode in jp_story.get("eventStoryEpisodes", []):
+                episode_no = jp_episode["episodeNo"]
+                scenario_id = jp_episode["scenarioId"]
+                asset_bundle = jp_story["assetbundleName"]
                 
-                display_name = talk.get("WindowDisplayName", "")
-                if display_name and display_name.strip():
-                    talk_data[display_name] = display_name
-            
-            # JP mapping alignment (preferred)
-            if jp_scenario:
-                talk_data = {} # Reset to use mapping
-                jp_talk_list = jp_scenario.get("TalkData", [])
+                cn_episode = cn_episodes_map.get(episode_no)
+                cn_title = cn_episode.get("title", "") if cn_episode else ""
                 
-                for i, (jp_talk, cn_talk) in enumerate(zip(jp_talk_list, cn_talk_list)):
-                    jp_body = jp_talk.get("Body", "")
-                    cn_body = cn_talk.get("Body", "")
-                    
-                    if jp_body and cn_body and jp_body != cn_body:
-                        talk_data[jp_body] = cn_body
-                    
-                    jp_name = jp_talk.get("WindowDisplayName", "")
-                    cn_name = cn_talk.get("WindowDisplayName", "")
-                    
-                    if jp_name and cn_name and jp_name != cn_name:
-                        talk_data[jp_name] = cn_name
+                scenario_path = f"event_story/{asset_bundle}/scenario/{scenario_id}"
+                
+                cn_scenario = fetch_scenario_json(scenario_path)
+                if not cn_scenario:
+                    print(f"    Episode {episode_no}: CN scenario not found")
+                    continue
+                
+                jp_scenario = fetch_scenario_json_from_url(f"{JP_ASSETS_URL}/{scenario_path}.json")
+                
+                talk_data: Dict[str, str] = {}
+                cn_talk_list = cn_scenario.get("TalkData", [])
+                
+                for talk in cn_talk_list:
+                    body = talk.get("Body", "")
+                    if body and body.strip():
+                        talk_data[body] = body
+                    display_name = talk.get("WindowDisplayName", "")
+                    if display_name and display_name.strip():
+                        talk_data[display_name] = display_name
+                
+                if jp_scenario:
+                    talk_data = {}
+                    jp_talk_list = jp_scenario.get("TalkData", [])
+                    for i_talk, (jp_talk, cn_talk) in enumerate(zip(jp_talk_list, cn_talk_list)):
+                        jp_body = jp_talk.get("Body", "")
+                        cn_body = cn_talk.get("Body", "")
+                        if jp_body and cn_body and jp_body != cn_body:
+                            talk_data[jp_body] = cn_body
+                        jp_name = jp_talk.get("WindowDisplayName", "")
+                        cn_name = cn_talk.get("WindowDisplayName", "")
+                        if jp_name and cn_name and jp_name != cn_name:
+                            talk_data[jp_name] = cn_name
+                
+                if talk_data:
+                    episodes_translation[str(episode_no)] = {
+                        "scenarioId": scenario_id,
+                        "title": cn_title,
+                        "talkData": talk_data
+                    }
+                    stats["episodes_processed"] += 1
+                    print(f"    Episode {episode_no}: {len(talk_data)} translations" + (f", Title: {cn_title}" if cn_title else ""))
             
-            # Only include episode if we actually have translated content (talk data)
-            # This prevents generating files for future events (e.g. > 155) where only titles exist in master data but no story text
-            if talk_data:
-                episodes_translation[str(episode_no)] = {
-                    "scenarioId": scenario_id,
-                    "title": cn_title,
-                    "talkData": talk_data
+            if episodes_translation:
+                final_data = {
+                    "meta": {
+                        "source": "official_cn",
+                        "version": "1.0",
+                        "last_updated": int(time.time())
+                    },
+                    "episodes": episodes_translation
                 }
-                stats["episodes_processed"] += 1
-                print(f"    Episode {episode_no}: {len(talk_data)} translations" + (f", Title: {cn_title}" if cn_title else ""))
-        
-        # Save per-event translation file
-        if episodes_translation:
-            final_data = {
-                "meta": {
-                    "source": "official_cn",
-                    "version": "1.0",
-                    "last_updated": int(time.time())
-                },
-                "episodes": episodes_translation
-            }
-            
-            if not dry_run:
-                with open(output_file, "w", encoding="utf-8") as f:
-                    json.dump(final_data, f, ensure_ascii=False, indent=2)
-                print(f"    Saved to {output_file}")
-            else:
-                print(f"    [DRY RUN] Would save to {output_file}")
-            
-            stats["events_processed"] += 1
+                if not dry_run:
+                    with open(output_file, "w", encoding="utf-8") as f:
+                        json.dump(final_data, f, ensure_ascii=False, indent=2)
+                    print(f"    Saved to {output_file}")
+                else:
+                    print(f"    [DRY RUN] Would save to {output_file}")
+                stats["cn_processed"] += 1
+        else:
+            # No CN data — candidate for LLM translation
+            events_needing_llm.append(jp_story)
     
-    print(f"\n  Summary: {stats['events_processed']} events processed, {stats['episodes_processed']} episodes, {stats['events_skipped']} skipped")
+    # --- Phase 2: LLM Translation for events without CN data ---
+    if events_needing_llm and cn_only:
+        print(f"\n  {len(events_needing_llm)} events have no CN data (skipped, --cn-only mode)")
+    elif events_needing_llm and not api_key:
+        print(f"\n  {len(events_needing_llm)} events have no CN data (skipped, no API key)")
+    elif events_needing_llm:
+        print(f"\n  --- LLM Translation for {len(events_needing_llm)} events without CN data ---")
+        
+        for jp_story in events_needing_llm:
+            event_id = jp_story["eventId"]
+            output_file = event_story_dir / f"event_{event_id}.json"
+            
+            # Skip if already translated (unless force)
+            if output_file.exists() and not force:
+                try:
+                    with open(output_file, "r", encoding="utf-8") as f:
+                        existing_data = json.load(f)
+                    existing_source = existing_data.get("meta", {}).get("source", "")
+                    if existing_source:
+                        stats["events_skipped"] += 1
+                        continue
+                except Exception:
+                    pass
+            
+            print(f"  [LLM] Processing Event {event_id}: {jp_story['assetbundleName']}")
+            
+            episodes_translation = {}
+            
+            for jp_episode in jp_story.get("eventStoryEpisodes", []):
+                episode_no = jp_episode["episodeNo"]
+                scenario_id = jp_episode["scenarioId"]
+                asset_bundle = jp_story["assetbundleName"]
+                
+                scenario_path = f"event_story/{asset_bundle}/scenario/{scenario_id}"
+                jp_scenario = fetch_scenario_json_from_url(f"{JP_ASSETS_URL}/{scenario_path}.json")
+                
+                if not jp_scenario:
+                    print(f"    Episode {episode_no}: JP scenario not found")
+                    continue
+                
+                # Get JP title for LLM translation
+                jp_title = jp_episode.get("title", "")
+                cn_title = ""
+                if jp_title:
+                    title_translations = translate_batch(api_key, [jp_title], llm_type, dry_run, STORY_TRANSLATION_PROMPT)
+                    cn_title = title_translations.get(jp_title, "")
+                
+                print(f"    Episode {episode_no}: Translating with LLM...")
+                talk_data = translate_event_story_episode_llm(api_key, jp_scenario, llm_type, dry_run)
+                
+                if talk_data:
+                    episodes_translation[str(episode_no)] = {
+                        "scenarioId": scenario_id,
+                        "title": cn_title,
+                        "talkData": talk_data
+                    }
+                    stats["episodes_processed"] += 1
+                    print(f"    Episode {episode_no}: {len(talk_data)} translations" + (f", Title: {cn_title}" if cn_title else ""))
+                
+                # Rate limit between episodes
+                if not dry_run:
+                    time.sleep(RATE_LIMIT_DELAY)
+            
+            if episodes_translation:
+                final_data = {
+                    "meta": {
+                        "source": "llm",
+                        "version": "1.0",
+                        "last_updated": int(time.time())
+                    },
+                    "episodes": episodes_translation
+                }
+                if not dry_run:
+                    with open(output_file, "w", encoding="utf-8") as f:
+                        json.dump(final_data, f, ensure_ascii=False, indent=2)
+                    print(f"    Saved to {output_file}")
+                else:
+                    print(f"    [DRY RUN] Would save to {output_file}")
+                stats["llm_processed"] += 1
+    
+    print(f"\n  Summary: CN={stats['cn_processed']}, LLM={stats['llm_processed']}, Episodes={stats['episodes_processed']}, Skipped={stats['events_skipped']}")
 
 
 # ============================================================================
@@ -1254,8 +1457,8 @@ def main():
     
     if args.category:
         if args.category == "eventStory":
-            # Event story uses special handling (per-event files)
-            extract_event_story_translations(args.dry_run, args.force)
+            # Event story uses special handling (per-event files, with LLM fallback)
+            extract_event_story_translations(args.dry_run, args.force, api_key, args.llm, args.cn_only)
         elif args.category == "search-index":
             generate_search_index(args.dry_run)
         else:
@@ -1264,8 +1467,8 @@ def main():
         for cat in priority_order:
             if cat in categories:
                 translate_category_enhanced(api_key, cat, categories[cat], args.llm, args.dry_run, args.cn_only)
-        # Also process event stories
-        extract_event_story_translations(args.dry_run, args.force)
+        # Also process event stories (with LLM fallback)
+        extract_event_story_translations(args.dry_run, args.force, api_key, args.llm, args.cn_only)
         # Generate search index at the end of a full run
         generate_search_index(args.dry_run)
     

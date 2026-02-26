@@ -4491,6 +4491,18 @@
     "Prismatic Floret": {
       "text": "棱镜小花",
       "source": "llm"
+    },
+    "Fluffy rabbit princess": {
+      "text": "蓬松兔子公主",
+      "source": "llm"
+    },
+    "Soft fur attendant": {
+      "text": "毛茸茸皮毛侍从",
+      "source": "llm"
+    },
+    "Cushy butler": {
+      "text": "软绵绵执事",
+      "source": "llm"
     }
   }
 }
