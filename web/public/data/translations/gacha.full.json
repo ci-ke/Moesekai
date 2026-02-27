@@ -2563,6 +2563,10 @@
     "[KAITO]HAPPY ANNIVERSARYメモリーズガチャ": {
       "text": "[KAITO]HAPPY ANNIVERSARY 回忆招募",
       "source": "llm"
+    },
+    "Rabbit Kingdom♡ガチャ": {
+      "text": "Rabbit Kingdom♡招募",
+      "source": "llm"
     }
   }
 }

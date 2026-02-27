@@ -779,6 +779,10 @@
     "Path made by faith": {
       "text": "信念之路",
       "source": "llm"
+    },
+    "CHANGE！えむは王女さま！？": {
+      "text": "CHANGE！笑梦是公主殿下！？",
+      "source": "llm"
     }
   }
 }

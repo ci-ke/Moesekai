@@ -192,9 +192,9 @@ export default function EventStorySummaryClient() {
                 </Link>
 
                 {/* Banner Header */}
-                <div className="relative rounded-2xl overflow-hidden shadow-lg mb-8 bg-white dark:bg-slate-800">
+                <div className="relative rounded-2xl overflow-hidden shadow-lg mb-8 bg-white dark:bg-slate-800 min-h-[200px] sm:min-h-[250px] flex items-center">
                     {/* Background Banner */}
-                    <div className="relative aspect-[21/9] sm:aspect-[32/9] w-full">
+                    <div className="absolute inset-0 z-0">
                         <div className="absolute inset-0 bg-gradient-to-r from-miku/10 to-purple-500/10 mix-blend-multiply z-10" />
                         <Image
                             src={getEventBannerUrl(eventInfo.assetbundleName, assetSource)}
@@ -207,7 +207,7 @@ export default function EventStorySummaryClient() {
                     </div>
 
                     {/* Content Overlay */}
-                    <div className="absolute inset-0 z-30 p-6 sm:p-10 flex flex-col sm:flex-row items-center gap-6 sm:gap-10">
+                    <div className="relative z-30 w-full p-6 sm:p-10 flex flex-col sm:flex-row items-center gap-6 sm:gap-10">
                         {/* Logo */}
                         <div className="relative w-48 sm:w-64 aspect-[2/1] drop-shadow-xl shrink-0 transition-transform hover:scale-105 duration-500">
                             <Image
@@ -281,6 +281,14 @@ export default function EventStorySummaryClient() {
                                     </h3>
                                     <p className="text-sm text-slate-600 dark:text-slate-400">
                                         {adminData.outline_cn}
+                                    </p>
+                                </div>
+                            )}
+
+                            {adminData && (
+                                <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-700">
+                                    <p className="text-xs text-slate-400 italic text-right">
+                                        剧情总结和章节翻译文本来源于moesekai，转载请表明出处。
                                     </p>
                                 </div>
                             )}

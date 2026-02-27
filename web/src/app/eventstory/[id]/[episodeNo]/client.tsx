@@ -229,7 +229,12 @@ export default function StoryReaderClient() {
                         {/* End Marker */}
                         {scenarioData.actions.length > 0 && (
                             <div className="text-center py-8 text-slate-400">
-                                — 第 {episodeNo} 话 结束 —
+                                <p>— 第 {episodeNo} 话 结束 —</p>
+                                {useLLMTranslation && translationSource === 'llm' && (
+                                    <p className="text-xs mt-2 italic">
+                                        翻译文本来源于moesekai的AI翻译，转载请表明出处。
+                                    </p>
+                                )}
                             </div>
                         )}
 

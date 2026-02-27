@@ -43,8 +43,9 @@ LLM_CONFIGS = {
         "env_key": "SILICONFLOW_API_KEY",
     },
     "gemini": {
-        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent",
-        "model": "gemini-3.1-pro-preview",
+        # URL is constructed dynamically using the model name in call_gemini_api()
+        "url_base": "https://generativelanguage.googleapis.com/v1beta/models",
+        "model": "gemini-3-flash-preview",
         "env_key": "GEMINI_API_KEY",
     }
 }
@@ -60,7 +61,7 @@ CN_MASTERDATA_URL = "https://sekaimaster-cn.exmeaning.com/master"
 
 # CN Assets URL for scenario data
 CN_ASSETS_URL = "https://sekai-assets-bdf29c81.seiunx.net/cn-assets/ondemand"
-JP_ASSETS_URL = "https://sekai-assets-bdf29c81.seiunx.net/jp-assets/ondemand"
+JP_ASSETS_URL = "https://snowyassets.exmeaning.com/ondemand"
 
 # Character name mapping (shared between prompts)
 CHARACTER_NAME_CONTEXT = """角色译名表（日文 -> 中文）：
@@ -233,8 +234,8 @@ def parse_xml_translations(content: str, expected_count: int) -> Dict[int, str]:
     return result
 
 
-def call_qwen_api(api_key: str, texts: List[str], prompt_template: str = "") -> List[str]:
-    """Call SiliconFlow Qwen API with XML format"""
+def call_qwen_api(api_key: str, texts: List[str], prompt_template: str = "", retries: int = 3) -> List[str]:
+    """Call SiliconFlow Qwen API with XML format and retry logic"""
     config = LLM_CONFIGS["qwen"]
     if not prompt_template:
         prompt_template = GAME_CONTEXT_PROMPT
@@ -252,68 +253,131 @@ def call_qwen_api(api_key: str, texts: List[str], prompt_template: str = "") -> 
         "Content-Type": "application/json",
     }
     
-    try:
-        data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(config["url"], data=data, headers=headers, method="POST")
+    for attempt in range(retries):
+        try:
+            data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(config["url"], data=data, headers=headers, method="POST")
+            
+            with urllib.request.urlopen(req, timeout=180) as response:
+                result = json.loads(response.read().decode("utf-8"))
+                content = result["choices"][0]["message"]["content"]
+                
+                parsed = parse_xml_translations(content, len(texts))
+                if len(parsed) >= len(texts) * 0.5:  # At least 50% success
+                    return [parsed.get(i, "") for i in range(1, len(texts) + 1)]
+                else:
+                    print(f"  Qwen: Low parse rate ({len(parsed)}/{len(texts)}), retrying...")
+                
+        except urllib.error.HTTPError as e:
+            error_body = ""
+            try:
+                error_body = e.read().decode("utf-8")[:500]
+            except Exception:
+                pass
+            print(f"  Qwen API HTTP {e.code} (attempt {attempt+1}/{retries}): {e.reason}")
+            if error_body:
+                print(f"    Response: {error_body}")
+            # Don't retry on client errors (4xx) except 429 (rate limit)
+            if 400 <= e.code < 500 and e.code != 429:
+                print(f"  Skipping retries for HTTP {e.code} (client error)")
+                return []
+        except Exception as e:
+            print(f"  Qwen API Error (attempt {attempt+1}/{retries}): {e}")
         
-        with urllib.request.urlopen(req, timeout=120) as response:
-            result = json.loads(response.read().decode("utf-8"))
-            content = result["choices"][0]["message"]["content"]
-            
-            parsed = parse_xml_translations(content, len(texts))
-            # Convert to ordered list
-            return [parsed.get(i, "") for i in range(1, len(texts) + 1)]
-            
-    except Exception as e:
-        print(f"  Qwen API Error: {e}")
-        return []
+        if attempt < retries - 1:
+            wait = 2 ** (attempt + 1)
+            print(f"  Retrying in {wait}s...")
+            time.sleep(wait)
+    
+    return []
 
 
-def call_gemini_api(api_key: str, texts: List[str], prompt_template: str = "") -> List[str]:
-    """Call Google Gemini API with XML format"""
+def call_gemini_api(api_key: str, texts: List[str], prompt_template: str = "", retries: int = 3) -> List[str]:
+    """Call Google Gemini API with XML format and retry logic"""
     config = LLM_CONFIGS["gemini"]
     if not prompt_template:
         prompt_template = GAME_CONTEXT_PROMPT
     prompt = prompt_template + build_xml_input(texts)
     
-    url = f"{config['url']}?key={api_key}"
+    # Build URL dynamically from model name
+    url = f"{config['url_base']}/{config['model']}:generateContent?key={api_key}"
     
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "temperature": 0.3,
-            "maxOutputTokens": 8192,
+            "maxOutputTokens": 16384,
         }
     }
     
     headers = {"Content-Type": "application/json"}
     
-    try:
-        data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+    for attempt in range(retries):
+        try:
+            data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+            
+            with urllib.request.urlopen(req, timeout=180) as response:
+                result = json.loads(response.read().decode("utf-8"))
+                content = result["candidates"][0]["content"]["parts"][0]["text"]
+                
+                parsed = parse_xml_translations(content, len(texts))
+                if len(parsed) >= len(texts) * 0.5:  # At least 50% success
+                    return [parsed.get(i, "") for i in range(1, len(texts) + 1)]
+                else:
+                    print(f"  Gemini: Low parse rate ({len(parsed)}/{len(texts)}), retrying...")
+                
+        except urllib.error.HTTPError as e:
+            error_body = ""
+            try:
+                error_body = e.read().decode("utf-8")[:500]
+            except Exception:
+                pass
+            print(f"  Gemini API HTTP {e.code} (attempt {attempt+1}/{retries}): {e.reason}")
+            if error_body:
+                print(f"    Response: {error_body}")
+            # Don't retry on client errors (4xx) except 429 (rate limit)
+            if 400 <= e.code < 500 and e.code != 429:
+                print(f"  Skipping retries for HTTP {e.code} (client error)")
+                return []
+        except Exception as e:
+            print(f"  Gemini API Error (attempt {attempt+1}/{retries}): {e}")
         
-        with urllib.request.urlopen(req, timeout=120) as response:
-            result = json.loads(response.read().decode("utf-8"))
-            content = result["candidates"][0]["content"]["parts"][0]["text"]
-            
-            parsed = parse_xml_translations(content, len(texts))
-            # Convert to ordered list
-            return [parsed.get(i, "") for i in range(1, len(texts) + 1)]
-            
-    except Exception as e:
-        print(f"  Gemini API Error: {e}")
-        return []
+        if attempt < retries - 1:
+            wait = 2 ** (attempt + 1)
+            print(f"  Retrying in {wait}s...")
+            time.sleep(wait)
+    
+    return []
 
 
 def call_llm(api_key: str, texts: List[str], llm_type: str, prompt_template: str = "") -> List[str]:
-    """Call LLM API to translate texts using XML format"""
+    """Call LLM API to translate texts using XML format.
+    
+    If the initial call fails or returns too few results, automatically
+    splits the batch in half and retries.
+    """
     if not texts:
         return []
     
     if llm_type == "gemini":
-        return call_gemini_api(api_key, texts, prompt_template)
+        result = call_gemini_api(api_key, texts, prompt_template)
     else:
-        return call_qwen_api(api_key, texts, prompt_template)
+        result = call_qwen_api(api_key, texts, prompt_template)
+    
+    # Check if we got enough results
+    non_empty = sum(1 for r in result if r)
+    if non_empty < len(texts) * 0.5 and len(texts) > 3:
+        # Auto-split: try smaller batches
+        print(f"  Auto-splitting batch ({non_empty}/{len(texts)} succeeded), retrying in 2 halves...")
+        time.sleep(RATE_LIMIT_DELAY)
+        mid = len(texts) // 2
+        first_half = call_llm(api_key, texts[:mid], llm_type, prompt_template)
+        time.sleep(RATE_LIMIT_DELAY)
+        second_half = call_llm(api_key, texts[mid:], llm_type, prompt_template)
+        return first_half + second_half
+    
+    return result
 
 
 def translate_batch(api_key: str, texts: List[str], llm_type: str, dry_run: bool = False, prompt_template: str = "") -> Dict[str, str]:
@@ -324,14 +388,19 @@ def translate_batch(api_key: str, texts: List[str], llm_type: str, dry_run: bool
     translations = call_llm(api_key, texts, llm_type, prompt_template)
     
     result = {}
+    missing = 0
     for i, original in enumerate(texts):
         if i < len(translations):
             translated = translations[i]
-            # Even if translation is same as original, we save it to prevent re-translation
             if translated:
                 result[original] = translated
+            else:
+                missing += 1
         else:
-            print(f"  Warning: Missing translation for: {original[:50]}...")
+            missing += 1
+    
+    if missing > 0:
+        print(f"  Warning: {missing}/{len(texts)} translations missing in this batch")
     
     return result
 
@@ -936,7 +1005,7 @@ def fetch_scenario_json_from_url(url: str, retries: int = 3) -> Optional[Any]:
 
 
 # Batch size for story dialog translation (larger for better context)
-STORY_BATCH_SIZE = 40
+STORY_BATCH_SIZE = 15  # Keep small for long dialog texts to avoid output token limits
 
 
 def translate_event_story_episode_llm(
