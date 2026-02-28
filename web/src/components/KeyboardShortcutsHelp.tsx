@@ -32,6 +32,7 @@ const shortcutGroups = [
         title: "搜索",
         shortcuts: [
             { keys: ["⌘", "K"], description: "打开搜索" },
+            { keys: ["⌘", "Q"], description: "切换通配符搜索" },
         ],
     },
     {

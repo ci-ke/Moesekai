@@ -20,6 +20,10 @@ interface CommandPaletteProps {
     onClose: () => void;
 }
 
+function escapeRegExp(string: string) {
+    return string.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+}
+
 // Max dynamic results per group
 const MAX_DYNAMIC_PER_GROUP = 8;
 
@@ -27,6 +31,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     const [mounted, setMounted] = useState(false);
     const [query, setQuery] = useState("");
     const [activeIndex, setActiveIndex] = useState(0);
+    const [useWildcard, setUseWildcard] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
@@ -59,34 +64,72 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     }, [isOpen, isLoadingIndex]);
 
     // Filter items based on query
+    const searchRegex = useMemo(() => {
+        if (!useWildcard) return null;
+        const q = query.trim();
+        if (!q) return null;
+        try {
+            // Convert * and ? to regex equivalents, escape other regex specials
+            const parts = q.split(/([*?])/);
+            const regexPattern = parts.map(part => {
+                if (part === '*') return '.*';
+                if (part === '?') return '.';
+                return escapeRegExp(part);
+            }).join('');
+            return new RegExp(regexPattern, 'i');
+        } catch (e) {
+            return null;
+        }
+    }, [query, useWildcard]);
+
     const filtered = useMemo(() => {
-        const q = query.toLowerCase().trim();
-        if (!q) return searchableNavItems;
-        return searchableNavItems.filter(
-            (item) =>
-                item.name.toLowerCase().includes(q) ||
-                item.href.toLowerCase().includes(q) ||
-                item.group.toLowerCase().includes(q) ||
-                item.keywords.some((kw) => kw.toLowerCase().includes(q))
-        );
-    }, [query]);
+        const qStr = query.trim();
+        if (!qStr) return searchableNavItems;
+        const q = qStr.toLowerCase();
+
+        return searchableNavItems.filter((item) => {
+            if (searchRegex) {
+                return searchRegex.test(item.name) ||
+                    searchRegex.test(item.href) ||
+                    searchRegex.test(item.group) ||
+                    item.keywords.some((kw) => searchRegex.test(kw));
+            } else {
+                return item.name.toLowerCase().includes(q) ||
+                    item.href.toLowerCase().includes(q) ||
+                    item.group.toLowerCase().includes(q) ||
+                    item.keywords.some((kw) => kw.toLowerCase().includes(q));
+            }
+        });
+    }, [query, searchableNavItems, searchRegex]);
 
     // Filter dynamic search index items based on query
     const dynamicFiltered = useMemo(() => {
-        const q = query.toLowerCase().trim();
-        if (!q || !searchIndex) return [];
+        const qStr = query.trim();
+        if (!qStr || !searchIndex) return [];
+        const q = qStr.toLowerCase();
 
         const matched = searchIndex.filter((item) => {
             const idStr = item.id.toString();
-            if (idStr === q) return true; // Exact ID match
-            if (item.n.toLowerCase().includes(q)) return true;
-            if (item.cn && item.cn.toLowerCase().includes(q)) return true;
-            // For cards, also search by character name
-            if (item.c) {
-                const charName = CHARACTER_NAMES[item.c];
-                if (charName && charName.toLowerCase().includes(q)) return true;
+            if (searchRegex) {
+                if (searchRegex.test(idStr)) return true;
+                if (searchRegex.test(item.n)) return true;
+                if (item.cn && searchRegex.test(item.cn)) return true;
+                if (item.c) {
+                    const charName = CHARACTER_NAMES[item.c];
+                    if (charName && searchRegex.test(charName)) return true;
+                }
+                return false;
+            } else {
+                if (idStr === qStr) return true; // Exact ID match
+                if (item.n.toLowerCase().includes(q)) return true;
+                if (item.cn && item.cn.toLowerCase().includes(q)) return true;
+                // For cards, also search by character name
+                if (item.c) {
+                    const charName = CHARACTER_NAMES[item.c];
+                    if (charName && charName.toLowerCase().includes(q)) return true;
+                }
+                return false;
             }
-            return false;
         });
 
         // Group and limit results
@@ -99,7 +142,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         }
 
         return Object.entries(grouped).flatMap(([, items]) => items);
-    }, [query, searchIndex]);
+    }, [query, searchIndex, searchRegex]);
 
     // Combined flat list for keyboard navigation
     const totalItems = filtered.length + dynamicFiltered.length;
@@ -211,6 +254,15 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                     e.preventDefault();
                     onClose();
                     break;
+                case "q":
+                case "Q":
+                case "œ":
+                    // macOS Option+Q triggers œ, keep both for compatibility
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        setUseWildcard((prev) => !prev);
+                    }
+                    break;
             }
         },
         [filtered, dynamicFiltered, activeIndex, navigate, onClose, totalItems]
@@ -245,31 +297,50 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                         onKeyDown={handleKeyDown}
                     >
                         {/* Search input */}
-                        <div className="flex items-center gap-3 px-4 border-b border-slate-200">
-                            <svg
-                                className="w-5 h-5 text-slate-400 flex-shrink-0"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-2 border-b border-slate-200">
+                            <div className="flex items-center gap-3 flex-1">
+                                <svg
+                                    className="w-5 h-5 text-slate-400 flex-shrink-0"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                                    />
+                                </svg>
+                                <input
+                                    ref={inputRef}
+                                    type="text"
+                                    value={query}
+                                    onChange={(e) => setQuery(e.target.value)}
+                                    placeholder="搜索页面、卡牌、歌曲、活动..."
+                                    className="flex-1 py-1.5 sm:py-2.5 bg-transparent text-sm text-slate-800 placeholder-slate-400 outline-none min-w-0"
                                 />
-                            </svg>
-                            <input
-                                ref={inputRef}
-                                type="text"
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                                placeholder="搜索页面、卡牌、歌曲、活动..."
-                                className="flex-1 py-3.5 bg-transparent text-sm text-slate-800 placeholder-slate-400 outline-none"
-                            />
-                            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-slate-400 bg-slate-100 rounded border border-slate-200">
-                                ESC
-                            </kbd>
+                                <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-slate-400 bg-slate-100 rounded border border-slate-200">
+                                    ESC
+                                </kbd>
+                            </div>
+
+                            <div className="flex items-center justify-between sm:justify-end gap-2 border-t sm:border-t-0 border-slate-100 pt-2 sm:pt-0 shrink-0">
+                                <span className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+                                    通配符 (*, ?)
+                                    <kbd className="hidden sm:inline-flex items-center px-1 py-0.5 text-[9px] font-mono font-medium text-slate-400 bg-slate-100 rounded border border-slate-200 shadow-sm leading-none h-4">
+                                        ⌘ Q
+                                    </kbd>
+                                </span>
+                                <button
+                                    onClick={() => setUseWildcard(!useWildcard)}
+                                    className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${useWildcard ? 'bg-miku' : 'bg-slate-200'}`}
+                                >
+                                    <span
+                                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${useWildcard ? 'translate-x-5' : 'translate-x-0'}`}
+                                    />
+                                </button>
+                            </div>
                         </div>
 
                         {/* Results */}
@@ -297,8 +368,8 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                                                         onClick={() => navigate(item.href)}
                                                         onMouseEnter={() => setActiveIndex(idx)}
                                                         className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${isActive
-                                                                ? "bg-miku/10 text-miku"
-                                                                : "text-slate-600 hover:bg-slate-50"
+                                                            ? "bg-miku/10 text-miku"
+                                                            : "text-slate-600 hover:bg-slate-50"
                                                             }`}
                                                     >
                                                         <span className="font-medium">{item.name}</span>
@@ -337,8 +408,8 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                                                         onClick={() => navigate(href)}
                                                         onMouseEnter={() => setActiveIndex(idx)}
                                                         className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${isActive
-                                                                ? "bg-miku/10 text-miku"
-                                                                : "text-slate-600 hover:bg-slate-50"
+                                                            ? "bg-miku/10 text-miku"
+                                                            : "text-slate-600 hover:bg-slate-50"
                                                             }`}
                                                     >
                                                         <span className="flex flex-col items-start min-w-0">
