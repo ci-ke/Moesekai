@@ -18,7 +18,7 @@ const __dirname = path.dirname(__filename);
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://snowyviewer.exmeaning.com';
 const MASTER_DATA_URL = 'https://sekaimaster.exmeaning.com/master';
-const OUT_DIR = path.join(__dirname, '..', 'out');
+const OUT_DIR = path.join(__dirname, '..', 'public');
 
 /**
  * Fetch master data from remote server
@@ -195,8 +195,8 @@ async function main() {
 
     // Ensure output directory exists
     if (!fs.existsSync(OUT_DIR)) {
-        console.error('Error: Output directory does not exist. Run `npm run build` first.');
-        process.exit(1);
+        fs.mkdirSync(OUT_DIR, { recursive: true });
+        console.log('Created output directory.');
     }
 
     // Generate main sitemap

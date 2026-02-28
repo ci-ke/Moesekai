@@ -27,7 +27,7 @@ import { useScrollRestore } from "@/hooks/useScrollRestore";
 function CostumesContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { assetSource } = useTheme();
+    const { assetSource, isShowSpoiler } = useTheme();
     const { t } = useTranslation();
 
     const [costumes, setCostumes] = useState<ICostumeInfo[]>([]);
@@ -237,6 +237,14 @@ function CostumesContent() {
             });
         }
 
+        // Spoiler filter
+        const now = Date.now();
+        if (!isShowSpoiler) {
+            result = result.filter(c =>
+                (c.publishedAt || 0) <= now
+            );
+        }
+
         // Sort
         result.sort((a, b) => {
             if (sortBy === "id") {
@@ -249,7 +257,7 @@ function CostumesContent() {
         });
 
         return result;
-    }, [costumes, allCards, searchQuery, selectedPartTypes, selectedSources, selectedRarities, selectedGenders, selectedCharacters, onlyRelatedCardCostumes, sortBy, sortOrder]);
+    }, [costumes, allCards, searchQuery, selectedPartTypes, selectedSources, selectedRarities, selectedGenders, selectedCharacters, onlyRelatedCardCostumes, sortBy, sortOrder, isShowSpoiler]);
 
     const displayedGroups = useMemo(() => {
         return filteredCostumes.slice(0, displayCount);
@@ -354,6 +362,9 @@ function CostumesContent() {
                                         assetName = repPart.assetbundleName;
                                     }
 
+                                    const now = Date.now();
+                                    const isSpoiler = (costume.publishedAt || 0) > now;
+
                                     return (
                                         <Link
                                             href={`/costumes/${costume.costume3dGroupId}`}
@@ -370,6 +381,13 @@ function CostumesContent() {
                                                 />
                                             </div>
                                             <div className="flex-1 flex flex-col">
+                                                {isSpoiler && (
+                                                    <div className="mb-1">
+                                                        <span className="inline-block px-1.5 py-0.5 bg-orange-500 text-white text-[9px] font-bold rounded leading-none">
+                                                            剧透
+                                                        </span>
+                                                    </div>
+                                                )}
                                                 <h3 className="font-bold text-sm text-slate-800 mb-1 group-hover:text-miku transition-colors" title={costume.name}>
                                                     <TranslatedText
                                                         original={costume.name}
