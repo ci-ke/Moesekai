@@ -16,7 +16,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://snowyviewer.exmeaning.com';
+// Use SITE_DOMAIN or NEXT_PUBLIC_SITE_DOMAIN for the sitemap URLs, defaulting to the domestic mirror
+const BASE_URL = process.env.SITE_DOMAIN || process.env.NEXT_PUBLIC_SITE_DOMAIN || 'https://snowyviewer.exmeaning.com';
 const MASTER_DATA_URL = 'https://sekaimaster.exmeaning.com/master';
 const OUT_DIR = path.join(__dirname, '..', 'public');
 
