@@ -8,6 +8,7 @@ import {
     IMusicInfo,
     IMusicTagInfo,
     IMusicDifficultyInfo,
+    IMusicVocalInfo,
     MusicDifficultyType,
     getMusicJacketUrl,
     getChartSvgUrl,
@@ -56,6 +57,17 @@ interface RankingsRawData {
     };
 }
 
+interface EventLite {
+    id: number;
+    name: string;
+    assetbundleName: string;
+}
+
+interface EventMusicLink {
+    eventId: number;
+    musicId: number;
+}
+
 // Ranking category definitions
 type RankingCategoryKey =
     | "pt_per_hour_multi" | "pt_per_hour_auto"
@@ -96,8 +108,8 @@ export default function MusicDetailPage() {
     const [music, setMusic] = useState<IMusicInfo | null>(null);
     const [musicTags, setMusicTags] = useState<IMusicTagInfo[]>([]);
     const [difficulties, setDifficulties] = useState<IMusicDifficultyInfo[]>([]);
-    const [vocals, setVocals] = useState<any[]>([]);
-    const [relatedEvents, setRelatedEvents] = useState<any[]>([]);
+    const [vocals, setVocals] = useState<IMusicVocalInfo[]>([]);
+    const [relatedEvents, setRelatedEvents] = useState<EventLite[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
@@ -125,9 +137,9 @@ export default function MusicDetailPage() {
                     fetchMasterData<IMusicInfo[]>("musics.json"),
                     fetchMasterData<IMusicTagInfo[]>("musicTags.json"),
                     fetchMasterData<IMusicDifficultyInfo[]>("musicDifficulties.json"),
-                    fetchMasterData<any[]>("musicVocals.json"),
-                    fetchMasterData<any[]>("events.json"),
-                    fetchMasterData<any[]>("eventMusics.json"),
+                    fetchMasterData<IMusicVocalInfo[]>("musicVocals.json"),
+                    fetchMasterData<EventLite[]>("events.json"),
+                    fetchMasterData<EventMusicLink[]>("eventMusics.json"),
                 ]);
 
                 const foundMusic = musicsData.find(m => m.id === musicId);
@@ -684,7 +696,7 @@ export default function MusicDetailPage() {
 }
 
 // Vocal Player Component
-function VocalPlayer({ vocal, fillerSec, assetSource }: { vocal: any; fillerSec: number; assetSource: AssetSourceType }) {
+function VocalPlayer({ vocal, fillerSec, assetSource }: { vocal: IMusicVocalInfo; fillerSec: number; assetSource: AssetSourceType }) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -796,7 +808,7 @@ function VocalPlayer({ vocal, fillerSec, assetSource }: { vocal: any; fillerSec:
                     </div>
 
                     <div className="flex flex-wrap gap-1 mb-2">
-                        {vocal.characters?.map((chara: any) => (
+                        {vocal.characters?.map((chara) => (
                             <div
                                 key={chara.id}
                                 className="w-6 h-6 rounded-full overflow-hidden bg-slate-100 ring-1 ring-white"

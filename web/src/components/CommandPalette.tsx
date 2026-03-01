@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { searchableNavItems, SEARCH_GROUP_LABELS, SEARCH_GROUP_ROUTES } from "@/lib/navigation";
 import { CHARACTER_NAMES } from "@/types/types";
+import { getPrimaryShortcutLabel, isKeyboardEventComposing } from "@/lib/shortcuts";
 
 // Dynamic search index item from search-index.json
 interface SearchIndexItem {
@@ -26,6 +27,7 @@ function escapeRegExp(string: string) {
 
 // Max dynamic results per group
 const MAX_DYNAMIC_PER_GROUP = 8;
+const WILDCARD_STORAGE_KEY = "moesekai_search_wildcard_enabled";
 
 export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     const [mounted, setMounted] = useState(false);
@@ -40,10 +42,24 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     const [searchIndex, setSearchIndex] = useState<SearchIndexItem[] | null>(null);
     const [isLoadingIndex, setIsLoadingIndex] = useState(false);
     const indexLoadedRef = useRef(false);
+    const wildcardShortcut = getPrimaryShortcutLabel("toggle-search-wildcard");
 
     useEffect(() => {
+        try {
+            const savedWildcard = localStorage.getItem(WILDCARD_STORAGE_KEY);
+            if (savedWildcard === "true") {
+                setUseWildcard(true);
+            }
+        } catch {}
         setMounted(true);
     }, []);
+
+    useEffect(() => {
+        if (!mounted) return;
+        try {
+            localStorage.setItem(WILDCARD_STORAGE_KEY, String(useWildcard));
+        } catch {}
+    }, [useWildcard, mounted]);
 
     // Load search index on first open
     useEffect(() => {
@@ -228,16 +244,21 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
 
     const handleKeyDown = useCallback(
         (e: React.KeyboardEvent) => {
+            if (isKeyboardEventComposing(e.nativeEvent)) return;
+
             switch (e.key) {
                 case "ArrowDown":
+                    if (totalItems === 0) return;
                     e.preventDefault();
                     setActiveIndex((prev) => (prev + 1) % totalItems);
                     break;
                 case "ArrowUp":
+                    if (totalItems === 0) return;
                     e.preventDefault();
                     setActiveIndex((prev) => (prev - 1 + totalItems) % totalItems);
                     break;
                 case "Enter":
+                    if (totalItems === 0) return;
                     e.preventDefault();
                     if (activeIndex < filtered.length) {
                         navigate(filtered[activeIndex].href);
@@ -329,7 +350,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                                 <span className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
                                     通配符 (*, ?)
                                     <kbd className="hidden sm:inline-flex items-center px-1 py-0.5 text-[9px] font-mono font-medium text-slate-400 bg-slate-100 rounded border border-slate-200 shadow-sm leading-none h-4">
-                                        ⌘ Q
+                                        {wildcardShortcut}
                                     </kbd>
                                 </span>
                                 <button

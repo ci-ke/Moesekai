@@ -369,6 +369,7 @@ function CostumesContent() {
                                         <Link
                                             href={`/costumes/${costume.costume3dGroupId}`}
                                             key={costume.id}
+                                            data-shortcut-item="true"
                                             className="bg-white rounded-xl shadow ring-1 ring-slate-200 overflow-hidden hover:ring-miku hover:shadow-lg transition-all p-3 flex flex-col h-full group"
                                         >
                                             <div className="relative aspect-square mb-2 bg-slate-50 rounded-lg overflow-hidden group-hover:bg-slate-100 transition-colors">
@@ -418,6 +419,7 @@ function CostumesContent() {
                                 <div className="mt-8 flex justify-center">
                                     <button
                                         onClick={loadMore}
+                                        data-shortcut-load-more="true"
                                         className="px-8 py-3 bg-gradient-to-r from-miku to-miku-dark text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
                                     >
                                         加载更多

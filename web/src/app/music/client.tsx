@@ -17,6 +17,8 @@ interface MusicDifficulty {
     musicDifficulty: string;
     playLevel: number;
 }
+
+type RawMusicCategory = MusicCategoryType | { musicCategoryName: MusicCategoryType };
 import { useTheme } from "@/contexts/ThemeContext";
 import { fetchMasterData } from "@/lib/fetch";
 import { loadTranslations, TranslationData } from "@/lib/translations";
@@ -173,7 +175,7 @@ function MusicContent() {
                 // Normalize musics data (CN server returns categories as objects)
                 const normalizedMusics = musicsData.map((music) => ({
                     ...music,
-                    categories: music.categories.map((cat: any) =>
+                    categories: (music.categories as unknown as RawMusicCategory[]).map((cat) =>
                         typeof cat === "object" && cat !== null && "musicCategoryName" in cat
                             ? cat.musicCategoryName
                             : cat
@@ -453,6 +455,7 @@ function MusicContent() {
                         <div className="mt-8 flex justify-center">
                             <button
                                 onClick={loadMore}
+                                data-shortcut-load-more="true"
                                 className="px-8 py-3 bg-gradient-to-r from-miku to-miku-dark text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
                             >
                                 加载更多

@@ -1,8 +1,9 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import SettingsPanel from "./SettingsPanel";
 import CommandPalette from "./CommandPalette";
+import { getPrimaryShortcutLabel } from "@/lib/shortcuts";
 
 interface MainNavbarProps {
     onMenuToggle: () => void;
@@ -25,14 +26,10 @@ export default function MainNavbar({
     onSettingsClose,
     onShortcutsHelpToggle,
 }: MainNavbarProps) {
-    const [showDomainNotice, setShowDomainNotice] = useState(false);
-
-    useEffect(() => {
-        const isDismissed = localStorage.getItem("moesekai_domain_notice_dismissed");
-        if (!isDismissed) {
-            setShowDomainNotice(true);
-        }
-    }, []);
+    const [showDomainNotice, setShowDomainNotice] = useState(() => {
+        if (typeof window === "undefined") return false;
+        return !localStorage.getItem("moesekai_domain_notice_dismissed");
+    });
 
     const dismissDomainNotice = (e: React.MouseEvent) => {
         e.preventDefault();
@@ -40,6 +37,11 @@ export default function MainNavbar({
         setShowDomainNotice(false);
         localStorage.setItem("moesekai_domain_notice_dismissed", "true");
     };
+
+    const sidebarShortcut = getPrimaryShortcutLabel("toggle-sidebar");
+    const searchShortcut = getPrimaryShortcutLabel("toggle-search");
+    const settingsShortcut = getPrimaryShortcutLabel("toggle-settings");
+    const helpShortcut = getPrimaryShortcutLabel("toggle-shortcuts-help");
 
     return (
         <nav className="fixed top-0 w-full z-[100] bg-white/95 backdrop-blur-lg border-b border-slate-200 h-[4.5rem]">
@@ -50,13 +52,13 @@ export default function MainNavbar({
                     <button
                         onClick={onMenuToggle}
                         className="flex items-center gap-1.5 p-2 text-slate-600 hover:text-miku transition-colors rounded-lg hover:bg-slate-50"
-                        title="菜单 ( [ )"
+                        title={`菜单 (${sidebarShortcut})`}
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
                         <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-slate-400 bg-slate-100 rounded border border-slate-200">
-                            [
+                            {sidebarShortcut}
                         </kbd>
                     </button>
 
@@ -77,7 +79,7 @@ export default function MainNavbar({
                         />
                         <div className="flex items-center gap-1.5 h-full">
                             <span className="text-[8px] px-1.5 py-0.5 bg-amber-400 text-white font-bold rounded-full leading-none">
-                                BETA1.123
+                                BETA1.125
                             </span>
 
                             {showDomainNotice && (
@@ -105,13 +107,13 @@ export default function MainNavbar({
                     <button
                         onClick={onSearchToggle}
                         className="flex items-center gap-2 p-2 text-slate-400 hover:text-miku transition-colors rounded-lg hover:bg-slate-50"
-                        title="搜索 (⌘K)"
+                        title={`搜索 (${searchShortcut})`}
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                         <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-slate-400 bg-slate-100 rounded border border-slate-200">
-                            ⌘K
+                            {searchShortcut}
                         </kbd>
                     </button>
 
@@ -119,14 +121,14 @@ export default function MainNavbar({
                     <button
                         onClick={onShortcutsHelpToggle}
                         className="hidden sm:flex items-center gap-1.5 p-2 text-slate-400 hover:text-miku transition-colors rounded-lg hover:bg-slate-50"
-                        title="快捷键帮助 (/)"
+                        title={`快捷键帮助 (${helpShortcut})`}
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <rect x="2" y="6" width="20" height="12" rx="2" />
                             <path d="M6 14h0M10 14h4M18 14h0M8 10h0M12 10h0M16 10h0" strokeLinecap="round" />
                         </svg>
                         <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-slate-400 bg-slate-100 rounded border border-slate-200">
-                            /
+                            {helpShortcut}
                         </kbd>
                     </button>
 
@@ -136,14 +138,14 @@ export default function MainNavbar({
                             id="settings-button"
                             onClick={onSettingsToggle}
                             className="flex items-center gap-1.5 p-2 text-slate-400 hover:text-miku transition-colors rounded-lg hover:bg-slate-50"
-                            title="设置 (⌘X)"
+                            title={`设置 (${settingsShortcut})`}
                         >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
                             <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-slate-400 bg-slate-100 rounded border border-slate-200">
-                                ⌘X
+                                {settingsShortcut}
                             </kbd>
                         </button>
                         <SettingsPanel isOpen={isSettingsOpen} onClose={onSettingsClose} />

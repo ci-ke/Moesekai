@@ -53,6 +53,32 @@ export const PRELOAD_MASTER_KEYS = [
     "worldBloomSupportDeckBonuses", "worldBloomSupportDeckUnitEventLimitedBonuses",
 ];
 
+interface CardParameterEntry {
+    id: number;
+    cardId: number;
+    cardLevel: number;
+    cardParameterType: string;
+    power: number;
+}
+
+interface CardWithParameters {
+    id: number;
+    cardParameters?: Record<string, number[]> | CardParameterEntry[];
+    [key: string]: unknown;
+}
+
+interface UserCardEntry {
+    cardId: number;
+    [key: string]: unknown;
+}
+
+interface UserHonorEntry {
+    honorId: number;
+    [key: string]: unknown;
+}
+
+type UserDataMap = Record<string, unknown>;
+
 // ==================== Helper Functions ====================
 
 /**
@@ -60,13 +86,13 @@ export const PRELOAD_MASTER_KEYS = [
  * Official: { param1: number[], param2: number[], param3: number[] }
  * sekai-calculator expects: Array<{ id, cardId, cardLevel, cardParameterType, power }>
  */
-export function transformCards(cards: any[]): any[] {
-    return cards.map((card: any) => {
+export function transformCards(cards: CardWithParameters[]): CardWithParameters[] {
+    return cards.map((card) => {
         if (!card.cardParameters || Array.isArray(card.cardParameters)) {
             return card;
         }
-        const params = card.cardParameters as Record<string, number[]>;
-        const transformed: any[] = [];
+        const params = card.cardParameters;
+        const transformed: CardParameterEntry[] = [];
         for (const [paramType, powers] of Object.entries(params)) {
             powers.forEach((power: number, index: number) => {
                 const cardLevel = index + 1;
@@ -98,7 +124,7 @@ export function calcDuration() {
 // ==================== Data Provider ====================
 
 export class SnowyDataProvider implements DataProvider {
-    private userDataCache: Record<string, any> | null = null;
+    private userDataCache: UserDataMap | null = null;
 
     constructor(
         private userId: string,
@@ -113,7 +139,7 @@ export class SnowyDataProvider implements DataProvider {
         return new CachedDataProvider(new SnowyDataProvider(userId, server));
     }
 
-    private async fetchMasterJson(base: string, key: string): Promise<any[] | null> {
+    private async fetchMasterJson(base: string, key: string): Promise<unknown[] | null> {
         try {
             const response = await fetch(`${base}/${key}.json`);
             if (!response.ok) return null;
@@ -121,7 +147,8 @@ export class SnowyDataProvider implements DataProvider {
             if (contentType.includes("text/html")) return null;
             const text = await response.text();
             if (text.trimStart().startsWith("<")) return null;
-            return JSON.parse(text);
+            const parsed = JSON.parse(text) as unknown;
+            return Array.isArray(parsed) ? parsed : null;
         } catch {
             return null;
         }
@@ -132,10 +159,10 @@ export class SnowyDataProvider implements DataProvider {
         let data = await this.fetchMasterJson(base, key);
         if (data === null) {
             console.warn(`[DeckRecommend] Master data "${key}" not available, using empty array`);
-            return [] as any;
+            return [] as T[];
         }
         if (key === "cards") {
-            data = transformCards(data);
+            data = transformCards(data as CardWithParameters[]);
         }
         return data as T[];
     }
@@ -156,7 +183,7 @@ export class SnowyDataProvider implements DataProvider {
         return all[key];
     }
 
-    async getUserDataAll(): Promise<Record<string, any>> {
+    async getUserDataAll(): Promise<UserDataMap> {
         if (this.userDataCache) return this.userDataCache;
 
         const url = `${HARUKI_SUITE_API}/${this.server}/suite/${this.userId}?key=${USER_DATA_KEYS}`;
@@ -172,15 +199,18 @@ export class SnowyDataProvider implements DataProvider {
             throw new Error(`Failed to fetch user data (${response.status})`);
         }
 
-        const data = await response.json();
+        const data = (await response.json()) as UserDataMap & {
+            userCards?: UserCardEntry[];
+            userHonors?: UserHonorEntry[];
+        };
 
         // Filter userCards to ensure only cards existing in JP master data are returned
         if (data.userCards && Array.isArray(data.userCards)) {
             try {
-                const masterCards = await this.getMasterData<any>("cards");
+                const masterCards = await this.getMasterData<{ id: number }>("cards");
                 const masterCardIds = new Set(masterCards.map((c) => c.id));
                 const originalCount = data.userCards.length;
-                data.userCards = data.userCards.filter((uc: any) => masterCardIds.has(uc.cardId));
+                data.userCards = data.userCards.filter((uc) => masterCardIds.has(uc.cardId));
                 console.log(`[DeckRecommend] Filtered userCards: ${originalCount} -> ${data.userCards.length}`);
             } catch (e) {
                 console.error("[DeckRecommend] Failed to filter userCards", e);
@@ -190,10 +220,10 @@ export class SnowyDataProvider implements DataProvider {
         // Filter userHonors
         if (data.userHonors && Array.isArray(data.userHonors)) {
             try {
-                const masterHonors = await this.getMasterData<any>("honors");
+                const masterHonors = await this.getMasterData<{ id: number }>("honors");
                 const masterHonorIds = new Set(masterHonors.map((h) => h.id));
                 const originalCount = data.userHonors.length;
-                data.userHonors = data.userHonors.filter((h: any) => masterHonorIds.has(h.honorId));
+                data.userHonors = data.userHonors.filter((h) => masterHonorIds.has(h.honorId));
                 console.log(`[DeckRecommend] Filtered userHonors: ${originalCount} -> ${data.userHonors.length}`);
             } catch (e) {
                 console.error("[DeckRecommend] Failed to filter userHonors", e);

@@ -99,16 +99,40 @@ func (h *Handler) handleGachaList(w http.ResponseWriter, r *http.Request) {
 
 	// Sort
 	sort.Slice(filtered, func(i, j int) bool {
-		var less bool
+		asc := sortOrder == "asc"
+		left := filtered[i]
+		right := filtered[j]
+
 		if sortBy == "id" {
-			less = filtered[i].ID < filtered[j].ID
-		} else {
-			less = filtered[i].StartAt < filtered[j].StartAt
+			if left.ID == right.ID {
+				if left.StartAt == right.StartAt {
+					return false
+				}
+				if asc {
+					return left.StartAt < right.StartAt
+				}
+				return left.StartAt > right.StartAt
+			}
+			if asc {
+				return left.ID < right.ID
+			}
+			return left.ID > right.ID
 		}
-		if sortOrder == "asc" {
-			return less
+
+		// Default sort by startAt.
+		if left.StartAt == right.StartAt {
+			if left.ID == right.ID {
+				return false
+			}
+			if asc {
+				return left.ID < right.ID
+			}
+			return left.ID > right.ID
 		}
-		return !less
+		if asc {
+			return left.StartAt < right.StartAt
+		}
+		return left.StartAt > right.StartAt
 	})
 
 	// Paginate
@@ -281,10 +305,14 @@ func (h *Handler) handleBilibiliImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Cache-Control", "public, max-age=31536000")
 	if statusCode == http.StatusOK {
+		if contentType != "" {
+			w.Header().Set("Content-Type", contentType)
+		}
+		w.Header().Set("Cache-Control", "public, max-age=31536000")
 		w.Header().Set("X-Cache", "MISS") // Will be HIT on subsequent requests from cache
+	} else {
+		w.Header().Set("Cache-Control", "no-store")
 	}
 	w.WriteHeader(statusCode)
 	w.Write(data)

@@ -1,6 +1,7 @@
 "use client";
 import VirtualLiveItem from "./VirtualLiveItem";
 import { IVirtualLiveInfo } from "@/types/virtualLive";
+import { useState } from "react";
 
 interface VirtualLiveGridProps {
     virtualLives: IVirtualLiveInfo[];
@@ -22,6 +23,8 @@ function VirtualLiveSkeleton() {
 }
 
 export default function VirtualLiveGrid({ virtualLives, isLoading = false }: VirtualLiveGridProps) {
+    const [now] = useState(() => Date.now());
+
     // Show skeletons while loading
     if (isLoading) {
         return (
@@ -47,8 +50,6 @@ export default function VirtualLiveGrid({ virtualLives, isLoading = false }: Vir
             </div>
         );
     }
-
-    const now = Date.now();
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">

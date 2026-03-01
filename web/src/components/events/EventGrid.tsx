@@ -1,6 +1,7 @@
 "use client";
 import EventItem from "./EventItem";
 import { IEventInfo } from "@/types/events";
+import { useState } from "react";
 
 interface EventGridProps {
     events: IEventInfo[];
@@ -23,6 +24,8 @@ function EventSkeleton() {
 }
 
 export default function EventGrid({ events, isLoading = false, basePath = "/events" }: EventGridProps) {
+    const [now] = useState(() => Date.now());
+
     // Show skeletons while loading
     if (isLoading) {
         return (
@@ -48,8 +51,6 @@ export default function EventGrid({ events, isLoading = false, basePath = "/even
             </div>
         );
     }
-
-    const now = Date.now();
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

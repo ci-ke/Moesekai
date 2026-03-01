@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { IGachaInfo } from "@/types/types";
@@ -13,7 +13,7 @@ interface GachaItemProps {
 
 export default function GachaItem({ gacha }: GachaItemProps) {
     const { isShowSpoiler, assetSource } = useTheme();
-    const now = Date.now();
+    const [now] = useState(() => Date.now());
     const isUnreleased = gacha.startAt > now;
     const isOngoing = gacha.startAt <= now && gacha.endAt >= now;
     const logoUrl = getGachaLogoUrl(gacha.assetbundleName, assetSource);
@@ -24,7 +24,7 @@ export default function GachaItem({ gacha }: GachaItemProps) {
     };
 
     return (
-        <Link href={`/gacha/${gacha.id}`} className="group block">
+        <Link href={`/gacha/${gacha.id}`} className="group block" data-shortcut-item="true">
             <div className="relative rounded-xl overflow-hidden bg-white border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                 {/* Logo Image */}
                 <div className="relative aspect-[16/9] bg-gradient-to-br from-slate-50 to-slate-100">

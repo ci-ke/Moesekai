@@ -49,79 +49,79 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     const [assetSourceState, setAssetSourceState] = useState<AssetSourceType>(DEFAULT_ASSET_SOURCE);
     const [useLLMTranslationState, setUseLLMTranslationState] = useState(true); // Default ON
     const [serverSourceState, setServerSourceState] = useState<ServerSourceType>(DEFAULT_SERVER_SOURCE);
-    const [mounted, setMounted] = useState(false);
 
     // Load saved settings from localStorage on mount
     useEffect(() => {
-        setMounted(true);
-        const savedCharId = localStorage.getItem("theme-char-id");
-        if (savedCharId && CHAR_COLORS[savedCharId]) {
-            setThemeCharId(savedCharId);
-            setThemeColor(CHAR_COLORS[savedCharId]);
-        }
-        // Load spoiler setting
-        const savedSpoiler = localStorage.getItem("show-spoiler");
-        if (savedSpoiler === "true") {
-            setIsShowSpoiler(true);
-        }
-        // Load power saving setting (v2: default ON, ignore old "power-saving" cache)
-        const savedPowerSaving = localStorage.getItem("power-saving-v2");
-        if (savedPowerSaving === "false") {
-            setIsPowerSaving(false);
-        }
-        // Load trained thumbnail setting
-        const savedTrainedThumbnail = localStorage.getItem("use-trained-thumbnail");
-        if (savedTrainedThumbnail === "true") {
-            setUseTrainedThumbnailState(true);
-        }
-        // Load asset source setting
-        let loadedAssetSource: AssetSourceType = DEFAULT_ASSET_SOURCE;
-        const savedAssetSource = localStorage.getItem("asset-source");
-        if (savedAssetSource && VALID_ASSET_SOURCES.includes(savedAssetSource as AssetSourceType)) {
-            loadedAssetSource = savedAssetSource as AssetSourceType;
-        }
-        // Load LLM translation setting (default ON, so only turn off if explicitly "false")
-        const savedLLMTranslation = localStorage.getItem("use-llm-translation");
-        if (savedLLMTranslation === "false") {
-            setUseLLMTranslationState(false);
-        }
-        // Load server source setting
-        const savedServerSource = localStorage.getItem("server-source");
-        if (savedServerSource === "jp" || savedServerSource === "cn") {
-            setServerSourceState(savedServerSource);
-        }
-        // When CN server is selected, ensure asset source is a CN source
-        if (savedServerSource === "cn" && !CN_ASSET_SOURCES.includes(loadedAssetSource)) {
-            loadedAssetSource = "snowyassets_cn";
-            localStorage.setItem("asset-source", "snowyassets_cn");
-        }
-        // When JP server is selected, ensure asset source is NOT a CN source
-        if (savedServerSource !== "cn" && CN_ASSET_SOURCES.includes(loadedAssetSource)) {
-            loadedAssetSource = "snowyassets";
-            localStorage.setItem("asset-source", "snowyassets");
-        }
-        setAssetSourceState(loadedAssetSource);
+        const raf = requestAnimationFrame(() => {
+            const savedCharId = localStorage.getItem("theme-char-id");
+            if (savedCharId && CHAR_COLORS[savedCharId]) {
+                setThemeCharId(savedCharId);
+                setThemeColor(CHAR_COLORS[savedCharId]);
+            }
+            // Load spoiler setting
+            const savedSpoiler = localStorage.getItem("show-spoiler");
+            if (savedSpoiler === "true") {
+                setIsShowSpoiler(true);
+            }
+            // Load power saving setting (v2: default ON, ignore old "power-saving" cache)
+            const savedPowerSaving = localStorage.getItem("power-saving-v2");
+            if (savedPowerSaving === "false") {
+                setIsPowerSaving(false);
+            }
+            // Load trained thumbnail setting
+            const savedTrainedThumbnail = localStorage.getItem("use-trained-thumbnail");
+            if (savedTrainedThumbnail === "true") {
+                setUseTrainedThumbnailState(true);
+            }
+            // Load asset source setting
+            let loadedAssetSource: AssetSourceType = DEFAULT_ASSET_SOURCE;
+            const savedAssetSource = localStorage.getItem("asset-source");
+            if (savedAssetSource && VALID_ASSET_SOURCES.includes(savedAssetSource as AssetSourceType)) {
+                loadedAssetSource = savedAssetSource as AssetSourceType;
+            }
+            // Load LLM translation setting (default ON, so only turn off if explicitly "false")
+            const savedLLMTranslation = localStorage.getItem("use-llm-translation");
+            if (savedLLMTranslation === "false") {
+                setUseLLMTranslationState(false);
+            }
+            // Load server source setting
+            const savedServerSource = localStorage.getItem("server-source");
+            if (savedServerSource === "jp" || savedServerSource === "cn") {
+                setServerSourceState(savedServerSource);
+            }
+            // When CN server is selected, ensure asset source is a CN source
+            if (savedServerSource === "cn" && !CN_ASSET_SOURCES.includes(loadedAssetSource)) {
+                loadedAssetSource = "snowyassets_cn";
+                localStorage.setItem("asset-source", "snowyassets_cn");
+            }
+            // When JP server is selected, ensure asset source is NOT a CN source
+            if (savedServerSource !== "cn" && CN_ASSET_SOURCES.includes(loadedAssetSource)) {
+                loadedAssetSource = "snowyassets";
+                localStorage.setItem("asset-source", "snowyassets");
+            }
+            setAssetSourceState(loadedAssetSource);
+        });
+
+        return () => cancelAnimationFrame(raf);
     }, []);
 
     // Apply theme color to CSS variables
     useEffect(() => {
-        if (mounted) {
-            document.documentElement.style.setProperty("--color-miku", themeColor);
-            // Also update the dark variant (darken by ~15%)
-            const darkColor = darkenColor(themeColor, 15);
-            document.documentElement.style.setProperty("--color-miku-dark", darkColor);
+        document.documentElement.style.setProperty("--color-miku", themeColor);
+        // Also update the dark variant (darken by ~15%)
+        const darkColor = darkenColor(themeColor, 15);
+        document.documentElement.style.setProperty("--color-miku-dark", darkColor);
 
-            // Update light variant for background (mix with 95% white)
-            const lightColor = mixWithWhite(themeColor, 95);
-            document.documentElement.style.setProperty("--theme-light", lightColor);
+        // Update light variant for background (mix with 95% white)
+        const lightColor = mixWithWhite(themeColor, 95);
+        document.documentElement.style.setProperty("--theme-light", lightColor);
 
-            // Add RGB variant for rgba usage
-            const rgb = hexToRgb(themeColor);
-            if (rgb) {
-                document.documentElement.style.setProperty("--color-miku-rgb", `${rgb.r}, ${rgb.g}, ${rgb.b}`);
-            }
+        // Add RGB variant for rgba usage
+        const rgb = hexToRgb(themeColor);
+        if (rgb) {
+            document.documentElement.style.setProperty("--color-miku-rgb", `${rgb.r}, ${rgb.g}, ${rgb.b}`);
         }
-    }, [themeColor, mounted]);
+    }, [themeColor]);
 
     const setThemeCharacter = (charId: string) => {
         if (CHAR_COLORS[charId]) {

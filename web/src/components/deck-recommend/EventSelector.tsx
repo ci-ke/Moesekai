@@ -32,7 +32,7 @@ export default function EventSelector({ selectedEventId, onSelect }: EventSelect
     const [events, setEvents] = useState<IEventInfo[]>([]);
     const [deckBonuses, setDeckBonuses] = useState<IEventDeckBonus[]>([]);
     const [translations, setTranslations] = useState<TranslationData | null>(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
 
     // Filters state
@@ -45,7 +45,6 @@ export default function EventSelector({ selectedEventId, onSelect }: EventSelect
 
     // Load events on mount
     useEffect(() => {
-        setLoading(true);
         Promise.all([
             fetchMasterData<IEventInfo[]>("events.json"),
             fetchMasterData<IEventDeckBonus[]>("eventDeckBonuses.json"),
@@ -206,7 +205,10 @@ export default function EventSelector({ selectedEventId, onSelect }: EventSelect
                         onSearchChange={setSearchQuery}
                         sortBy={sortBy}
                         sortOrder={sortOrder}
-                        onSortChange={setSortBy as any}
+                        onSortChange={(nextSortBy, nextSortOrder) => {
+                            setSortBy(nextSortBy);
+                            setSortOrder(nextSortOrder);
+                        }}
                         onReset={() => {
                             setSelectedTypes([]);
                             setSelectedCharacters([]);

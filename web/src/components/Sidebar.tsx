@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -9,6 +9,13 @@ import {
     getCachedAvatarUrl,
     type MoesekaiAccount,
 } from "@/lib/account";
+import {
+    getShortcutById,
+    isEditableEventTarget,
+    isKeyboardEventComposing,
+    matchesShortcutCombo,
+    parseShortcutCombos,
+} from "@/lib/shortcuts";
 
 interface NavItem {
     name: string;
@@ -25,7 +32,21 @@ interface SidebarProps {
     isOpen: boolean;
     onClose: () => void;
     hasMounted?: boolean;
+    disableKeyboardNavigation?: boolean;
 }
+
+const SIDEBAR_FOCUS_NEXT_COMBOS = parseShortcutCombos(
+    getShortcutById("sidebar-focus-next")?.combos ?? []
+);
+const SIDEBAR_FOCUS_PREV_COMBOS = parseShortcutCombos(
+    getShortcutById("sidebar-focus-prev")?.combos ?? []
+);
+const SIDEBAR_OPEN_COMBO = parseShortcutCombos(
+    getShortcutById("sidebar-open-focused")?.combos ?? []
+)[0] ?? [];
+const SIDEBAR_CLEAR_FOCUS_COMBO = parseShortcutCombos(
+    getShortcutById("close-overlay")?.combos ?? []
+)[0] ?? [];
 
 const navigationGroups: NavGroup[] = [
     {
@@ -266,7 +287,12 @@ const navigationGroups: NavGroup[] = [
     },
 ];
 
-export default function Sidebar({ isOpen, onClose, hasMounted = true }: SidebarProps) {
+export default function Sidebar({
+    isOpen,
+    onClose,
+    hasMounted = true,
+    disableKeyboardNavigation = false,
+}: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
     // 默认展开所有分组
@@ -319,35 +345,39 @@ export default function Sidebar({ isOpen, onClose, hasMounted = true }: SidebarP
 
     // 键盘导航：↑↓ 移动焦点，Enter 导航，Escape 取消
     useEffect(() => {
-        if (!isOpen || window.innerWidth < 768) return;
+        if (!isOpen || disableKeyboardNavigation || window.innerWidth < 768) return;
 
         const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.defaultPrevented || isKeyboardEventComposing(e)) return;
+
             // 输入框中不触发
-            const tag = (e.target as HTMLElement).tagName.toLowerCase();
-            if (tag === "input" || tag === "textarea" || (e.target as HTMLElement).isContentEditable) return;
+            if (isEditableEventTarget(e.target)) return;
+
             // 有修饰键时不触发
             if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-            if (e.key === "ArrowDown") {
+            if (SIDEBAR_FOCUS_NEXT_COMBOS.some((combo) => matchesShortcutCombo(e, combo))) {
+                if (visibleItems.length === 0) return;
                 e.preventDefault();
                 setFocusedIndex(prev => {
                     const next = prev + 1;
                     return next >= visibleItems.length ? 0 : next;
                 });
-            } else if (e.key === "ArrowUp") {
+            } else if (SIDEBAR_FOCUS_PREV_COMBOS.some((combo) => matchesShortcutCombo(e, combo))) {
+                if (visibleItems.length === 0) return;
                 e.preventDefault();
                 setFocusedIndex(prev => {
                     const next = prev - 1;
                     return next < 0 ? visibleItems.length - 1 : next;
                 });
-            } else if (e.key === "Enter" && focusedIndex >= 0) {
+            } else if (focusedIndex >= 0 && matchesShortcutCombo(e, SIDEBAR_OPEN_COMBO)) {
                 e.preventDefault();
                 const item = visibleItems[focusedIndex];
                 if (item) {
                     router.push(item.href);
                     setFocusedIndex(-1);
                 }
-            } else if (e.key === "Escape" && focusedIndex >= 0) {
+            } else if (focusedIndex >= 0 && matchesShortcutCombo(e, SIDEBAR_CLEAR_FOCUS_COMBO)) {
                 e.preventDefault();
                 setFocusedIndex(-1);
             }
@@ -355,7 +385,7 @@ export default function Sidebar({ isOpen, onClose, hasMounted = true }: SidebarP
 
         document.addEventListener("keydown", handleKeyDown);
         return () => document.removeEventListener("keydown", handleKeyDown);
-    }, [isOpen, focusedIndex, visibleItems, router]);
+    }, [isOpen, disableKeyboardNavigation, focusedIndex, visibleItems, router]);
 
     // 聚焦项滚动到可见区域
     useEffect(() => {

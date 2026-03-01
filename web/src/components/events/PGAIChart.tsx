@@ -8,6 +8,10 @@ interface PGAIChartProps {
     height?: number;
 }
 
+interface TooltipParam {
+    dataIndex: number;
+}
+
 export default function PGAIChart({ globalKline, height = 300 }: PGAIChartProps) {
     const latestPoint = globalKline[globalKline.length - 1];
     const prevPoint = globalKline[globalKline.length - 2];
@@ -44,7 +48,7 @@ export default function PGAIChart({ globalKline, height = 300 }: PGAIChartProps)
                 borderColor: '#e2e8f0',
                 borderWidth: 1,
                 textStyle: { color: '#334155' },
-                formatter: (params: any) => {
+                formatter: (params: TooltipParam[]) => {
                     const idx = params[0].dataIndex;
                     const item = globalKline[idx];
                     return `

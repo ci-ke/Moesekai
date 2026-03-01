@@ -25,7 +25,7 @@ export default function VirtualLiveItem({ virtualLive, isSpoiler }: VirtualLiveI
     };
 
     return (
-        <Link href={`/live/${virtualLive.id}`} className="group block">
+        <Link href={`/live/${virtualLive.id}`} className="group block" data-shortcut-item="true">
             <div className="bg-white rounded-2xl shadow-lg ring-1 ring-slate-200 overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:ring-miku/30">
                 {/* Banner Image */}
                 <div className="relative aspect-[16/5] bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden">

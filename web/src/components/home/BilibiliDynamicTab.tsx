@@ -153,7 +153,7 @@ export default function BilibiliDynamicTab() {
         if (!url) return "";
 
         // Remove existing params if any to avoid duplication
-        let cleanUrl = url.split('@')[0];
+        const cleanUrl = url.split('@')[0];
 
         // Add Bilibili Image Processing Suffixes
         let suffix = "";

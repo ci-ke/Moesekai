@@ -671,6 +671,7 @@ function MyCardsContent() {
                         <div className="mt-8 flex justify-center">
                             <button
                                 onClick={loadMore}
+                                data-shortcut-load-more="true"
                                 className="px-8 py-3 bg-gradient-to-r from-miku to-miku-dark text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
                             >
                                 加载更多
@@ -722,7 +723,7 @@ function MyCardItem({ card, userCard }: MyCardItemProps) {
     const showTrained = isTrained && isTrainableCard(card) && card.cardRarityType !== "rarity_birthday";
 
     return (
-        <Link href={`/cards/${card.id}`} className="group block">
+        <Link href={`/cards/${card.id}`} className="group block" data-shortcut-item="true">
             <div className={`relative cursor-pointer rounded-xl overflow-hidden transition-all bg-white ring-1 ${isOwned
                 ? "ring-slate-200 hover:ring-miku hover:shadow-xl hover:-translate-y-1"
                 : "ring-slate-100 opacity-50 grayscale hover:opacity-70 hover:grayscale-0"

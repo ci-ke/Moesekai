@@ -22,6 +22,8 @@ function CardSkeleton() {
 }
 
 export default function CardGrid({ cards, isLoading = false }: CardGridProps) {
+    const [now] = React.useState(() => Date.now());
+
     if (isLoading) {
         return (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-10 gap-3">
@@ -43,8 +45,6 @@ export default function CardGrid({ cards, isLoading = false }: CardGridProps) {
             </div>
         );
     }
-
-    const now = Date.now();
 
     return (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-10 gap-3">

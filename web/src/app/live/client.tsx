@@ -250,6 +250,7 @@ function VirtualLiveContent() {
                         <div className="mt-8 flex justify-center">
                             <button
                                 onClick={loadMore}
+                                data-shortcut-load-more="true"
                                 className="px-8 py-3 bg-gradient-to-r from-miku to-miku-dark text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
                             >
                                 加载更多

@@ -2,53 +2,37 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { getDisplayCombos, SHORTCUT_GROUP_ORDER, SHORTCUTS } from "@/lib/shortcuts";
 
 interface KeyboardShortcutsHelpProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
-const shortcutGroups = [
-    {
-        title: "导航",
-        shortcuts: [
-            { keys: ["↑"], description: "侧边栏上移" },
-            { keys: ["↓"], description: "侧边栏下移" },
-            { keys: ["Enter"], description: "打开选中项" },
-            { keys: ["G", "然后", "H"], description: "前往首页" },
-            { keys: ["Alt", "←"], description: "返回上一页" },
-            { keys: ["Alt", "→"], description: "前进下一页" },
-        ],
-    },
-    {
-        title: "界面",
-        shortcuts: [
-            { keys: ["["], description: "切换侧边栏" },
-            { keys: ["]"], description: "3★/4★缩略图默认特训后" },
-            { keys: ["⌘", "X"], description: "打开设置" },
-        ],
-    },
-    {
-        title: "搜索",
-        shortcuts: [
-            { keys: ["⌘", "K"], description: "打开搜索" },
-            { keys: ["⌘", "Q"], description: "切换通配符搜索" },
-        ],
-    },
-    {
-        title: "其它",
-        shortcuts: [
-            { keys: ["/", "或", "?"], description: "快捷键帮助" },
-            { keys: ["Esc"], description: "关闭弹窗" },
-        ],
-    },
-];
+const shortcutGroups = SHORTCUT_GROUP_ORDER
+    .map((groupTitle) => {
+        const shortcuts = SHORTCUTS
+            .filter((shortcut) => shortcut.group === groupTitle)
+            .map((shortcut) => ({
+                ...shortcut,
+                displayCombos: getDisplayCombos(shortcut.combos),
+            }));
+
+        return {
+            title: groupTitle,
+            shortcuts,
+        };
+    })
+    .filter((group) => group.shortcuts.length > 0);
 
 export default function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShortcutsHelpProps) {
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        setMounted(true);
+        const raf = requestAnimationFrame(() => {
+            setMounted(true);
+        });
+        return () => cancelAnimationFrame(raf);
     }, []);
 
     // Prevent body scroll & close on Escape
@@ -121,31 +105,39 @@ export default function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShort
                                         {group.title}
                                     </h3>
                                     <div className="space-y-1.5">
-                                        {group.shortcuts.map((shortcut, idx) => (
+                                        {group.shortcuts.map((shortcut) => (
                                             <div
-                                                key={idx}
+                                                key={shortcut.id}
                                                 className="flex items-center justify-between py-1.5"
                                             >
                                                 <span className="text-sm text-slate-600">
                                                     {shortcut.description}
                                                 </span>
-                                                <div className="flex items-center gap-1">
-                                                    {shortcut.keys.map((key, kidx) => (
-                                                        <React.Fragment key={kidx}>
-                                                            {key === "然后" ? (
-                                                                <span className="text-[10px] text-slate-300 mx-0.5">then</span>
-                                                            ) : key === "或" ? (
+                                                <div className="flex items-center justify-end gap-1 flex-wrap">
+                                                    {shortcut.displayCombos.map((combo, comboIndex) => (
+                                                        <React.Fragment key={`${shortcut.id}-${combo.combo}`}>
+                                                            {comboIndex > 0 && (
                                                                 <span className="text-[10px] text-slate-300 mx-0.5">or</span>
-                                                            ) : (
-                                                                <>
-                                                                    {kidx > 0 && shortcut.keys[kidx - 1] !== "然后" && shortcut.keys[kidx - 1] !== "或" && (
-                                                                        <span className="text-[10px] text-slate-300 mx-0.5">+</span>
-                                                                    )}
-                                                                    <kbd className="min-w-[1.5rem] px-1.5 py-0.5 text-[11px] font-medium text-slate-500 bg-slate-100 rounded border border-slate-200 text-center shadow-sm">
-                                                                        {key}
-                                                                    </kbd>
-                                                                </>
                                                             )}
+
+                                                            {combo.steps.map((step, stepIndex) => (
+                                                                <React.Fragment key={`${shortcut.id}-${combo.combo}-step-${stepIndex}`}>
+                                                                    {stepIndex > 0 && (
+                                                                        <span className="text-[10px] text-slate-300 mx-0.5">then</span>
+                                                                    )}
+
+                                                                    {step.keys.map((key, keyIndex) => (
+                                                                        <React.Fragment key={`${shortcut.id}-${combo.combo}-step-${stepIndex}-key-${keyIndex}`}>
+                                                                            {keyIndex > 0 && (
+                                                                                <span className="text-[10px] text-slate-300 mx-0.5">+</span>
+                                                                            )}
+                                                                            <kbd className="min-w-[1.5rem] px-1.5 py-0.5 text-[11px] font-medium text-slate-500 bg-slate-100 rounded border border-slate-200 text-center shadow-sm">
+                                                                                {key}
+                                                                            </kbd>
+                                                                        </React.Fragment>
+                                                                    ))}
+                                                                </React.Fragment>
+                                                            ))}
                                                         </React.Fragment>
                                                     ))}
                                                 </div>
@@ -158,7 +150,7 @@ export default function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShort
 
                         {/* Footer */}
                         <div className="px-5 py-2.5 border-t border-slate-100 text-[11px] text-slate-400 text-center">
-                            移动端已禁用快捷键 · ⌘ 即 Ctrl（Windows）/ Command（Mac）
+                            移动端已禁用快捷键 · 输入框与中文输入法组合状态下自动停用 · ⌘ 即 Ctrl（Windows）/ Command（Mac）
                         </div>
                     </motion.div>
                 </div>

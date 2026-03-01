@@ -6,6 +6,7 @@ import Link from "next/link";
 import MainLayout from "@/components/MainLayout";
 import {
     ICardInfo,
+    ISkillInfo,
     CHARACTER_NAMES,
     ATTR_COLORS,
     ATTR_NAMES,
@@ -18,7 +19,7 @@ import {
 import { getCardFullUrl, getCardThumbnailUrl, getEventBannerUrl, getGachaBannerUrl, getGachaLogoUrl, getCardGachaVoiceUrl, getCostumeThumbnailUrl } from "@/lib/assets";
 import { useRef } from "react";
 import { formatSkillDescription } from "@/lib/skill";
-import { useTheme } from "@/contexts/ThemeContext";
+import { useTheme, type AssetSourceType } from "@/contexts/ThemeContext";
 import { fetchMasterData, fetchWithCompression } from "@/lib/fetch";
 import { TranslatedText, useTranslatedText } from "@/components/common/TranslatedText";
 
@@ -54,6 +55,23 @@ interface Costume3d {
     colorName: string; // e.g. "Original", "Another 1"
 }
 
+interface CardSupplyInfo {
+    id: number;
+    cardSupplyType?: string;
+}
+
+interface CardParameterRow {
+    id: number;
+    cardParameterType: "param1" | "param2" | "param3";
+    power: number;
+}
+
+interface RelatedGachaInfo {
+    id: number;
+    name: string;
+    assetbundleName: string;
+}
+
 export default function CardDetailPage() {
     const params = useParams();
     const router = useRouter();
@@ -73,12 +91,12 @@ export default function CardDetailPage() {
     const [showTrained, setShowTrained] = useState(false);
     const [cardLevel, setCardLevel] = useState(1);
     const [skillLevel, setSkillLevel] = useState(1);
-    const [skillData, setSkillData] = useState<any>(null);
-    const [trainedSkillData, setTrainedSkillData] = useState<any>(null);
+    const [skillData, setSkillData] = useState<ISkillInfo | null>(null);
+    const [trainedSkillData, setTrainedSkillData] = useState<ISkillInfo | null>(null);
     const [trainedSkillDescription, setTrainedSkillDescription] = useState<string | null>(null);
     const [imageViewerOpen, setImageViewerOpen] = useState(false);
     const [relatedEvent, setRelatedEvent] = useState<{ id: number; name: string; assetbundleName: string } | null>(null);
-    const [relatedGachas, setRelatedGachas] = useState<{ id: number; name: string; assetbundleName: string }[]>([]);
+    const [relatedGachas, setRelatedGachas] = useState<RelatedGachaInfo[]>([]);
     const [relatedCostumes, setRelatedCostumes] = useState<Costume3d[]>([]);
 
 
@@ -94,8 +112,8 @@ export default function CardDetailPage() {
                 setIsLoading(true);
                 const [cardsData, skillsData, suppliesData] = await Promise.all([
                     fetchMasterData<ICardInfo[]>("cards.json"),
-                    fetchMasterData<any[]>("skills.json"),
-                    fetchMasterData<any[]>("cardSupplies.json").catch(() => [])
+                    fetchMasterData<ISkillInfo[]>("skills.json"),
+                    fetchMasterData<CardSupplyInfo[]>("cardSupplies.json").catch(() => [])
                 ]);
 
                 const foundCard = cardsData.find(c => c.id === cardId);
@@ -105,7 +123,7 @@ export default function CardDetailPage() {
                 }
 
                 // Handle Supply Type
-                const supply = suppliesData.find((s: any) => s.id === foundCard.cardSupplyId);
+                const supply = suppliesData.find((s) => s.id === foundCard.cardSupplyId);
                 if (supply && supply.cardSupplyType) {
                     setSupplyName(SUPPLY_TYPE_NAMES[supply.cardSupplyType] || supply.cardSupplyType);
                 } else {
@@ -114,7 +132,7 @@ export default function CardDetailPage() {
 
                 // ... (rest of logic)
                 // Normal skill
-                const skill = skillsData.find((s: any) => s.id === foundCard.skillId);
+                const skill = skillsData.find((s) => s.id === foundCard.skillId);
                 if (skill) {
                     setSkillData(skill);
                     // Default to max level available in skill effects details
@@ -123,7 +141,7 @@ export default function CardDetailPage() {
                 }
                 // Trained skill (after blooming)
                 if (foundCard.specialTrainingSkillId) {
-                    const trainedSkill = skillsData.find((s: any) => s.id === foundCard.specialTrainingSkillId);
+                    const trainedSkill = skillsData.find((s) => s.id === foundCard.specialTrainingSkillId);
                     if (trainedSkill) {
                         setTrainedSkillData(trainedSkill);
                     }
@@ -131,23 +149,26 @@ export default function CardDetailPage() {
 
 
                 // The API returns an array of objects but the UI expects an object of arrays
-                if (Array.isArray(foundCard.cardParameters)) {
-                    const rawParams = foundCard.cardParameters as any[];
+                const cardWithRawParams = foundCard as ICardInfo & {
+                    cardParameters: ICardInfo["cardParameters"] | CardParameterRow[];
+                };
+                if (Array.isArray(cardWithRawParams.cardParameters)) {
+                    const rawParams = cardWithRawParams.cardParameters;
                     // Group by type and sort by ID (assuming ID order corresponds to level)
-                    const transformParams = (type: string) => {
+                    const transformParams = (type: CardParameterRow["cardParameterType"]) => {
                         return rawParams
                             .filter(p => p.cardParameterType === type)
                             .sort((a, b) => a.id - b.id)
                             .map(p => p.power);
                     };
 
-                    (foundCard as any).cardParameters = {
+                    cardWithRawParams.cardParameters = {
                         param1: transformParams("param1"),
                         param2: transformParams("param2"),
                         param3: transformParams("param3"),
                     };
                 }
-                setCard(foundCard);
+                setCard(cardWithRawParams);
                 // document.title = `Snowy SekaiViewer - ${foundCard.prefix}`; // Moved to metadata
 
                 // Set initial level to max
@@ -266,12 +287,12 @@ export default function CardDetailPage() {
             try {
                 const res = await fetch(`${API_BASE}/api/card-gacha-map`);
                 if (!res.ok) return;
-                const map = await res.json();
+                const map = await res.json() as Record<number, RelatedGachaInfo[]>;
                 if (map[cardId] && Array.isArray(map[cardId])) {
                     const gachas = map[cardId];
                     if (gachas.length > 0) {
                         // Find the one with smallest ID
-                        const smallest = gachas.reduce((prev: any, curr: any) => prev.id < curr.id ? prev : curr);
+                        const smallest = gachas.reduce((prev, curr) => prev.id < curr.id ? prev : curr);
                         setRelatedGachas([smallest]);
                     }
                 }
@@ -1076,7 +1097,7 @@ function GachaPhraseRow({ phrase, assetbundleName }: { phrase: string; assetbund
 
 // Costume Grid Component
 // Costume Grid Component
-function CostumeGrid({ costumes, assetSource }: { costumes: Costume3d[], assetSource: any }) {
+function CostumeGrid({ costumes, assetSource }: { costumes: Costume3d[], assetSource: AssetSourceType }) {
 
     // Group variants
     const groups = useMemo(() => {
@@ -1117,13 +1138,12 @@ function CostumeGrid({ costumes, assetSource }: { costumes: Costume3d[], assetSo
     }, [costumes]);
 
     const [activeColorId, setActiveColorId] = useState(1);
-
-    // Initial effect: If ID 1 doesn't exist (unlikely), pick first available
-    useEffect(() => {
-        if (availableColors.length > 0 && !availableColors.includes(1)) {
-            setActiveColorId(availableColors[0]);
-        }
-    }, [availableColors]);
+    const effectiveColorId = useMemo(() => {
+        if (availableColors.length === 0) return activeColorId;
+        if (availableColors.includes(activeColorId)) return activeColorId;
+        if (availableColors.includes(1)) return 1;
+        return availableColors[0];
+    }, [availableColors, activeColorId]);
 
     return (
         <div className="flex flex-col gap-4">
@@ -1137,7 +1157,7 @@ function CostumeGrid({ costumes, assetSource }: { costumes: Costume3d[], assetSo
                                 key={colorId}
                                 onClick={() => setActiveColorId(colorId)}
                                 className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-mono transition-all border whitespace-nowrap
-                                    ${activeColorId === colorId
+                                    ${effectiveColorId === colorId
                                         ? "bg-miku text-white border-miku shadow-sm"
                                         : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
                                     }
@@ -1155,7 +1175,7 @@ function CostumeGrid({ costumes, assetSource }: { costumes: Costume3d[], assetSo
                     <div key={group.key} className="flex-shrink-0 w-24 xs:w-28 sm:w-auto">
                         <CostumeGroupItem
                             variants={group.variants}
-                            targetColorId={activeColorId}
+                            targetColorId={effectiveColorId}
                             assetSource={assetSource}
                         />
                     </div>
@@ -1165,7 +1185,7 @@ function CostumeGrid({ costumes, assetSource }: { costumes: Costume3d[], assetSo
     );
 }
 
-function CostumeGroupItem({ variants, targetColorId, assetSource }: { variants: Costume3d[], targetColorId: number, assetSource: any }) {
+function CostumeGroupItem({ variants, targetColorId, assetSource }: { variants: Costume3d[], targetColorId: number, assetSource: AssetSourceType }) {
     // Find exact color match, or fallback to first (usually color 1)
     const displayVariant = variants.find(v => v.colorId === targetColorId) || variants[0];
 

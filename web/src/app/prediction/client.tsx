@@ -8,11 +8,21 @@ import PGAIChart from "@/components/events/PGAIChart";
 import Sparkline from "@/components/events/Sparkline";
 import ActivityStats from "@/components/events/ActivityStats";
 import { fetchPredictionData, fetchEventList } from "@/lib/prediction-api";
-import { PredictionData, EventListItem, ServerType, RankChart } from "@/types/prediction";
+import { PredictionData, EventListItem, ServerType, RankChart, TierKLine } from "@/types/prediction";
 import { IEventInfo, getEventStatus, EVENT_TYPE_NAMES, EVENT_STATUS_DISPLAY } from "@/types/events";
 import { useTheme } from "@/contexts/ThemeContext";
 import { fetchMasterData } from "@/lib/fetch";
 import { getEventBannerUrl, getEventLogoUrl } from "@/lib/assets";
+
+interface LegacyTierKline {
+    rank: number;
+    ChangePct?: number;
+    changePct?: number;
+    Speed?: number;
+    speed?: number;
+    CurrentIndex?: number;
+    currentIndex?: number;
+}
 
 // Available rank tiers
 const RANK_TIERS = [50, 100, 200, 300, 400, 500, 1000, 2000, 3000, 5000, 10000];
@@ -30,7 +40,7 @@ export default function PredictionClient() {
     const [eventsLoading, setEventsLoading] = useState(true);
 
     // Live Clock for relative time & progress
-    const [now, setNow] = useState(Date.now());
+    const [now, setNow] = useState(() => Date.now());
 
     useEffect(() => {
         const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -45,16 +55,22 @@ export default function PredictionClient() {
     // Handle server switch safely
     const handleServerChange = (newServer: ServerType) => {
         if (newServer === server) return;
+        setEventsLoading(true);
+        setError(null);
         setServer(newServer);
         setSelectedEventId(null); // Clear selection to prevent invalid fetch
         setEvents([]); // Clear list
         setPredictionData(null); // Clear data
     };
 
+    const handleEventChange = (eventId: number) => {
+        setError(null);
+        setLoading(true);
+        setSelectedEventId(eventId);
+    };
+
     // Fetch events list when server changes
     useEffect(() => {
-        setEventsLoading(true);
-        setError(null);
         fetchEventList(server)
             .then(data => {
                 if (!Array.isArray(data)) {
@@ -74,7 +90,12 @@ export default function PredictionClient() {
                 if (!selectedEventId) {
                     const activeEvent = sortedEvents.find(e => e.is_active);
                     const latestEvent = sortedEvents[0];
-                    setSelectedEventId(activeEvent?.id || latestEvent?.id || null);
+                    const defaultEventId = activeEvent?.id || latestEvent?.id || null;
+                    if (defaultEventId) {
+                        setLoading(true);
+                        setError(null);
+                        setSelectedEventId(defaultEventId);
+                    }
                 }
             })
             .catch(err => {
@@ -88,12 +109,9 @@ export default function PredictionClient() {
     // Fetch prediction data when event changes
     useEffect(() => {
         if (!selectedEventId) {
-            setPredictionData(null);
             return;
         }
 
-        setLoading(true);
-        setError(null);
         fetchPredictionData(selectedEventId, server)
             .then(data => {
                 setPredictionData(data);
@@ -142,20 +160,30 @@ export default function PredictionClient() {
         const assetbundleName = masterEvent?.assetbundleName || "";
 
         // Timestamps: Prefer Prediction Data (as it reflects current server schedule), fallback to Master Data
-        let s = predEvent?.start_at ? (predEvent.start_at < 10000000000 ? predEvent.start_at * 1000 : predEvent.start_at) : masterEvent?.startAt;
-        let e = predEvent?.end_at ? (predEvent.end_at < 10000000000 ? predEvent.end_at * 1000 : predEvent.end_at) : masterEvent?.aggregateAt;
+        const s = predEvent?.start_at ? (predEvent.start_at < 10000000000 ? predEvent.start_at * 1000 : predEvent.start_at) : masterEvent?.startAt;
+        const e = predEvent?.end_at ? (predEvent.end_at < 10000000000 ? predEvent.end_at * 1000 : predEvent.end_at) : masterEvent?.aggregateAt;
 
         const startAt = s || 0;
         const endAt = e || 0;
 
         const mockEvent: IEventInfo = {
             id: selectedEventId,
+            bgmAssetbundleName: "",
+            eventOnlyComponentDisplayStartAt: startAt,
             name,
             eventType,
             assetbundleName,
             startAt,
             aggregateAt: endAt,
-        } as any;
+            rankingAnnounceAt: endAt,
+            distributionStartAt: endAt,
+            eventOnlyComponentDisplayEndAt: endAt,
+            closedAt: endAt,
+            distributionEndAt: endAt,
+            virtualLiveId: 0,
+            unit: "",
+            isCountLeaderCharacterPlay: false,
+        };
 
         const status = getEventStatus(mockEvent);
         const statusDisplay = EVENT_STATUS_DISPLAY[status];
@@ -248,7 +276,7 @@ export default function PredictionClient() {
                     <div className="flex-1">
                         <select
                             value={selectedEventId || ''}
-                            onChange={(e) => setSelectedEventId(Number(e.target.value))}
+                            onChange={(e) => handleEventChange(Number(e.target.value))}
                             disabled={eventsLoading || events.length === 0}
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-miku/20 focus:border-miku disabled:opacity-50"
                         >
@@ -452,8 +480,20 @@ export default function PredictionClient() {
                                                         // Handle case-sensitivity or missing data
                                                         const rank = chart.Rank;
                                                         // Try strict and loose matching
-                                                        const tierStats = predictionData.data.tier_klines?.find(t => t.Rank == rank)
-                                                            || (predictionData.data as any).tierKlines?.find((t: any) => t.rank == rank);
+                                                        const legacyTierKlines = (predictionData.data as PredictionData["data"] & {
+                                                            tierKlines?: LegacyTierKline[];
+                                                        }).tierKlines;
+                                                        const legacyTier = legacyTierKlines?.find((t) => t.rank == rank);
+                                                        const tierStats: TierKLine | undefined = predictionData.data.tier_klines?.find((t) => t.Rank == rank)
+                                                            || (legacyTier
+                                                                ? {
+                                                                    Rank: legacyTier.rank,
+                                                                    Data: [],
+                                                                    CurrentIndex: legacyTier.CurrentIndex ?? legacyTier.currentIndex ?? 0,
+                                                                    Speed: legacyTier.Speed ?? legacyTier.speed ?? 0,
+                                                                    ChangePct: legacyTier.ChangePct ?? legacyTier.changePct ?? 0,
+                                                                }
+                                                                : undefined);
 
                                                         const totalLen = chart.HistoryPoints.length;
                                                         const trimCount = Math.floor(totalLen * 0.01);

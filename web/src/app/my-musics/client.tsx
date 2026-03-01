@@ -145,9 +145,9 @@ function MyMusicsContent() {
             if (categories) setSelectedCategories(categories.split(",") as MusicCategoryType[]);
             if (difficulty) setSelectedDifficulty(difficulty);
             if (search) setSearchQuery(search);
-            if (sort) setSortBy(sort as any);
+            if (sort) setSortBy(sort as "publishedAt" | "id" | "level" | "completion");
             if (order) setSortOrder(order as "asc" | "desc");
-            if (completion) setCompletionFilter(completion as any);
+            if (completion) setCompletionFilter(completion as "all" | "no_fc" | "no_ap");
         } else {
             try {
                 const saved = sessionStorage.getItem(STORAGE_KEY);
@@ -228,7 +228,7 @@ function MyMusicsContent() {
                 const server = activeAccount!.server;
                 
                 // 台服和国服都使用国服数据
-                let dataServer: ServerType = server === "tw" || server === "cn" ? "cn" : "jp";
+                const dataServer: ServerType = server === "tw" || server === "cn" ? "cn" : "jp";
 
                 const [musicsData, difficultiesData, tagsData, translationsData] = await Promise.all([
                     fetchMasterDataForServer<Music[]>(dataServer, "musics.json"),
@@ -746,6 +746,7 @@ function MyMusicsContent() {
                     <div className="mt-8 flex justify-center">
                         <button
                             onClick={loadMore}
+                            data-shortcut-load-more="true"
                             className="px-8 py-3 bg-gradient-to-r from-miku to-miku-dark text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
                         >
                             加载更多
@@ -827,7 +828,7 @@ function MusicItem({ music, difficulties, results, thumbnailUrl, hasUserData, se
     const currentLevel = difficulties[selectedDifficulty];
     
     return (
-        <Link href={`/music/${music.id}`} className="group block">
+        <Link href={`/music/${music.id}`} className="group block" data-shortcut-item="true">
             <div className="relative cursor-pointer rounded-xl overflow-hidden transition-all bg-white/60 ring-1 ring-slate-200/60 hover:ring-miku hover:shadow-xl hover:-translate-y-1">
                 {/* Music Thumbnail */}
                 <div className="w-full aspect-square relative">

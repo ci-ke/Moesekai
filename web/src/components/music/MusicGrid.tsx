@@ -1,6 +1,7 @@
 "use client";
 import MusicItem from "./MusicItem";
 import { IMusicInfo } from "@/types/music";
+import { useState } from "react";
 
 interface MusicGridProps {
     musics: IMusicInfo[];
@@ -23,6 +24,8 @@ function MusicSkeleton() {
 }
 
 export default function MusicGrid({ musics, isLoading }: MusicGridProps) {
+    const [now] = useState(() => Date.now());
+
     if (isLoading) {
         return (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -46,8 +49,6 @@ export default function MusicGrid({ musics, isLoading }: MusicGridProps) {
             </div>
         );
     }
-
-    const now = Date.now();
 
     return (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">

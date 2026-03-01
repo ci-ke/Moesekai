@@ -1,5 +1,13 @@
 "use client";
-import { useEffect, useRef, useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import {
+    getShortcutById,
+    isEditableEventTarget,
+    isKeyboardEventComposing,
+    matchesShortcutCombo,
+    parseShortcutCombo,
+    parseShortcutCombos,
+} from "@/lib/shortcuts";
 
 export interface KeyboardShortcutHandlers {
     onToggleSidebar: () => void;
@@ -10,112 +18,187 @@ export interface KeyboardShortcutHandlers {
     onNavigateBack: () => void;
     onNavigateForward: () => void;
     onNavigateHome: () => void;
+    onNavigateCards: () => void;
+    onNavigateMusic: () => void;
+    onNavigateEvents: () => void;
+    onNavigateProfile: () => void;
+}
+
+export interface KeyboardShortcutsOptions {
+    disabled?: boolean;
+    sequenceTimeoutMs?: number;
+}
+
+const DEFAULT_SEQUENCE_TIMEOUT_MS = 700;
+
+function getParsedShortcutCombosById(shortcutId: string) {
+    const combos = getShortcutById(shortcutId)?.combos ?? [];
+    return parseShortcutCombos(combos);
+}
+
+function getFirstParsedShortcutComboById(shortcutId: string) {
+    const parsed = getParsedShortcutCombosById(shortcutId);
+    return parsed[0] ?? [];
+}
+
+function getSequenceNextKey(shortcutId: string): string {
+    const combo = getShortcutById(shortcutId)?.combos[0] ?? "";
+    const parsed = parseShortcutCombo(combo);
+    if (parsed.length < 2) return "";
+    return parsed[1]?.key ?? "";
+}
+
+const COMBO_TOGGLE_SEARCH = getFirstParsedShortcutComboById("toggle-search");
+const COMBO_TOGGLE_SETTINGS = getFirstParsedShortcutComboById("toggle-settings");
+const COMBO_NAVIGATE_BACK = getFirstParsedShortcutComboById("navigate-back");
+const COMBO_NAVIGATE_FORWARD = getFirstParsedShortcutComboById("navigate-forward");
+const COMBO_TOGGLE_SIDEBAR = getFirstParsedShortcutComboById("toggle-sidebar");
+const COMBO_TOGGLE_TRAINED = getFirstParsedShortcutComboById("toggle-trained-thumbnail");
+const COMBO_HELP = getParsedShortcutCombosById("toggle-shortcuts-help");
+
+const GO_HOME_KEY = getSequenceNextKey("navigate-home");
+const GO_CARDS_KEY = getSequenceNextKey("navigate-cards");
+const GO_MUSIC_KEY = getSequenceNextKey("navigate-music");
+const GO_EVENTS_KEY = getSequenceNextKey("navigate-events");
+const GO_PROFILE_KEY = getSequenceNextKey("navigate-profile");
+
+interface PendingSequence {
+    key: "g";
+    expiresAt: number;
 }
 
 /**
  * Global keyboard shortcuts hook.
- * Disabled on mobile (viewport < 768px) and when focus is in input/textarea.
+ * Disabled on mobile (viewport < 768px), in editable fields, and during IME composition.
  */
-export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers) {
-    const pendingKeyRef = useRef<string | null>(null);
-    const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+export function useKeyboardShortcuts(
+    handlers: KeyboardShortcutHandlers,
+    options: KeyboardShortcutsOptions = {}
+) {
+    const pendingSequenceRef = useRef<PendingSequence | null>(null);
+    const sequenceTimeoutMs = options.sequenceTimeoutMs ?? DEFAULT_SEQUENCE_TIMEOUT_MS;
+    const disabled = options.disabled ?? false;
 
-    const clearPending = useCallback(() => {
-        pendingKeyRef.current = null;
-        if (pendingTimerRef.current) {
-            clearTimeout(pendingTimerRef.current);
-            pendingTimerRef.current = null;
-        }
+    const clearPendingSequence = useCallback(() => {
+        pendingSequenceRef.current = null;
     }, []);
+
+    useEffect(() => {
+        if (disabled) {
+            clearPendingSequence();
+        }
+    }, [disabled, clearPendingSequence]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             // Disable on mobile
-            if (window.innerWidth < 768) return;
-
-            // Ignore when typing in input fields
-            const target = e.target as HTMLElement;
-            const tagName = target.tagName.toLowerCase();
-            if (
-                tagName === "input" ||
-                tagName === "textarea" ||
-                target.isContentEditable
-            ) {
+            if (window.innerWidth < 768) {
+                clearPendingSequence();
                 return;
             }
 
-            // Ctrl+K / ⌘K → search (migrated from MainNavbar)
-            if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+            if (disabled) {
+                clearPendingSequence();
+                return;
+            }
+
+            if (e.defaultPrevented || isKeyboardEventComposing(e)) return;
+            if (isEditableEventTarget(e.target)) {
+                clearPendingSequence();
+                return;
+            }
+
+            if (e.repeat) return;
+
+            const pending = pendingSequenceRef.current;
+            if (pending && pending.expiresAt < Date.now()) {
+                clearPendingSequence();
+            }
+
+            if (matchesShortcutCombo(e, COMBO_TOGGLE_SEARCH)) {
                 e.preventDefault();
-                clearPending();
+                clearPendingSequence();
                 handlers.onToggleSearch();
                 return;
             }
 
-            // Ctrl+X → settings
-            if ((e.metaKey || e.ctrlKey) && e.key === "x") {
+            if (matchesShortcutCombo(e, COMBO_TOGGLE_SETTINGS)) {
                 e.preventDefault();
-                clearPending();
+                clearPendingSequence();
                 handlers.onToggleSettings();
                 return;
             }
 
-            // Alt+← → back
-            if (e.altKey && e.key === "ArrowLeft") {
+            if (matchesShortcutCombo(e, COMBO_NAVIGATE_BACK)) {
                 e.preventDefault();
-                clearPending();
+                clearPendingSequence();
                 handlers.onNavigateBack();
                 return;
             }
 
-            // Alt+→ → forward
-            if (e.altKey && e.key === "ArrowRight") {
+            if (matchesShortcutCombo(e, COMBO_NAVIGATE_FORWARD)) {
                 e.preventDefault();
-                clearPending();
+                clearPendingSequence();
                 handlers.onNavigateForward();
                 return;
             }
 
-            // Skip if any modifier is held for the remaining shortcuts
-            if (e.metaKey || e.ctrlKey || e.altKey) return;
+            const isHelpShortcut = COMBO_HELP.some((combo) => matchesShortcutCombo(e, combo));
+            if (isHelpShortcut) {
+                e.preventDefault();
+                clearPendingSequence();
+                handlers.onToggleShortcutsHelp();
+                return;
+            }
 
-            // Two-key sequence: G → H (go home)
-            if (pendingKeyRef.current === "g") {
-                clearPending();
-                if (e.key === "h" || e.key === "H") {
+            // Skip if any system modifier is held for the remaining plain shortcuts
+            if (e.metaKey || e.ctrlKey || e.altKey) {
+                clearPendingSequence();
+                return;
+            }
+
+            // Two-key sequence: G → (H/C/M/E/P)
+            if (pendingSequenceRef.current?.key === "g") {
+                clearPendingSequence();
+                const sequenceKey = e.key.toLowerCase();
+
+                if (sequenceKey === GO_HOME_KEY) {
                     e.preventDefault();
                     handlers.onNavigateHome();
+                } else if (sequenceKey === GO_CARDS_KEY) {
+                    e.preventDefault();
+                    handlers.onNavigateCards();
+                } else if (sequenceKey === GO_MUSIC_KEY) {
+                    e.preventDefault();
+                    handlers.onNavigateMusic();
+                } else if (sequenceKey === GO_EVENTS_KEY) {
+                    e.preventDefault();
+                    handlers.onNavigateEvents();
+                } else if (sequenceKey === GO_PROFILE_KEY) {
+                    e.preventDefault();
+                    handlers.onNavigateProfile();
                 }
                 return;
             }
 
             // Start G sequence
-            if (e.key === "g") {
-                pendingKeyRef.current = "g";
-                pendingTimerRef.current = setTimeout(() => {
-                    pendingKeyRef.current = null;
-                }, 500);
+            if (e.key === "g" || e.key === "G") {
+                pendingSequenceRef.current = {
+                    key: "g",
+                    expiresAt: Date.now() + sequenceTimeoutMs,
+                };
                 return;
             }
 
-            // [ → toggle sidebar
-            if (e.key === "[") {
+            if (matchesShortcutCombo(e, COMBO_TOGGLE_SIDEBAR)) {
                 e.preventDefault();
                 handlers.onToggleSidebar();
                 return;
             }
 
-            // ] → toggle trained thumbnail for 3★/4★
-            if (e.key === "]") {
+            if (matchesShortcutCombo(e, COMBO_TOGGLE_TRAINED)) {
                 e.preventDefault();
                 handlers.onToggleTrainedThumbnail();
-                return;
-            }
-
-            // ? or / → shortcuts help
-            if (e.key === "?" || e.key === "/") {
-                e.preventDefault();
-                handlers.onToggleShortcutsHelp();
                 return;
             }
         };
@@ -123,7 +206,7 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers) {
         document.addEventListener("keydown", handleKeyDown);
         return () => {
             document.removeEventListener("keydown", handleKeyDown);
-            clearPending();
+            clearPendingSequence();
         };
-    }, [handlers, clearPending]);
+    }, [handlers, sequenceTimeoutMs, clearPendingSequence, disabled]);
 }

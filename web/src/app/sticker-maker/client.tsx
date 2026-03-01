@@ -474,10 +474,14 @@ export default function StickerMakerContent() {
         try {
             canvas.toBlob(async (blob) => {
                 if (!blob) return;
-                // Fix: explicit any cast for ClipboardItem if not defined
-                const ClipboardItem = (window as any).ClipboardItem;
+                type ClipboardItemConstructor = new (items: Record<string, Blob>) => ClipboardItem;
+                const ClipboardItemCtor = (window as Window & { ClipboardItem?: ClipboardItemConstructor }).ClipboardItem;
+                if (!ClipboardItemCtor) {
+                    alert("当前浏览器不支持剪贴板图片复制，请使用下载功能");
+                    return;
+                }
                 await navigator.clipboard.write([
-                    new ClipboardItem({ "image/png": blob }),
+                    new ClipboardItemCtor({ "image/png": blob }),
                 ]);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);

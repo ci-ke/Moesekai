@@ -299,7 +299,7 @@ function GuessWhoContent() {
 
         randomRef.current = new SeededRandom(settings.seed);
 
-        let deck = cards.filter(card => {
+        const deck = cards.filter(card => {
             if (settings.server === "cn") { /* placeholder */ }
             if (settings.selectedUnitIds.length > 0 && !availableCharacters.includes(card.characterId)) return false;
             if (settings.selectedRarities.length > 0) {
@@ -730,6 +730,35 @@ export default function GuessWhoClient() {
 }
 
 // Helper to keep code clean since we are repeating the layout in "Playing" mode
+interface GuessWhoPlayingAndSetupProps {
+    gameState: GameState;
+    settings: GameSettings;
+    setSettings: React.Dispatch<React.SetStateAction<GameSettings>>;
+    currentTotalScore: number;
+    timeLeft: number;
+    isRoundActive: boolean;
+    currentRound: number;
+    showFeedback: boolean;
+    feedbackResult: RoundResult | null;
+    currentCanvasImage?: HTMLImageElement;
+    canvasRef: React.RefObject<HTMLCanvasElement | null>;
+    currentDistortions: ActiveDistortion[];
+    handleGuess: (charId: number | null) => void;
+    handleNextRound: () => void;
+    availableCharacters: number[];
+    startGame: () => void;
+    handleRarityToggle: (rarityId: string) => void;
+    handleUnitToggle: (unitId: string) => void;
+    copyShareLink: () => void;
+    formatTime: (seconds: number) => string;
+    potentialScore: number;
+    combo: number;
+    strikes: number;
+    loadError: string;
+    loadCards: () => Promise<void>;
+    isLoading: boolean;
+}
+
 function GuessWhoClientPlayingAndSetup({
     gameState, settings, setSettings,
     currentTotalScore, timeLeft, isRoundActive,
@@ -739,7 +768,7 @@ function GuessWhoClientPlayingAndSetup({
 
     combo, strikes,
     loadError, loadCards, isLoading
-}: any) {
+}: GuessWhoPlayingAndSetupProps) {
     const multiplier = combo > 0 ? 1.0 + (combo * 0.5) : 1.0;
 
     if (gameState === "playing") {
@@ -961,4 +990,3 @@ function GuessWhoClientPlayingAndSetup({
         </MainLayout >
     );
 }
-

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import MainLayout from '@/components/MainLayout';
@@ -20,11 +20,11 @@ export default function GachaClient({ pools }: GachaClientProps) {
     // History state: Record<PoolName, Record<ImageSrc, Count>>
     const [history, setHistory] = useState<Record<string, Record<string, number>>>({});
 
-    // Reset results when pool changes
-    useEffect(() => {
+    const handlePoolChange = (poolName: string) => {
+        setSelectedPool(poolName);
         setResults([]);
         setShowResults(false);
-    }, [selectedPool]);
+    };
 
     const draw = (count: number) => {
         if (!selectedPool || !pools[selectedPool] || isAnimating) return;
@@ -114,7 +114,7 @@ export default function GachaClient({ pools }: GachaClientProps) {
                             {poolNames.map((poolName) => (
                                 <button
                                     key={poolName}
-                                    onClick={() => setSelectedPool(poolName)}
+                                    onClick={() => handlePoolChange(poolName)}
                                     className={`relative p-4 rounded-xl border-2 transition-all duration-200 flex flex-col items-center gap-3 group
                                         ${selectedPool === poolName
                                             ? 'border-miku bg-miku/5 shadow-md scale-105'

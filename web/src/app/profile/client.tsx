@@ -84,8 +84,10 @@ export default function ProfileClient() {
     }, []);
 
     useEffect(() => {
-        reload();
-        setLoaded(true);
+        const raf = requestAnimationFrame(() => {
+            reload();
+            setLoaded(true);
+        });
 
         // 自动刷新没有 userGamedata 的旧账号
         const refreshOldAccounts = async () => {
@@ -119,6 +121,7 @@ export default function ProfileClient() {
         };
 
         refreshOldAccounts();
+        return () => cancelAnimationFrame(raf);
     }, [reload]);
 
     const handleAddAccount = useCallback(async () => {

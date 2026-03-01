@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -8,14 +8,10 @@ function LeavePageContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const target = searchParams.get('target');
-    const [canClose, setCanClose] = useState(false);
-
-    useEffect(() => {
-        // Check if we can close the window (e.g. opened via _blank)
-        if (window.history.length === 1 || window.opener) {
-            setCanClose(true);
-        }
-    }, []);
+    const [canClose] = useState(() => {
+        if (typeof window === "undefined") return false;
+        return window.history.length === 1 || !!window.opener;
+    });
 
     const handleClose = () => {
         if (canClose) {

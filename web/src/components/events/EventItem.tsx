@@ -28,7 +28,7 @@ export default function EventItem({ event, isSpoiler, basePath = "/events" }: Ev
     };
 
     return (
-        <Link href={`${basePath}/${event.id}`} className="group block">
+        <Link href={`${basePath}/${event.id}`} className="group block" data-shortcut-item="true">
             <div className="bg-white rounded-2xl shadow-lg ring-1 ring-slate-200 overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:ring-miku/30">
                 {/* Event Logo */}
                 <div className="relative aspect-[16/9] bg-gradient-to-br from-slate-50 to-slate-100 overflow-hidden">

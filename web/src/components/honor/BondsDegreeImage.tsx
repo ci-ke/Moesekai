@@ -5,31 +5,36 @@ import { getBondsHonorCharacterUrl, getBondsHonorWordUrl } from "@/lib/assets";
 import { AssetSourceType } from "@/contexts/ThemeContext";
 
 function useImageLoaded(url: string | undefined): boolean {
-    const [loaded, setLoaded] = useState(false);
+    const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+
     useEffect(() => {
-        if (!url) { setLoaded(false); return; }
-        setLoaded(false);
+        if (!url) return;
+        const targetUrl = url;
         const img = new Image();
-        img.onload = () => setLoaded(true);
-        img.onerror = () => setLoaded(false);
-        img.src = url;
+        img.onload = () => setLoadedUrl(targetUrl);
+        img.onerror = () => setLoadedUrl(prev => (prev === targetUrl ? null : prev));
+        img.src = targetUrl;
         return () => { img.onload = null; img.onerror = null; };
     }, [url]);
-    return loaded;
+
+    return !!url && loadedUrl === url;
 }
 
 function useImageSize(url: string | undefined): { width: number; height: number } | null {
-    const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+    const [size, setSize] = useState<{ url: string; width: number; height: number } | null>(null);
+
     useEffect(() => {
-        if (!url) { setSize(null); return; }
-        setSize(null);
+        if (!url) return;
+        const targetUrl = url;
         const img = new Image();
-        img.onload = () => setSize({ width: img.naturalWidth, height: img.naturalHeight });
-        img.onerror = () => setSize(null);
-        img.src = url;
+        img.onload = () => setSize({ url: targetUrl, width: img.naturalWidth, height: img.naturalHeight });
+        img.onerror = () => setSize(prev => (prev?.url === targetUrl ? null : prev));
+        img.src = targetUrl;
         return () => { img.onload = null; img.onerror = null; };
     }, [url]);
-    return size;
+
+    if (!url || !size || size.url !== url) return null;
+    return { width: size.width, height: size.height };
 }
 
 interface BondsDegreeImageProps {
@@ -60,15 +65,13 @@ export default function BondsDegreeImage({
     const gcu1 = gameCharaUnits.find(g => g.id === bondsHonor.gameCharacterUnitId1);
     const gcu2 = gameCharaUnits.find(g => g.id === bondsHonor.gameCharacterUnitId2);
 
-    if (!gcu1 || !gcu2) return null;
-
     // Determine left/right based on viewType
     const leftChara = viewType === "normal" ? gcu1 : gcu2;
     const rightChara = viewType === "normal" ? gcu2 : gcu1;
 
     // Character SD URLs
-    const sdLeftUrl = getBondsHonorCharacterUrl(leftChara.gameCharacterId, source);
-    const sdRightUrl = getBondsHonorCharacterUrl(rightChara.gameCharacterId, source);
+    const sdLeftUrl = leftChara ? getBondsHonorCharacterUrl(leftChara.gameCharacterId, source) : undefined;
+    const sdRightUrl = rightChara ? getBondsHonorCharacterUrl(rightChara.gameCharacterId, source) : undefined;
 
     // Word image URL
     const wordUrl = bondsHonorWordAssetbundleName
@@ -95,6 +98,8 @@ export default function BondsDegreeImage({
     const sdLeftSize = useImageSize(sdLeftUrl);
     const sdRightSize = useImageSize(sdRightUrl);
     const wordSize = useImageSize(wordUrl);
+
+    if (!leftChara || !rightChara) return null;
 
     // Calculate SD positions
     const scaleFactor = sub ? 1 / 1.35 : 1;

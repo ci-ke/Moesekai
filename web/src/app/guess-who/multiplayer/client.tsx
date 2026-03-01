@@ -10,7 +10,7 @@ import {
     generateRoomCode, createRoom, findRoom, findRoomAcrossServers,
     updateRoomPlayers, updateRoomStatus, deleteRoom,
     getSupabaseClient, measureAllLatencies,
-    SERVERS, RoomPlayer
+    SERVERS, RoomPlayer, RoomRecord
 } from "@/lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import "./multiplayer.css";
@@ -430,7 +430,7 @@ function MultiplayerContent() {
                 })()
                 : null;
 
-            let filtered = allCards.filter(card => {
+            const filtered = allCards.filter(card => {
                 if (!card.assetbundleName) return false;
                 if (filteredChars && !filteredChars.has(card.characterId)) return false;
                 if (settings.selectedRarities.length > 0 && !settings.selectedRarities.includes(card.cardRarityType)) return false;
@@ -678,7 +678,7 @@ function MultiplayerContent() {
             const isCorrect = charId === currentCard.characterId;
             const roundMult = getRoundMultiplier(currentRoundRef.current);
 
-            let updatedPlayers = [...playersRef.current];
+            const updatedPlayers = [...playersRef.current];
             const playerIdx = updatedPlayers.findIndex(p => p.id === playerId);
             if (playerIdx === -1) return;
 
@@ -1318,7 +1318,7 @@ function MultiplayerContent() {
         try {
             // Try to find the room across all servers
             const serverParam = searchParams.get("server");
-            let foundRoom: { room: any; serverId: string } | null = null;
+            let foundRoom: { room: RoomRecord; serverId: string } | null = null;
 
             if (serverParam) {
                 const room = await findRoom(joinCode.trim(), serverParam);

@@ -89,7 +89,7 @@ export default function StoryReaderClient() {
                 const eventName = translationsData?.events?.name?.[event?.name || ""] || event?.name || `活动 ${eventId}`;
                 document.title = `${episodeTitle} - ${eventName} - Moesekai`;
 
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error("Error loading story:", err);
                 setError(err instanceof Error ? err.message : "Failed to load story");
             } finally {

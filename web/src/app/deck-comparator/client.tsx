@@ -42,11 +42,19 @@ interface HistoryItem {
     eventRate: number;
 }
 
+interface MusicMetaApiItem extends IMusicMeta {
+    tap_count?: number;
+    base_score_auto?: number;
+    skill_score_solo?: number[];
+    skill_score_multi?: number[];
+    skill_score_auto?: number[];
+}
+
 // ==================== Main Component ====================
 export default function DeckComparatorClient() {
     // Music selection state
     const [musics, setMusics] = useState<IMusicInfo[]>([]);
-    const [musicMetas, setMusicMetas] = useState<IMusicMeta[]>([]);
+    const [musicMetas, setMusicMetas] = useState<MusicMetaApiItem[]>([]);
     const [musicId, setMusicId] = useState("");
     const [difficulty, setDifficulty] = useState("master");
 
@@ -75,7 +83,15 @@ export default function DeckComparatorClient() {
     const [error, setError] = useState<string | null>(null);
 
     // History state
-    const [history, setHistory] = useState<HistoryItem[]>([]);
+    const [history, setHistory] = useState<HistoryItem[]>(() => {
+        if (typeof window === "undefined") return [];
+        try {
+            const saved = localStorage.getItem("deck-comparator-history");
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    });
 
     // Load initial data
     useEffect(() => {
@@ -89,15 +105,6 @@ export default function DeckComparatorClient() {
             .then(data => setMusicMetas(data))
             .catch(err => console.error("Failed to fetch music meta", err));
 
-        // Load history from local storage
-        try {
-            const saved = localStorage.getItem("deck-comparator-history");
-            if (saved) {
-                setHistory(JSON.parse(saved));
-            }
-        } catch (e) {
-            console.error("Failed to load history", e);
-        }
     }, []);
 
     // Save history to local storage
@@ -137,7 +144,7 @@ export default function DeckComparatorClient() {
         if (!musicId || !musicMetas.length) return null;
         const id = parseInt(musicId);
         const meta = musicMetas.find(
-            (m: any) => m.music_id === id && m.difficulty === difficulty
+            (m) => m.music_id === id && m.difficulty === difficulty
         );
         if (!meta) return null;
         return {
@@ -146,12 +153,12 @@ export default function DeckComparatorClient() {
             music_time: meta.music_time,
             base_score: meta.base_score,
             fever_score: meta.fever_score,
-            tap_count: (meta as any).tap_count || 0,
-            event_rate: (meta as any).event_rate || 100,
-            skill_score_solo: (meta as any).skill_score_solo || [],
-            skill_score_multi: (meta as any).skill_score_multi || [],
-            skill_score_auto: (meta as any).skill_score_auto || [],
-            base_score_auto: (meta as any).base_score_auto || 0,
+            tap_count: meta.tap_count || 0,
+            event_rate: meta.event_rate || 100,
+            skill_score_solo: meta.skill_score_solo || [],
+            skill_score_multi: meta.skill_score_multi || [],
+            skill_score_auto: meta.skill_score_auto || [],
+            base_score_auto: meta.base_score_auto || 0,
         };
     }, [musicId, difficulty, musicMetas]);
 
@@ -197,8 +204,9 @@ export default function DeckComparatorClient() {
             // PT 计算
             const pt = calc.calculatePT(res, selectedMeta, deckBonus, fires);
             setPtResult(pt);
-        } catch (err: any) {
-            setError(err.message || "计算出错");
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "计算出错";
+            setError(message);
             setResult(null);
             setPtResult(null);
         }

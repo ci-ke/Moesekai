@@ -13,17 +13,20 @@ export function useCardThumbnail(
     assetSource: AssetSourceType = "uni"
 ): string | null {
     const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+    const displayThumbnailUrl = cardId ? thumbnailUrl : null;
 
     useEffect(() => {
         if (!cardId) {
-            setThumbnailUrl(null);
             return;
         }
+
+        let cancelled = false;
 
         async function loadCardData() {
             try {
                 // Load cards master data using project's fetch utility
                 const cards = await fetchMasterData<ICardInfo[]>("cards.json");
+                if (cancelled) return;
                 const card = cards.find(c => c.id === cardId);
                 
                 if (card) {
@@ -45,7 +48,10 @@ export function useCardThumbnail(
         }
 
         loadCardData();
+        return () => {
+            cancelled = true;
+        };
     }, [cardId, assetSource]);
 
-    return thumbnailUrl;
+    return displayThumbnailUrl;
 }

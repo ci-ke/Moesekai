@@ -7,7 +7,7 @@ import Image from "next/image";
 import MainLayout from "@/components/MainLayout";
 import { CHAR_NAMES } from "@/types/types";
 import CharacterSelector from "@/components/deck-recommend/CharacterSelector";
-import { useTheme } from "@/contexts/ThemeContext";
+import { useTheme, type AssetSourceType } from "@/contexts/ThemeContext";
 import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
 import { fetchMasterData } from "@/lib/fetch";
 import { saveToolState, getAccount } from "@/lib/account";
@@ -23,6 +23,100 @@ interface CardConfigItem {
     episodeRead: boolean;
     masterMax: boolean;
     skillMax: boolean;
+}
+
+interface WorkerCardConfig {
+    disable?: boolean;
+    rankMax?: boolean;
+    episodeRead?: boolean;
+    masterMax?: boolean;
+    skillMax?: boolean;
+}
+
+interface DeckPowerInfo {
+    total?: number;
+}
+
+interface DeckSkillInfo {
+    scoreUp?: number;
+    isPreTrainingSkill?: boolean;
+}
+
+interface DeckEventBonusInfo {
+    total?: number;
+    all?: number;
+}
+
+interface DeckCardResult {
+    cardId: number;
+    cardRarityType?: string;
+    masterRank?: number;
+    level?: number;
+    characterId?: number;
+    power?: DeckPowerInfo;
+    skill?: DeckSkillInfo;
+    eventBonus?: string | number | DeckEventBonusInfo;
+}
+
+interface DeckResult {
+    score: number;
+    eventBonus?: number;
+    supportDeckBonus?: number;
+    power?: DeckPowerInfo;
+    cards?: DeckCardResult[];
+}
+
+interface ChallengeHighScoreInfo {
+    highScore?: number;
+}
+
+interface CardMasterInfo {
+    id: number;
+    cardRarityType?: string;
+    characterId: number;
+    prefix?: string;
+}
+
+interface UserCardInfo {
+    cardId: number;
+    masterRank?: number;
+    level?: number;
+}
+
+interface WorkerProgressMessage {
+    type: "progress";
+    stage: string;
+    percent: number;
+    stageLabel: string;
+}
+
+interface WorkerResultMessage {
+    type?: "result";
+    result?: DeckResult[];
+    challengeHighScore?: ChallengeHighScoreInfo | null;
+    userCards?: UserCardInfo[];
+    duration?: number;
+    upload_time?: number;
+    error?: string;
+}
+
+type DeckRecommendWorkerMessage = WorkerProgressMessage | WorkerResultMessage;
+
+interface DeckRecommendWorkerArgs {
+    mode: DeckMode;
+    userId: string;
+    server: ServerType;
+    musicId: number;
+    difficulty: string;
+    characterId?: number;
+    eventId?: number;
+    liveType: string;
+    supportCharacterId?: number;
+    cardConfig: Record<string, WorkerCardConfig>;
+    customUnit?: string;
+    customAttr?: string;
+    customUnitBonus?: number;
+    customAttrBonus?: number;
 }
 
 type DeckMode = "event" | "challenge" | "mysekai" | "custom";
@@ -103,6 +197,41 @@ function getErrorMessage(error: string): string {
     }
 }
 
+function parseBonusNumber(value: unknown): number {
+    if (typeof value === "number") {
+        return Number.isFinite(value) ? value : 0;
+    }
+    if (typeof value === "string") {
+        const normalized = value.replace(/%/g, "").trim();
+        const parsed = Number.parseFloat(normalized);
+        if (Number.isFinite(parsed)) return parsed;
+        const fallback = Number.parseFloat(normalized.replace(/[^0-9.+-]/g, ""));
+        return Number.isFinite(fallback) ? fallback : 0;
+    }
+    return 0;
+}
+
+function parseCardEventBonusValue(value: DeckCardResult["eventBonus"]): number {
+    if (value === undefined || value === null) {
+        return 0;
+    }
+    if (typeof value === "object") {
+        if (value.total !== undefined) {
+            return parseBonusNumber(value.total);
+        }
+        if (value.all !== undefined) {
+            return parseBonusNumber(value.all);
+        }
+        return 0;
+    }
+    return parseBonusNumber(value);
+}
+
+function formatBonusValue(value: number): string {
+    const rounded = Math.round(value * 10) / 10;
+    return Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(1);
+}
+
 // ==================== Fake Progress Bar ====================
 function ProgressBar({ stage, percent, stageLabel }: { stage: string; percent: number; stageLabel: string }) {
     const [displayPercent, setDisplayPercent] = useState(0);
@@ -169,8 +298,8 @@ export default function DeckRecommendClient() {
     const [customUnitBonus, setCustomUnitBonus] = useState(25);
     const [customAttrBonus, setCustomAttrBonus] = useState(25);
     const [isCalculating, setIsCalculating] = useState(false);
-    const [results, setResults] = useState<any[] | null>(null);
-    const [challengeHighScore, setChallengeHighScore] = useState<any>(null);
+    const [results, setResults] = useState<DeckResult[] | null>(null);
+    const [challengeHighScore, setChallengeHighScore] = useState<ChallengeHighScoreInfo | null>(null);
     const [duration, setDuration] = useState<number | null>(null);
     const [dataTime, setDataTime] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -179,23 +308,38 @@ export default function DeckRecommendClient() {
     const [progressStage, setProgressStage] = useState("idle");
     const [progressPercent, setProgressPercent] = useState(0);
     const [progressLabel, setProgressLabel] = useState("");
-    const [cardsMaster, setCardsMaster] = useState<any[]>([]);
-    const [userCards, setUserCards] = useState<any[]>([]);
+    const [cardsMaster, setCardsMaster] = useState<CardMasterInfo[]>([]);
+    const [userCards, setUserCards] = useState<UserCardInfo[]>([]);
     const workerRef = useRef<Worker | null>(null);
 
     useEffect(() => {
-        fetchMasterData<any[]>("cards.json").then(setCardsMaster).catch(console.error);
+        fetchMasterData<CardMasterInfo[]>("cards.json").then(setCardsMaster).catch(console.error);
+        let nextUserId = "";
+        let nextServer: ServerType = "jp";
+        let nextAllowSave = false;
+
         const account = getAccount();
         if (account?.toolStates.deckRecommend) {
-            setUserId(account.toolStates.deckRecommend.userId);
-            setServer(account.toolStates.deckRecommend.server as ServerType);
-            setAllowSaveUserId(true);
+            nextUserId = account.toolStates.deckRecommend.userId;
+            nextServer = account.toolStates.deckRecommend.server as ServerType;
+            nextAllowSave = true;
         } else {
             const savedUserId = localStorage.getItem("deck_recommend_userid");
             const savedServer = localStorage.getItem("deck_recommend_server");
-            if (savedUserId) { setUserId(savedUserId); setAllowSaveUserId(true); }
-            if (savedServer && ["jp", "cn", "tw"].includes(savedServer)) setServer(savedServer as ServerType);
+            if (savedUserId) {
+                nextUserId = savedUserId;
+                nextAllowSave = true;
+            }
+            if (savedServer && ["jp", "cn", "tw"].includes(savedServer)) {
+                nextServer = savedServer as ServerType;
+            }
         }
+
+        queueMicrotask(() => {
+            setUserId(nextUserId);
+            setServer(nextServer);
+            setAllowSaveUserId(nextAllowSave);
+        });
     }, []);
 
     const updateCardConfig = useCallback((rarity: string, field: keyof CardConfigItem, value: boolean) => {
@@ -215,12 +359,12 @@ export default function DeckRecommendClient() {
         setError(null); setResults(null); setChallengeHighScore(null); setDuration(null); setDataTime(null);
         setIsCalculating(true); setProgressStage("fetching"); setProgressPercent(5); setProgressLabel("正在获取用户数据...");
 
-        const configForCalc: Record<string, any> = {};
+        const configForCalc: Record<string, WorkerCardConfig> = {};
         for (const [key, val] of Object.entries(cardConfig)) {
             configForCalc[key] = val.disable ? { disable: true } : { rankMax: val.rankMax, episodeRead: val.episodeRead, masterMax: val.masterMax, skillMax: val.skillMax };
         }
 
-        const workerArgs: any = {
+        const workerArgs: DeckRecommendWorkerArgs = {
             mode, userId: userId.trim(), server, musicId: musicId ? parseInt(musicId) : 0, difficulty,
             characterId: characterId || undefined, eventId: eventId ? parseInt(eventId) : undefined,
             liveType, supportCharacterId: supportCharacterId || undefined, cardConfig: configForCalc,
@@ -236,7 +380,7 @@ export default function DeckRecommendClient() {
         const worker = new Worker(new URL("@/lib/deck-recommend/dr-worker.ts", import.meta.url));
         workerRef.current = worker;
 
-        worker.onmessage = (event) => {
+        worker.onmessage = (event: MessageEvent<DeckRecommendWorkerMessage>) => {
             const data = event.data;
             if (data.type === "progress") {
                 setProgressStage(data.stage); setProgressPercent(data.percent); setProgressLabel(data.stageLabel);
@@ -264,7 +408,7 @@ export default function DeckRecommendClient() {
         setIsCalculating(false); setProgressStage("idle"); setProgressPercent(0);
     }, []);
 
-    const getCardMaster = useCallback((cardId: number) => cardsMaster.find((c: any) => c.id === cardId), [cardsMaster]);
+    const getCardMaster = useCallback((cardId: number) => cardsMaster.find((c) => c.id === cardId), [cardsMaster]);
 
     return (
         <MainLayout>
@@ -324,7 +468,7 @@ export default function DeckRecommendClient() {
                                 placeholder="输入游戏ID" className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-miku/20 focus:border-miku transition-all text-sm" />
                             <div className="flex items-center justify-between mt-2 px-1">
                                 <span className="text-sm text-slate-500">保存在浏览器本地</span>
-                                <button onClick={() => { const ns = !allowSaveUserId; setAllowSaveUserId(ns); if (ns) { localStorage.setItem("deck_recommend_userid", userId); localStorage.setItem("deck_recommend_server", server); saveToolState("deckRecommend", userId, server as any); } else { localStorage.removeItem("deck_recommend_userid"); localStorage.removeItem("deck_recommend_server"); } }}
+                                <button onClick={() => { const ns = !allowSaveUserId; setAllowSaveUserId(ns); if (ns) { localStorage.setItem("deck_recommend_userid", userId); localStorage.setItem("deck_recommend_server", server); saveToolState("deckRecommend", userId, server); } else { localStorage.removeItem("deck_recommend_userid"); localStorage.removeItem("deck_recommend_server"); } }}
                                     className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${allowSaveUserId ? 'bg-miku' : 'bg-slate-200'}`}>
                                     <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${allowSaveUserId ? 'translate-x-5' : 'translate-x-0'}`} />
                                 </button>
@@ -579,7 +723,7 @@ export default function DeckRecommendClient() {
                             </div>
                         )}
                         <div className="space-y-4">
-                            {results.map((deck: any, index: number) => (
+                            {results.map((deck, index: number) => (
                                 <DeckResultRow key={index} deck={deck} rank={index + 1} getCardMaster={getCardMaster} assetSource={assetSource} mode={mode} userCards={userCards} scoreLabel={scoreLabel} />
                             ))}
                         </div>
@@ -603,16 +747,32 @@ export default function DeckRecommendClient() {
 }
 
 // ==================== Deck Result Row ====================
-function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards, scoreLabel }: {
-    deck: any; rank: number; getCardMaster: (id: number) => any; assetSource: any; mode: DeckMode; userCards: any[]; scoreLabel: string;
-}) {
-    const [showDetails, setShowDetails] = useState(false);
-    const eventBonus = deck.eventBonus ?? (deck.cards?.reduce((sum: number, card: any) => {
-        if (!card.eventBonus) return sum;
-        return sum + (card.eventBonus.total || card.eventBonus.all || 0);
-    }, 0) || 0);
+interface DeckResultRowProps {
+    deck: DeckResult;
+    rank: number;
+    getCardMaster: (id: number) => CardMasterInfo | undefined;
+    assetSource: AssetSourceType;
+    mode: DeckMode;
+    userCards: UserCardInfo[];
+    scoreLabel: string;
+}
 
-    const effectiveSkill = deck.cards && deck.cards.length === 5 ? (deck.cards[0].skill?.scoreUp || 0) + deck.cards.slice(1).reduce((sum: number, card: any) => sum + (card.skill?.scoreUp || 0), 0) / 5 : 0;
+function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards, scoreLabel }: DeckResultRowProps) {
+    const [showDetails, setShowDetails] = useState(false);
+    const baseEventBonus = deck.eventBonus !== undefined
+        ? parseBonusNumber(deck.eventBonus)
+        : (deck.cards?.reduce((sum: number, card: DeckCardResult) => {
+            return sum + parseCardEventBonusValue(card.eventBonus);
+        }, 0) || 0);
+    const supportDeckBonus = parseBonusNumber(deck.supportDeckBonus);
+    const totalEventBonus = baseEventBonus + supportDeckBonus;
+    const showSupportBonusBreakdown = supportDeckBonus > 0;
+    const totalEventBonusText = `${formatBonusValue(totalEventBonus)}%`;
+    const baseEventBonusText = `${formatBonusValue(baseEventBonus)}%`;
+    const supportDeckBonusText = `${formatBonusValue(supportDeckBonus)}%`;
+    const totalBonusLabel = mode === "custom" ? "自定义加成" : (showSupportBonusBreakdown ? "总加成" : "加成");
+
+    const effectiveSkill = deck.cards && deck.cards.length === 5 ? (deck.cards[0].skill?.scoreUp || 0) + deck.cards.slice(1).reduce((sum: number, card: DeckCardResult) => sum + (card.skill?.scoreUp || 0), 0) / 5 : 0;
 
     return (
         <div className="dr-result-row rounded-xl border border-slate-100 overflow-hidden hover:border-miku/30 transition-all">
@@ -637,10 +797,13 @@ function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards
                                 <div className="font-bold text-miku text-sm">{deck.power.total.toLocaleString()}</div>
                             </div>
                         )}
-                        {(mode === "event" || mode === "mysekai" || mode === "custom") && eventBonus > 0 && (
+                        {(mode === "event" || mode === "mysekai" || mode === "custom") && totalEventBonus > 0 && (
                             <div className="flex-shrink-0 min-w-[60px] hidden sm:block">
-                                <div className="text-xs text-slate-400">{mode === "custom" ? "自定义加成" : "加成"}</div>
-                                <div className="font-bold text-miku text-sm">{eventBonus}%</div>
+                                <div className="text-xs text-slate-400">{totalBonusLabel}</div>
+                                <div className="font-bold text-miku text-sm">{totalEventBonusText}</div>
+                                {showSupportBonusBreakdown && (
+                                    <div className="text-[10px] text-slate-500 leading-tight">主队{baseEventBonusText} + 支援{supportDeckBonusText}</div>
+                                )}
                             </div>
                         )}
 
@@ -650,7 +813,7 @@ function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards
                     </svg>
                 </div>
                 <div className="flex gap-1 flex-1 overflow-x-auto no-scrollbar mask-gradient-right sm:overflow-visible sm:mask-none">
-                    {deck.cards?.slice(0, 5).map((card: any, i: number) => {
+                    {deck.cards?.slice(0, 5).map((card: DeckCardResult, i: number) => {
                         const masterCard = getCardMaster(card.cardId);
                         const userCard = userCards.find((u) => u.cardId === card.cardId);
                         const rarityType = masterCard?.cardRarityType || card.cardRarityType;
@@ -697,7 +860,7 @@ function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards
                                 {(mode === "event" || mode === "mysekai" || mode === "custom") && <th className="text-right py-1 px-1">{mode === "custom" ? "自定义加成" : "活动加成"}</th>}
                             </tr></thead>
                             <tbody>
-                                {deck.cards?.map((card: any, i: number) => {
+                                {deck.cards?.map((card: DeckCardResult, i: number) => {
                                     const masterCard = getCardMaster(card.cardId);
                                     const basePower = card.power?.total || 0;
                                     const eb = card.eventBonus;
@@ -724,8 +887,11 @@ function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards
                         </table>
                     </div>
                     <div className="mt-2 flex gap-4 sm:hidden text-xs">
-                        {(mode === "event" || mode === "mysekai" || mode === "custom") && eventBonus > 0 && (
-                            <span className="text-slate-500">{mode === "custom" ? "自定义加成" : "加成"}: <span className="font-bold text-miku">{eventBonus}%</span></span>
+                        {(mode === "event" || mode === "mysekai" || mode === "custom") && totalEventBonus > 0 && (
+                            <span className="text-slate-500">
+                                {totalBonusLabel}: <span className="font-bold text-miku">{totalEventBonusText}</span>
+                                {showSupportBonusBreakdown && <span className="text-slate-400">（主队{baseEventBonusText} + 支援{supportDeckBonusText}）</span>}
+                            </span>
                         )}
                     </div>
                 </div>

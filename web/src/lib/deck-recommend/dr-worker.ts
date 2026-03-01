@@ -56,18 +56,95 @@ const PRELOAD_MASTER_KEYS = [
 
 type HarukiServer = "jp" | "cn" | "tw";
 
+interface CardParameterEntry {
+    id: number;
+    cardId: number;
+    cardLevel: number;
+    cardParameterType: string;
+    power: number;
+}
+
+interface CardWithParameters {
+    id: number;
+    cardParameters?: Record<string, number[]> | CardParameterEntry[];
+    [key: string]: unknown;
+}
+
+interface UserCardEntry {
+    cardId: number;
+    masterRank?: number;
+    [key: string]: unknown;
+}
+
+interface UserHonorEntry {
+    honorId: number;
+    [key: string]: unknown;
+}
+
+interface EventInfoLite {
+    id: number;
+    eventType?: string;
+}
+
+interface ChallengeResultEntry {
+    characterId: number;
+    highScore?: number;
+    [key: string]: unknown;
+}
+
+interface DeckCardLite {
+    cardId: number;
+    masterRank?: number;
+    [key: string]: unknown;
+}
+
+interface DeckResultLite {
+    score?: number;
+    eventBonus?: number;
+    supportDeckBonus?: number;
+    power?: { total?: number };
+    cards?: DeckCardLite[];
+    [key: string]: unknown;
+}
+
+interface GameCharacterUnitLite {
+    gameCharacterId: number;
+    unit: string;
+}
+
+interface CardMasterLite {
+    id: number;
+    characterId: number;
+    attr: string;
+    cardRarityType: string;
+}
+
+interface EventRarityBonusRateLite {
+    cardRarityType: string;
+    masterRank: number;
+    bonusRate: number;
+}
+
+type UserDataMap = Record<string, unknown>;
+type LiveScoreDeckInput = Parameters<typeof LiveCalculator.getLiveScoreByDeck>[0] & {
+    cards?: DeckCardLite[];
+};
+type LiveScoreMetaInput = Parameters<typeof LiveCalculator.getLiveScoreByDeck>[1] & {
+    event_rate?: number;
+};
+
 /**
  * Transform official cardParameters format to sekai-calculator expected format.
  * Official: { param1: number[], param2: number[], param3: number[] }
  * sekai-calculator expects: Array<{ id, cardId, cardLevel, cardParameterType, power }>
  */
-function transformCards(cards: any[]): any[] {
-    return cards.map((card: any) => {
+function transformCards(cards: CardWithParameters[]): CardWithParameters[] {
+    return cards.map((card) => {
         if (!card.cardParameters || Array.isArray(card.cardParameters)) {
             return card;
         }
-        const params = card.cardParameters as Record<string, number[]>;
-        const transformed: any[] = [];
+        const params = card.cardParameters;
+        const transformed: CardParameterEntry[] = [];
         for (const [paramType, powers] of Object.entries(params)) {
             powers.forEach((power: number, index: number) => {
                 const cardLevel = index + 1;
@@ -97,7 +174,7 @@ function calcDuration() {
 }
 
 class SnowyDataProvider implements DataProvider {
-    private userDataCache: Record<string, any> | null = null;
+    private userDataCache: UserDataMap | null = null;
 
     constructor(
         private userId: string,
@@ -112,7 +189,7 @@ class SnowyDataProvider implements DataProvider {
         return new CachedDataProvider(new SnowyDataProvider(userId, server));
     }
 
-    private async fetchMasterJson(base: string, key: string): Promise<any[] | null> {
+    private async fetchMasterJson(base: string, key: string): Promise<unknown[] | null> {
         try {
             const response = await fetch(`${base}/${key}.json`);
             if (!response.ok) return null;
@@ -120,7 +197,8 @@ class SnowyDataProvider implements DataProvider {
             if (contentType.includes("text/html")) return null;
             const text = await response.text();
             if (text.trimStart().startsWith("<")) return null;
-            return JSON.parse(text);
+            const parsed = JSON.parse(text) as unknown;
+            return Array.isArray(parsed) ? parsed : null;
         } catch {
             return null;
         }
@@ -131,10 +209,10 @@ class SnowyDataProvider implements DataProvider {
         let data = await this.fetchMasterJson(base, key);
         if (data === null) {
             console.warn(`[DeckRecommend] Master data "${key}" not available, using empty array`);
-            return [] as any;
+            return [] as T[];
         }
         if (key === "cards") {
-            data = transformCards(data);
+            data = transformCards(data as CardWithParameters[]);
         }
         return data as T[];
     }
@@ -155,7 +233,7 @@ class SnowyDataProvider implements DataProvider {
         return all[key];
     }
 
-    async getUserDataAll(): Promise<Record<string, any>> {
+    async getUserDataAll(): Promise<UserDataMap> {
         if (this.userDataCache) return this.userDataCache;
 
         const url = `${HARUKI_SUITE_API}/${this.server}/suite/${this.userId}?key=${USER_DATA_KEYS}`;
@@ -171,15 +249,18 @@ class SnowyDataProvider implements DataProvider {
             throw new Error(`Failed to fetch user data (${response.status})`);
         }
 
-        const data = await response.json();
+        const data = (await response.json()) as UserDataMap & {
+            userCards?: UserCardEntry[];
+            userHonors?: UserHonorEntry[];
+        };
 
         // Filter userCards to ensure only cards existing in JP master data are returned
         if (data.userCards && Array.isArray(data.userCards)) {
             try {
-                const masterCards = await this.getMasterData<any>("cards");
+                const masterCards = await this.getMasterData<{ id: number }>("cards");
                 const masterCardIds = new Set(masterCards.map((c) => c.id));
                 const originalCount = data.userCards.length;
-                data.userCards = data.userCards.filter((uc: any) => masterCardIds.has(uc.cardId));
+                data.userCards = data.userCards.filter((uc) => masterCardIds.has(uc.cardId));
                 console.log(`[DeckRecommend] Filtered userCards: ${originalCount} -> ${data.userCards.length}`);
             } catch (e) {
                 console.error("[DeckRecommend] Failed to filter userCards", e);
@@ -189,10 +270,10 @@ class SnowyDataProvider implements DataProvider {
         // Filter userHonors
         if (data.userHonors && Array.isArray(data.userHonors)) {
             try {
-                const masterHonors = await this.getMasterData<any>("honors");
+                const masterHonors = await this.getMasterData<{ id: number }>("honors");
                 const masterHonorIds = new Set(masterHonors.map((h) => h.id));
                 const originalCount = data.userHonors.length;
-                data.userHonors = data.userHonors.filter((h: any) => masterHonorIds.has(h.honorId));
+                data.userHonors = data.userHonors.filter((h) => masterHonorIds.has(h.honorId));
                 console.log(`[DeckRecommend] Filtered userHonors: ${originalCount} -> ${data.userHonors.length}`);
             } catch (e) {
                 console.error("[DeckRecommend] Failed to filter userHonors", e);
@@ -221,7 +302,7 @@ export interface WorkerInput {
     liveType?: string; // "multi" | "solo" | "auto" | "cheerful"
     supportCharacterId?: number;
     // Card config
-    cardConfig: Record<string, any>;
+    cardConfig: Record<string, unknown>;
     // Custom mode
     customUnitBonus?: number;
     customAttrBonus?: number;
@@ -231,9 +312,9 @@ export interface WorkerInput {
 
 export interface WorkerOutput {
     type?: "progress" | "result";
-    result?: any[];
-    challengeHighScore?: any;
-    userCards?: any[];
+    result?: DeckResultLite[];
+    challengeHighScore?: ChallengeResultEntry;
+    userCards?: UserCardEntry[];
     duration?: number;
     error?: string;
     upload_time?: number;
@@ -270,7 +351,7 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
 
     sendProgress("processing", 25, "数据加载完成，预处理中...");
 
-    const userCards = await dataProvider.getUserData<any[]>("userCards");
+    const userCards = await dataProvider.getUserData<UserCardEntry[]>("userCards");
     const uploadTime = await dataProvider.getUserData<number | undefined>("upload_time").catch(() => undefined);
 
     // Mysekai mode: no music needed
@@ -291,11 +372,11 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
     if (mode === "challenge") {
         if (!characterId) throw new Error("characterId is required for challenge mode");
 
-        const userChallengeLiveSoloResults = await dataProvider.getUserData<any[]>(
+        const userChallengeLiveSoloResults = await dataProvider.getUserData<ChallengeResultEntry[]>(
             "userChallengeLiveSoloResults"
         );
         const userChallengeLiveSoloResult = userChallengeLiveSoloResults?.find(
-            (it: any) => it.characterId === characterId
+            (it) => it.characterId === characterId
         );
 
         const challengeLiveRecommend = new ChallengeLiveDeckRecommend(dataProvider);
@@ -318,7 +399,7 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
         return {
             type: "result",
             challengeHighScore: userChallengeLiveSoloResult,
-            result,
+            result: result as DeckResultLite[],
             userCards,
             duration: currentDuration.done(),
             upload_time: uploadTime,
@@ -347,8 +428,8 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
     }
 
     // Check event type for cheerful carnival conversion
-    const events = await dataProvider.getMasterData<any>("events");
-    const event0 = events.find((it: any) => it.id === eventId);
+    const events = await dataProvider.getMasterData<EventInfoLite>("events");
+    const event0 = events.find((it) => it.id === eventId);
     if (!event0) throw new Error(`Event not found: ${eventId}`);
 
     if (event0.eventType === "cheerful_carnival" && computedLiveType === LiveType.MULTI) {
@@ -375,7 +456,7 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
     sendProgress("done", 100, "计算完成");
     return {
         type: "result",
-        result,
+        result: result as DeckResultLite[],
         userCards,
         duration: currentDuration.done(),
         upload_time: uploadTime,
@@ -387,7 +468,7 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
 async function runMysekaiMode(
     args: WorkerInput,
     dataProvider: CachedDataProvider,
-    userCards: any[],
+    userCards: UserCardEntry[],
     uploadTime: number | undefined
 ): Promise<WorkerOutput> {
     const { eventId, supportCharacterId, cardConfig } = args;
@@ -396,8 +477,8 @@ async function runMysekaiMode(
     sendProgress("calculating", 40, "烤森组卡计算中...");
 
     // Get event config
-    const events = await dataProvider.getMasterData<any>("events");
-    const event0 = events.find((it: any) => it.id === eventId);
+    const events = await dataProvider.getMasterData<EventInfoLite>("events");
+    const event0 = events.find((it) => it.id === eventId);
     if (!event0) throw new Error(`Event not found: ${eventId}`);
 
     // Use EventDeckRecommend to get high-bonus decks, then re-rank by mysekai PT
@@ -410,7 +491,7 @@ async function runMysekaiMode(
 
     sendProgress("calculating", 55, "计算最优烤森卡组...");
 
-    const rawResults = await eventDeckRecommend.recommendEventDeck(
+    const rawResults = (await eventDeckRecommend.recommendEventDeck(
         eventId,
         LiveType.MULTI,
         {
@@ -422,10 +503,10 @@ async function runMysekaiMode(
             },
         },
         supportCharacterId || 0
-    );
+    )) as DeckResultLite[];
 
     // Re-calculate mysekai event points for each deck
-    const mysekaiResults = rawResults.map((deck: any) => {
+    const mysekaiResults = rawResults.map((deck) => {
         const totalPower = deck.power?.total || 0;
         const eventBonus = (deck.eventBonus || 0) + (deck.supportDeckBonus || 0);
 
@@ -444,7 +525,7 @@ async function runMysekaiMode(
     });
 
     // Sort by mysekai PT descending
-    mysekaiResults.sort((a: any, b: any) => b.score - a.score);
+    mysekaiResults.sort((a, b) => (b.score || 0) - (a.score || 0));
 
     sendProgress("done", 100, "计算完成");
     return {
@@ -471,7 +552,7 @@ const CUSTOM_UNIT_MAP: Record<string, string> = {
 async function runCustomMode(
     args: WorkerInput,
     dataProvider: CachedDataProvider,
-    userCards: any[],
+    userCards: UserCardEntry[],
     uploadTime: number | undefined
 ): Promise<WorkerOutput> {
     const {
@@ -493,9 +574,9 @@ async function runCustomMode(
     }
 
     // Build card info lookup: cardId -> { units: string[], attr: string, cardRarityType: string }
-    const masterCards = await dataProvider.getMasterData<any>("cards");
-    const gameCharacterUnits = await dataProvider.getMasterData<any>("gameCharacterUnits");
-    const eventRarityBonusRates = await dataProvider.getMasterData<any>("eventRarityBonusRates");
+    const masterCards = await dataProvider.getMasterData<CardMasterLite>("cards");
+    const gameCharacterUnits = await dataProvider.getMasterData<GameCharacterUnitLite>("gameCharacterUnits");
+    const eventRarityBonusRates = await dataProvider.getMasterData<EventRarityBonusRateLite>("eventRarityBonusRates");
 
     // Build characterId -> units[] map
     const charUnitsMap = new Map<number, string[]>();
@@ -538,7 +619,7 @@ async function runCustomMode(
     const baseRecommend = new BaseDeckRecommend(dataProvider);
 
     // Helper: calculate custom bonus for a deck's cards (including masterRank bonus)
-    const calcDeckCustomBonus = (cards: any[]): number => {
+    const calcDeckCustomBonus = (cards: DeckCardLite[]): number => {
         let totalCustomBonus = 0;
         for (const card of cards) {
             const info = cardInfoMap.get(card.cardId);
@@ -562,7 +643,7 @@ async function runCustomMode(
 
     // Inline event PT formula (from EventCalculator.getEventPoint)
     // Produces proper PT values (~1k range) instead of raw live scores (millions)
-    const customScoreFunc = (meta: any, deckDetail: any) => {
+    const customScoreFunc = (meta: LiveScoreMetaInput, deckDetail: LiveScoreDeckInput) => {
         // Get raw live score
         const selfScore = LiveCalculator.getLiveScoreByDeck(deckDetail, meta, computedLiveType);
         // Calculate custom bonus for this deck
@@ -584,7 +665,7 @@ async function runCustomMode(
         return Math.floor(baseScore * musicRate0 * deckRate);
     };
 
-    const result = await baseRecommend.recommendHighScoreDeck(
+    const result = (await baseRecommend.recommendHighScoreDeck(
         userCards,
         customScoreFunc,
         {
@@ -597,13 +678,13 @@ async function runCustomMode(
         },
         computedLiveType,
         {} // empty eventConfig - no event bonuses
-    );
+    )) as DeckResultLite[];
 
     // Enrich results with custom bonus info for display
-    const enriched = result.map((deck: any) => {
+    const enriched = result.map((deck) => {
         let totalCustomBonus = 0;
         const cards = deck.cards || [];
-        const enrichedCards = cards.map((card: any) => {
+        const enrichedCards = cards.map((card) => {
             const info = cardInfoMap.get(card.cardId);
             let cardBonus = 0;
             if (info) {

@@ -15,7 +15,8 @@ import {
 } from "@/types/events";
 import { getEventLogoUrl, getCharacterIconUrl, getEventBannerUrl, getEventCharacterUrl, getMusicJacketUrl, getVirtualLiveBannerUrl, getEventBgmUrl } from "@/lib/assets";
 import { CHARACTER_NAMES, getRarityNumber, RARITY_DISPLAY, isTrainableCard } from "@/types/types";
-import { useTheme } from "@/contexts/ThemeContext";
+import type { ICardInfo } from "@/types/types";
+import { useTheme, type AssetSourceType } from "@/contexts/ThemeContext";
 import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
 import { fetchMasterData, fetchWithCompression } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
@@ -685,7 +686,7 @@ export default function EventDetailPage() {
                                                     className="group block"
                                                 >
                                                     <div className="relative rounded-lg overflow-hidden bg-white ring-1 ring-slate-200 hover:ring-miku hover:shadow-lg transition-all">
-                                                        <SekaiCardThumbnail card={card as any} trained={showTrained} className="w-full" />
+                                                        <SekaiCardThumbnail card={card as unknown as ICardInfo} trained={showTrained} className="w-full" />
                                                     </div>
                                                 </Link>
                                             );
@@ -715,7 +716,7 @@ export default function EventDetailPage() {
 }
 
 
-function EventBgmPlayer({ event, assetSource }: { event: IEventInfo; assetSource: any }) {
+function EventBgmPlayer({ event, assetSource }: { event: IEventInfo; assetSource: AssetSourceType }) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -778,8 +779,11 @@ function EventBgmPlayer({ event, assetSource }: { event: IEventInfo; assetSource
         if (audioRef.current) {
             audioRef.current.pause();
             audioRef.current = null;
-            setIsPlaying(false);
-            setProgress(0);
+            requestAnimationFrame(() => {
+                setIsPlaying(false);
+                setProgress(0);
+                setDuration(0);
+            });
         }
     }, [audioUrl]);
 

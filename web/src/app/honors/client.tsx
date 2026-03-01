@@ -448,6 +448,15 @@ function HonorsContent() {
                                             <div
                                                 key={honor.id}
                                                 onClick={() => handleHonorClick(honor)}
+                                                onKeyDown={(event) => {
+                                                    if (event.key === "Enter" || event.key === " ") {
+                                                        event.preventDefault();
+                                                        handleHonorClick(honor);
+                                                    }
+                                                }}
+                                                data-shortcut-item="true"
+                                                tabIndex={0}
+                                                role="button"
                                                 className="bg-white rounded-xl shadow ring-1 ring-slate-200 overflow-hidden hover:ring-miku hover:shadow-lg transition-all p-4 cursor-pointer group"
                                             >
                                                 <div className="mb-3">
@@ -482,6 +491,7 @@ function HonorsContent() {
                                     <div className="mt-8 flex justify-center">
                                         <button
                                             onClick={loadMore}
+                                            data-shortcut-load-more="true"
                                             className="px-8 py-3 bg-gradient-to-r from-miku to-miku-dark text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
                                         >
                                             加载更多
@@ -635,6 +645,15 @@ function HonorsContent() {
                                             <div
                                                 key={bh.id}
                                                 onClick={() => handleBondsHonorClick(bh)}
+                                                onKeyDown={(event) => {
+                                                    if (event.key === "Enter" || event.key === " ") {
+                                                        event.preventDefault();
+                                                        handleBondsHonorClick(bh);
+                                                    }
+                                                }}
+                                                data-shortcut-item="true"
+                                                tabIndex={0}
+                                                role="button"
                                                 className="bg-white rounded-xl shadow ring-1 ring-slate-200 overflow-hidden hover:ring-miku hover:shadow-lg transition-all p-4 cursor-pointer group"
                                             >
                                                 <div className="mb-3">
@@ -669,6 +688,7 @@ function HonorsContent() {
                                     <div className="mt-8 flex justify-center">
                                         <button
                                             onClick={bondsLoadMore}
+                                            data-shortcut-load-more="true"
                                             className="px-8 py-3 bg-gradient-to-r from-miku to-miku-dark text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
                                         >
                                             加载更多

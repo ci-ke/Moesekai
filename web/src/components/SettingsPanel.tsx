@@ -2,6 +2,13 @@
 import React, { useRef, useEffect } from "react";
 import { useTheme, CHAR_NAMES, CHAR_COLORS } from "@/contexts/ThemeContext";
 import { useMasterData } from "@/contexts/MasterDataContext";
+import {
+    getShortcutById,
+    isEditableEventTarget,
+    isKeyboardEventComposing,
+    matchesShortcutCombo,
+    parseShortcutCombos,
+} from "@/lib/shortcuts";
 
 interface SettingsPanelProps {
     isOpen: boolean;
@@ -17,6 +24,13 @@ const unitGroups = [
     { name: "25時、ナイトコードで。", charIds: [17, 18, 19, 20], color: "#884499" },
     { name: "Virtual Singer", charIds: [21, 22, 23, 24, 25, 26], color: "#33CCBB" },
 ];
+
+const SETTINGS_TOGGLE_COMBO = parseShortcutCombos(
+    getShortcutById("toggle-settings")?.combos ?? []
+)[0] ?? [];
+const CLOSE_OVERLAY_COMBOS = parseShortcutCombos(
+    getShortcutById("close-overlay")?.combos ?? []
+);
 
 export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     const { themeCharId, setThemeCharacter, isShowSpoiler, setShowSpoiler, isPowerSaving, setPowerSaving, useTrainedThumbnail, setUseTrainedThumbnail, assetSource, setAssetSource, useLLMTranslation, setUseLLMTranslation, serverSource, setServerSource } = useTheme();
@@ -41,6 +55,30 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         }
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isOpen, onClose]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.defaultPrevented || isKeyboardEventComposing(event)) return;
+            if (isEditableEventTarget(event.target)) return;
+
+            const shouldCloseByEscape = CLOSE_OVERLAY_COMBOS.some((combo) =>
+                matchesShortcutCombo(event, combo)
+            );
+            const shouldCloseByToggle = matchesShortcutCombo(event, SETTINGS_TOGGLE_COMBO);
+
+            if (!shouldCloseByEscape && !shouldCloseByToggle) return;
+
+            event.preventDefault();
+            onClose();
+        };
+
+        document.addEventListener("keydown", handleKeyDown);
+        return () => {
+            document.removeEventListener("keydown", handleKeyDown);
         };
     }, [isOpen, onClose]);
 

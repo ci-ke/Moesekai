@@ -14,17 +14,19 @@ const ACHIEVEMENT_LEVEL_WHITELIST = new Set([33, 36, 37, 52, 72, 73, 74, 75, 76,
 
 // Hook to preload an image and track success/failure
 function useImageLoaded(url: string | undefined): boolean {
-    const [loaded, setLoaded] = useState(false);
+    const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+
     useEffect(() => {
-        if (!url) { setLoaded(false); return; }
-        setLoaded(false);
+        if (!url) return;
+        const targetUrl = url;
         const img = new Image();
-        img.onload = () => setLoaded(true);
-        img.onerror = () => setLoaded(false);
-        img.src = url;
+        img.onload = () => setLoadedUrl(targetUrl);
+        img.onerror = () => setLoadedUrl(prev => (prev === targetUrl ? null : prev));
+        img.src = targetUrl;
         return () => { img.onload = null; img.onerror = null; };
     }, [url]);
-    return loaded;
+
+    return !!url && loadedUrl === url;
 }
 
 interface DegreeImageProps {

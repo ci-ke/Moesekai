@@ -78,7 +78,7 @@ export default function BaseFilters({
     };
 
     return (
-        <div className="bg-white rounded-2xl shadow-lg ring-1 ring-slate-200 overflow-hidden">
+        <div data-shortcut-filters="true" className="bg-white rounded-2xl shadow-lg ring-1 ring-slate-200 overflow-hidden">
             {/* Header */}
             <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-miku/5 to-transparent flex items-center justify-between">
                 <h2 className="font-bold text-slate-800 flex items-center gap-2">
@@ -103,6 +103,7 @@ export default function BaseFilters({
                         </label>
                         <div className="relative">
                             <input
+                                data-shortcut-search="true"
                                 type="text"
                                 placeholder={searchPlaceholder}
                                 value={searchQuery}

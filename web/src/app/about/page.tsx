@@ -70,7 +70,7 @@ export default function AboutPage() {
                         <h3 className="text-2xl font-bold">Moesekai</h3>
                         <p className="text-miku text-sm font-bold mt-1">A small developer group</p>
                         <div className="mt-6 flex flex-col items-center gap-1 opacity-50 text-xs text-white">
-                            <span>"Soul by HelloWorld"</span>
+                            <span>&quot;Soul by HelloWorld&quot;</span>
                         </div>
                     </div>
 

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import MainNavbar from "./MainNavbar";
 import Sidebar from "./Sidebar";
@@ -9,6 +9,7 @@ import SekaiLoader from "./SekaiLoader";
 import BackgroundPattern from "./BackgroundPattern";
 import KeyboardShortcutsHelp from "./KeyboardShortcutsHelp";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { usePageListShortcuts } from "@/hooks/usePageListShortcuts";
 import { useTheme } from "@/contexts/ThemeContext";
 
 interface MainLayoutProps {
@@ -22,45 +23,38 @@ export default function MainLayout({
 }: MainLayoutProps) {
     const router = useRouter();
     const { useTrainedThumbnail, setUseTrainedThumbnail } = useTheme();
+    const pageContentRef = useRef<HTMLDivElement>(null);
 
-    // 初始值始终为 false，确保 SSR 和客户端首次渲染一致，避免 hydration 不匹配
+    // Keep the initial value false to avoid hydration mismatch.
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [isDesktop, setIsDesktop] = useState(false);
     const [hasMounted, setHasMounted] = useState(false);
 
-    // 状态上移：搜索、设置、快捷键帮助由 MainLayout 统一管理
+    // Centralized UI states managed by MainLayout.
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
 
-    // 客户端挂载后读取 sessionStorage 恢复侧边栏状态
-    // 分两阶段：先设置正确位置（无动画），再启用过渡动画
+    // Restore sidebar state from sessionStorage after mount.
+    // Use two RAF ticks: set position first, then enable transitions.
     useEffect(() => {
-        const saved = sessionStorage.getItem('sidebar_open');
-        if (saved !== null) {
-            setIsSidebarOpen(saved === 'true');
-        } else {
-            // 首次访问，PC 端默认打开
-            setIsSidebarOpen(window.innerWidth >= 768);
-        }
-        // 等浏览器完成绘制后再启用过渡动画，避免初次加载时的滑入动画
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
+        const saved = sessionStorage.getItem("sidebar_open");
+        const nextSidebarOpen = saved !== null
+            ? saved === "true"
+            : window.innerWidth >= 768;
+        let raf1 = 0;
+        let raf2 = 0;
+
+        raf1 = requestAnimationFrame(() => {
+            setIsSidebarOpen(nextSidebarOpen);
+            raf2 = requestAnimationFrame(() => {
                 setHasMounted(true);
             });
         });
-    }, []);
 
-    // 检测屏幕尺寸
-    useEffect(() => {
-        const checkDesktop = () => {
-            setIsDesktop(window.innerWidth >= 768);
+        return () => {
+            cancelAnimationFrame(raf1);
+            cancelAnimationFrame(raf2);
         };
-
-        checkDesktop();
-        window.addEventListener('resize', checkDesktop);
-
-        return () => window.removeEventListener('resize', checkDesktop);
     }, []);
 
     const handleMenuToggle = useCallback(() => {
@@ -76,7 +70,7 @@ export default function MainLayout({
         sessionStorage.setItem('sidebar_open', 'false');
     }, []);
 
-    // 快捷键回调
+    // Keyboard shortcut handlers.
     const shortcutHandlers = useMemo(() => ({
         onToggleSidebar: () => {
             setIsSidebarOpen(prev => {
@@ -92,9 +86,22 @@ export default function MainLayout({
         onNavigateBack: () => router.back(),
         onNavigateForward: () => window.history.forward(),
         onNavigateHome: () => router.push("/"),
+        onNavigateCards: () => router.push("/cards"),
+        onNavigateMusic: () => router.push("/music"),
+        onNavigateEvents: () => router.push("/events"),
+        onNavigateProfile: () => router.push("/profile"),
     }), [router, useTrainedThumbnail, setUseTrainedThumbnail]);
 
-    useKeyboardShortcuts(shortcutHandlers);
+    const isShortcutScopeLocked = isSearchOpen || isSettingsOpen || isShortcutsHelpOpen;
+
+    useKeyboardShortcuts(shortcutHandlers, {
+        disabled: isShortcutScopeLocked,
+    });
+
+    usePageListShortcuts({
+        rootRef: pageContentRef,
+        disabled: isShortcutScopeLocked,
+    });
 
     return (
         <main className="min-h-screen relative selection:bg-miku selection:text-white font-sans flex flex-col">
@@ -119,10 +126,15 @@ export default function MainLayout({
             {/* Layout with Sidebar */}
             <div className="flex flex-grow pt-[4.5rem] relative">
                 {/* Sidebar */}
-                <Sidebar isOpen={isSidebarOpen} onClose={handleSidebarClose} hasMounted={hasMounted} />
+                <Sidebar
+                    isOpen={isSidebarOpen}
+                    onClose={handleSidebarClose}
+                    hasMounted={hasMounted}
+                    disableKeyboardNavigation={isShortcutScopeLocked}
+                />
 
-                {/* Main Content - 添加左边距以适应桌面端侧边栏 */}
-                <div className={`flex-grow relative z-10 w-full min-w-0 ${hasMounted ? 'transition-all duration-300' : ''} ${isSidebarOpen ? 'md:ml-64' : 'md:ml-0'
+                {/* Main content area */}
+                <div ref={pageContentRef} data-shortcut-page-root="true" className={`flex-grow relative z-10 w-full min-w-0 ${hasMounted ? 'transition-all duration-300' : ''} ${isSidebarOpen ? 'md:ml-64' : 'md:ml-0'
                     }`}>
                     {children}
                 </div>

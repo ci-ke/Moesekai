@@ -45,6 +45,44 @@ var mixinKeyEncTab = []int{
 	36, 20, 34, 44, 52,
 }
 
+const (
+	maxImageSizeBytes = 20 * 1024 * 1024 // 20 MB
+	maxRedirectHops   = 5
+)
+
+var allowedImageHostSuffixes = []string{
+	".hdslb.com",
+	".bilibili.com",
+	".bilivideo.com",
+}
+
+func isAllowedImageHost(host string) bool {
+	for _, suffix := range allowedImageHostSuffixes {
+		base := strings.TrimPrefix(suffix, ".")
+		if host == base || strings.HasSuffix(host, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+func isAllowedBilibiliImageURL(u *url.URL) bool {
+	if u == nil {
+		return false
+	}
+	if u.Scheme != "https" {
+		return false
+	}
+	if u.Host == "" || u.User != nil {
+		return false
+	}
+	// Reject non-standard ports to avoid proxying to arbitrary services.
+	if p := u.Port(); p != "" && p != "443" {
+		return false
+	}
+	return isAllowedImageHost(strings.ToLower(u.Hostname()))
+}
+
 // Client handles Bilibili API requests
 type Client struct {
 	httpClient   *http.Client
@@ -243,12 +281,18 @@ func (c *Client) FetchDynamic(uid string) ([]byte, int, error) {
 
 // FetchImage fetches an image with caching
 func (c *Client) FetchImage(imageUrl string) ([]byte, string, int, error) {
+	parsedURL, err := url.Parse(imageUrl)
+	if err != nil || !isAllowedBilibiliImageURL(parsedURL) {
+		return nil, "", http.StatusBadRequest, fmt.Errorf("URL is not allowed")
+	}
+	normalizedURL := parsedURL.String()
+
 	// Check cache first
-	if data, contentType, ok := c.cache.GetImage(imageUrl); ok {
+	if data, contentType, ok := c.cache.GetImage(normalizedURL); ok {
 		return data, contentType, http.StatusOK, nil
 	}
 
-	req, err := http.NewRequest("GET", imageUrl, nil)
+	req, err := http.NewRequest("GET", normalizedURL, nil)
 	if err != nil {
 		return nil, "", http.StatusBadRequest, fmt.Errorf("Invalid URL")
 	}
@@ -256,22 +300,42 @@ func (c *Client) FetchImage(imageUrl string) ([]byte, string, int, error) {
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	req.Header.Set("Referer", "https://www.bilibili.com/")
 
-	resp, err := c.httpClient.Do(req)
+	redirectClient := *c.httpClient
+	redirectClient.CheckRedirect = func(nextReq *http.Request, via []*http.Request) error {
+		if len(via) >= maxRedirectHops {
+			return fmt.Errorf("too many redirects")
+		}
+		if !isAllowedBilibiliImageURL(nextReq.URL) {
+			return fmt.Errorf("redirect target is not allowed")
+		}
+		return nil
+	}
+
+	resp, err := redirectClient.Do(req)
 	if err != nil {
 		return nil, "", http.StatusBadGateway, fmt.Errorf("Failed to fetch image")
 	}
 	defer resp.Body.Close()
 
-	data, err := io.ReadAll(resp.Body)
+	if resp.ContentLength > maxImageSizeBytes {
+		return nil, "", http.StatusRequestEntityTooLarge, fmt.Errorf("Image too large")
+	}
+
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxImageSizeBytes+1))
 	if err != nil {
 		return nil, "", http.StatusInternalServerError, fmt.Errorf("Failed to read image")
+	}
+	if len(data) > maxImageSizeBytes {
+		return nil, "", http.StatusRequestEntityTooLarge, fmt.Errorf("Image too large")
 	}
 
 	contentType := resp.Header.Get("Content-Type")
 
 	// Cache success response
 	if resp.StatusCode == http.StatusOK {
-		c.cache.SetImage(imageUrl, data, contentType)
+		if err := c.cache.SetImage(normalizedURL, data, contentType); err != nil {
+			fmt.Printf("Failed to cache image %s: %v\n", normalizedURL, err)
+		}
 	}
 
 	return data, contentType, resp.StatusCode, nil

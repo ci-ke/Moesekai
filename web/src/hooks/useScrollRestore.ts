@@ -164,9 +164,11 @@ export function useScrollRestore({
         if (hasRestoredScroll.current) return; // Already restored
         if (pendingScrollY.current === null) {
             // No scroll to restore
-            setIsRestoring(false);
+            const raf = requestAnimationFrame(() => {
+                setIsRestoring(false);
+            });
             hasRestoredScroll.current = true;
-            return;
+            return () => cancelAnimationFrame(raf);
         }
 
         const targetScrollY = pendingScrollY.current;

@@ -6,17 +6,14 @@ interface ActivityStatsProps {
     tiers: TierKLine[];
 }
 
-export default function ActivityStats({ tiers }: ActivityStatsProps) {
-    // Sort by ChangePct descending for most active
-    // Sort by ChangePct ascending for most slacking
+interface StatBlockProps {
+    title: string;
+    data: TierKLine[];
+    type: 'active' | 'slacking';
+}
 
-    if (!tiers || tiers.length === 0) return null;
-
-    const sorted = [...tiers].sort((a, b) => b.ChangePct - a.ChangePct);
-    const mostActive = sorted.slice(0, 3);
-    const mostSlacking = [...sorted].reverse().slice(0, 3);
-
-    const StatBlock = ({ title, data, type }: { title: string, data: TierKLine[], type: 'active' | 'slacking' }) => (
+function StatBlock({ title, data, type }: StatBlockProps) {
+    return (
         <div className="bg-white rounded-xl border border-slate-100 p-4 flex-1">
             <div className="flex items-center gap-2 mb-4">
                 <h3 className="font-bold text-slate-700 text-sm uppercase">{title}</h3>
@@ -38,6 +35,17 @@ export default function ActivityStats({ tiers }: ActivityStatsProps) {
             </div>
         </div>
     );
+}
+
+export default function ActivityStats({ tiers }: ActivityStatsProps) {
+    // Sort by ChangePct descending for most active
+    // Sort by ChangePct ascending for most slacking
+
+    if (!tiers || tiers.length === 0) return null;
+
+    const sorted = [...tiers].sort((a, b) => b.ChangePct - a.ChangePct);
+    const mostActive = sorted.slice(0, 3);
+    const mostSlacking = [...sorted].reverse().slice(0, 3);
 
     return (
         <div className="flex flex-col gap-4 h-full">

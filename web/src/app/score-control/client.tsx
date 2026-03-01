@@ -85,7 +85,7 @@ interface InfiniteSongResult {
     songs: { musicId: number; musicTitle: string; assetbundleName: string }[];
     difficulty: string;
     routes: SmartRoutePlan[];
-    decks: any[];
+    decks: DeckResultInfo[];
 }
 
 // ==================== Deck Builder Types ====================
@@ -95,6 +95,43 @@ interface CardConfigItem {
     episodeRead: boolean;
     masterMax: boolean;
     skillMax: boolean;
+}
+
+interface WorkerCardConfig {
+    disable?: boolean;
+    rankMax?: boolean;
+    episodeRead?: boolean;
+    masterMax?: boolean;
+    skillMax?: boolean;
+}
+
+interface DeckCardInfo {
+    cardId: number;
+    cardRarityType?: string;
+    masterRank?: number;
+    level?: number;
+    [key: string]: unknown;
+}
+
+interface DeckResultInfo {
+    eventBonus?: number;
+    score?: number;
+    cards?: DeckCardInfo[];
+    [key: string]: unknown;
+}
+
+interface UserCardInfo {
+    cardId: number;
+    masterRank?: number;
+    level?: number;
+    [key: string]: unknown;
+}
+
+interface CardMasterInfo {
+    id: number;
+    cardRarityType?: string;
+    characterId: number;
+    prefix?: string;
 }
 
 type ServerType = "jp" | "cn" | "tw";
@@ -172,13 +209,13 @@ export default function ScoreControlClient() {
     const [dbAllowSave, setDbAllowSave] = useState(false);
 
     // Deck builder results
-    const [dbResults, setDbResults] = useState<any[] | null>(null);
-    const [dbUserCards, setDbUserCards] = useState<any[]>([]);
+    const [dbResults, setDbResults] = useState<DeckResultInfo[] | null>(null);
+    const [dbUserCards, setDbUserCards] = useState<UserCardInfo[]>([]);
     const [dbDuration, setDbDuration] = useState<number | null>(null);
     const [dbError, setDbError] = useState<string | null>(null);
     const [dbIsCalculating, setDbIsCalculating] = useState(false);
     const [dbUploadTime, setDbUploadTime] = useState<number | null>(null);
-    const [cardsMaster, setCardsMaster] = useState<any[]>([]);
+    const [cardsMaster, setCardsMaster] = useState<CardMasterInfo[]>([]);
 
     const dbWorkerRef = useRef<Worker | null>(null);
 
@@ -261,7 +298,7 @@ export default function ScoreControlClient() {
     // Group deck results by event bonus
     const dbResultsByBonus = useMemo(() => {
         if (!dbResults) return {};
-        const grouped: Record<number, any[]> = {};
+        const grouped: Record<number, DeckResultInfo[]> = {};
         dbResults.forEach((deck) => {
             const bonus = deck.eventBonus ?? (deck.score || 0); // Handle potentially different field names
             // Round bonus to 1 decimal place to avoid precision issues
@@ -283,7 +320,7 @@ export default function ScoreControlClient() {
             .then((data) => setMusicMetas(data))
             .catch((err) => console.error("Failed to fetch music meta", err));
 
-        fetchMasterData<any[]>("cards.json").then(setCardsMaster).catch(console.error);
+        fetchMasterData<CardMasterInfo[]>("cards.json").then(setCardsMaster).catch(console.error);
 
         // 优先从账号系统读取
         const account = getAccount();
@@ -310,10 +347,10 @@ export default function ScoreControlClient() {
         if (!musicId || !musicMetas.length) return null;
         const id = parseInt(musicId);
         const meta = musicMetas.find(
-            (m: any) => m.music_id === id && m.difficulty === difficulty,
+            (m) => m.music_id === id && m.difficulty === difficulty,
         );
         if (!meta) return null;
-        return (meta as any).event_rate || 100;
+        return meta.event_rate || 100;
     }, [musicId, difficulty, musicMetas]);
 
     // Selected music title
@@ -359,8 +396,9 @@ export default function ScoreControlClient() {
                     const bonusMax = Math.min(415, maxBonus);
 
                     computeAndSetRoutes(targetPT, selectedEventRate, bonusMin, bonusMax, 3000000);
-                } catch (err: any) {
-                    setError(err.message || "计算出错");
+                } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : "计算出错";
+                    setError(message);
                     setSmartRoutes(null);
                     setFallbackResults(null);
                 } finally {
@@ -392,7 +430,7 @@ export default function ScoreControlClient() {
             startFakeProgress(setDbFakeProgress, dbFakeProgressTimerRef);
 
             // Build card config
-            const configForCalc: Record<string, any> = {};
+            const configForCalc: Record<string, WorkerCardConfig> = {};
             for (const [key, val] of Object.entries(dbCardConfig)) {
                 if (val.disable) {
                     configForCalc[key] = { disable: true };
@@ -431,8 +469,8 @@ export default function ScoreControlClient() {
             const startTime = performance.now();
             let completedCount = 0;
             let hasError = false;
-            const allResults: any[] = [];
-            let firstUserCards: any[] | null = null;
+            const allResults: DeckResultInfo[] = [];
+            let firstUserCards: UserCardInfo[] | null = null;
             let firstUploadTime: number | undefined;
             const workers: Worker[] = [];
 
@@ -442,7 +480,7 @@ export default function ScoreControlClient() {
 
                 // Merge results, deduplicate by eventBonus
                 const seen = new Set<number>();
-                const merged: any[] = [];
+                const merged: DeckResultInfo[] = [];
                 for (const r of allResults) {
                     const bonus = r.eventBonus ?? (r.score || 0);
                     const key = Math.round(bonus * 10) / 10;
@@ -459,7 +497,7 @@ export default function ScoreControlClient() {
 
                 // Re-plan smart routes
                 if (merged.length > 0) {
-                    const foundBonuses = Array.from(new Set<number>(merged.map((r: any) => {
+                    const foundBonuses = Array.from(new Set<number>(merged.map((r) => {
                         const bonus = r.eventBonus ?? (r.score || 0);
                         return Math.round((typeof bonus === 'number' ? bonus : 0) * 10) / 10;
                     })));
@@ -575,7 +613,7 @@ export default function ScoreControlClient() {
         const bonusMax = Math.min(415, maxBonus);
 
         // Build card config once
-        const configForCalc: Record<string, any> = {};
+        const configForCalc: Record<string, WorkerCardConfig> = {};
         for (const [key, val] of Object.entries(dbCardConfig)) {
             if (val.disable) {
                 configForCalc[key] = { disable: true };
@@ -592,29 +630,29 @@ export default function ScoreControlClient() {
         // Build task queue: one task per event_rate that has songs
         interface InfTask {
             rate: number;
-            songsAtRate: any[];
+            songsAtRate: IMusicMeta[];
             firstMusicId: number;
             firstSongTitle: string;
         }
         const taskQueue: InfTask[] = [];
         for (const rate of VALID_EVENT_RATES) {
             const songsAtRate = musicMetas.filter(
-                (m: any) => m.event_rate === rate && m.difficulty === difficulty
+                (m) => m.event_rate === rate && m.difficulty === difficulty
             );
             if (songsAtRate.length === 0) continue;
             const firstMeta = songsAtRate[0];
-            const firstSongInfo = musics.find((m) => m.id === (firstMeta as any).music_id);
+            const firstSongInfo = musics.find((m) => m.id === firstMeta.music_id);
             taskQueue.push({
                 rate,
                 songsAtRate,
-                firstMusicId: (firstMeta as any).music_id,
-                firstSongTitle: firstSongInfo ? firstSongInfo.title : `Music ${(firstMeta as any).music_id}`,
+                firstMusicId: firstMeta.music_id,
+                firstSongTitle: firstSongInfo ? firstSongInfo.title : `Music ${firstMeta.music_id}`,
             });
         }
 
         const collected: InfiniteSongResult[] = [];
         let totalChecked = 0;
-        let taskIdx = 0;
+        const taskIdx = 0;
         let capturedUploadTime: number | null = null;
         const isMobileInf = typeof window !== 'undefined' && /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         const poolSize = isMobileInf ? 1 : Math.min(navigator.hardwareConcurrency || 4, 4);
@@ -648,7 +686,7 @@ export default function ScoreControlClient() {
                     }
                     if (!data.error && data.result && data.result.length > 0) {
                         const results = data.result;
-                        const foundBonuses = Array.from(new Set<number>(results.map((r: any) => {
+                        const foundBonuses = Array.from(new Set<number>(results.map((r: DeckResultInfo) => {
                             const bonus = r.eventBonus ?? (r.score || 0);
                             return Math.round((typeof bonus === 'number' ? bonus : 0) * 10) / 10;
                         })));
@@ -657,7 +695,7 @@ export default function ScoreControlClient() {
                         );
                         const pureAFKRoutes = routes.filter(r => r.isPureAFK);
                         if (pureAFKRoutes.length > 0) {
-                            const allSongs = task.songsAtRate.map((m: any) => {
+                            const allSongs = task.songsAtRate.map((m) => {
                                 const info = musics.find((mu) => mu.id === m.music_id);
                                 return {
                                     musicId: m.music_id,
@@ -763,13 +801,13 @@ export default function ScoreControlClient() {
 
     // Find card master data by ID
     const getCardMaster = useCallback((cardId: number) => {
-        return cardsMaster.find((c: any) => c.id === cardId);
+        return cardsMaster.find((c) => c.id === cardId);
     }, [cardsMaster]);
 
     /** Render a single deck card with full info — shared renderer using SekaiCardThumbnail */
-    const renderDeckCard = (card: any, i: number, size: "sm" | "md" = "md") => {
+    const renderDeckCard = (card: DeckCardInfo, i: number, size: "sm" | "md" = "md") => {
         const masterCard = getCardMaster(card.cardId);
-        const userCard = dbUserCards.find((u: any) => u.cardId === card.cardId);
+        const userCard = dbUserCards.find((u) => u.cardId === card.cardId);
         const rarityType = masterCard?.cardRarityType || card.cardRarityType;
         const isBirthday = rarityType === "rarity_birthday";
         const masterRank = userCard?.masterRank ?? card.masterRank ?? 0;
@@ -1056,7 +1094,7 @@ export default function ScoreControlClient() {
                                                 if (n) {
                                                     localStorage.setItem("deck_recommend_userid", dbUserId);
                                                     localStorage.setItem("deck_recommend_server", dbServer);
-                                                    saveToolState("scoreControl", dbUserId, dbServer as any);
+                                                    saveToolState("scoreControl", dbUserId, dbServer);
                                                 } else {
                                                     localStorage.removeItem("deck_recommend_userid");
                                                     localStorage.removeItem("deck_recommend_server");
@@ -1375,10 +1413,10 @@ export default function ScoreControlClient() {
                                                                     <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">{dbResultsByBonus[step.eventBonus].length} 个方案</span>
                                                                 </div>
                                                                 <div className="space-y-2">
-                                                                    {dbResultsByBonus[step.eventBonus].map((deck: any, deckIdx: number) => (
+                                                                    {dbResultsByBonus[step.eventBonus].map((deck, deckIdx: number) => (
                                                                         <div key={deckIdx} className="bg-white/50 rounded-lg p-2 border border-slate-100">
                                                                             <div className="flex gap-1 flex-wrap mb-1">
-                                                                                {deck.cards?.slice(0, 5).map((card: any, i: number) => renderDeckCard(card, i))}
+                                                                                {deck.cards?.slice(0, 5).map((card: DeckCardInfo, i: number) => renderDeckCard(card, i))}
                                                                             </div>
                                                                         </div>
                                                                     ))}
@@ -1615,7 +1653,7 @@ export default function ScoreControlClient() {
                                                                 {/* Matching decks with full card display */}
                                                                 {(() => {
                                                                     const neededBonuses = new Set(plan.steps.map(s => s.eventBonus));
-                                                                    const matchingDecks = result.decks.filter((d: any) => {
+                                                                    const matchingDecks = result.decks.filter((d) => {
                                                                         const bonus = d.eventBonus ?? (d.score || 0);
                                                                         const key = Math.round(bonus * 10) / 10;
                                                                         return neededBonuses.has(key);
@@ -1624,10 +1662,10 @@ export default function ScoreControlClient() {
                                                                     return (
                                                                         <div className="mt-2 pt-2 border-t border-emerald-200/50">
                                                                             <div className="text-[10px] text-slate-400 mb-1">推荐卡组</div>
-                                                                            {matchingDecks.slice(0, 2).map((deck: any, di: number) => (
+                                                                            {matchingDecks.slice(0, 2).map((deck, di: number) => (
                                                                                 <div key={di} className="bg-white/50 rounded-lg p-2 border border-slate-100 mb-1">
                                                                                     <div className="flex gap-1 flex-wrap mb-1">
-                                                                                        {deck.cards?.slice(0, 5).map((card: any, ci: number) => renderDeckCard(card, ci, "sm"))}
+                                                                                        {deck.cards?.slice(0, 5).map((card: DeckCardInfo, ci: number) => renderDeckCard(card, ci, "sm"))}
                                                                                     </div>
                                                                                     <span className="text-[10px] text-slate-400">加成 {Math.round((deck.eventBonus ?? deck.score ?? 0) * 10) / 10}%</span>
                                                                                 </div>

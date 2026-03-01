@@ -26,7 +26,7 @@ export default function MusicSelector({ selectedMusicId, onSelect, recommendMode
     const [musicTags, setMusicTags] = useState<IMusicTagInfo[]>([]);
     const [musicMetas, setMusicMetas] = useState<IMusicMeta[]>([]);
     const [translations, setTranslations] = useState<TranslationData | null>(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
 
     // Filter/Recommend state
@@ -48,16 +48,16 @@ export default function MusicSelector({ selectedMusicId, onSelect, recommendMode
         return "multi";
     }, [liveType]);
 
-    // Handle recommendType switch when mode changes (e.g. solo has no efficiency)
-    useEffect(() => {
+    // In solo mode we don't show efficiency, so map it to score for display and sorting.
+    const effectiveRecommendType = useMemo<RecommendType>(() => {
         if (metaMode === "solo" && recommendType === "efficiency") {
-            setRecommendType("score");
+            return "score";
         }
+        return recommendType;
     }, [metaMode, recommendType]);
 
     // Load musics and tags on mount
     useEffect(() => {
-        setLoading(true);
         Promise.all([
             fetchMasterData<IMusicInfo[]>("musics.json"),
             fetchMasterData<IMusicTagInfo[]>("musicTags.json"),
@@ -86,14 +86,14 @@ export default function MusicSelector({ selectedMusicId, onSelect, recommendMode
 
         let sortField: keyof IMusicMeta | null = null;
 
-        if (recommendType === "efficiency") {
+        if (effectiveRecommendType === "efficiency") {
             if (metaMode === "multi") sortField = "pspi_pt_per_hour_multi";
             else if (metaMode === "auto") sortField = "pspi_pt_per_hour_auto";
-        } else if (recommendType === "pt") {
+        } else if (effectiveRecommendType === "pt") {
             if (metaMode === "multi") sortField = "pspi_multi_pt_max";
             else if (metaMode === "auto") sortField = "pspi_auto_pt_max";
             else if (metaMode === "solo") sortField = "pspi_solo_pt_max";
-        } else if (recommendType === "score") {
+        } else if (effectiveRecommendType === "score") {
             if (metaMode === "multi") sortField = "pspi_multi_score";
             else if (metaMode === "auto") sortField = "pspi_auto_score";
             else if (metaMode === "solo") sortField = "pspi_solo_score";
@@ -104,7 +104,7 @@ export default function MusicSelector({ selectedMusicId, onSelect, recommendMode
         if (!sortField) return [];
 
         // Pinned IDs for specific modes (e.g. Multi PT -> 226, 448)
-        const pinnedIds = (metaMode === "multi" && recommendType === "pt") ? [226, 448] : [];
+        const pinnedIds = (metaMode === "multi" && effectiveRecommendType === "pt") ? [226, 448] : [];
 
         // Sort metas
         const sortedMetas = [...musicMetas].sort((a, b) => ((b[sortField!] as number) || 0) - ((a[sortField!] as number) || 0));
@@ -157,7 +157,7 @@ export default function MusicSelector({ selectedMusicId, onSelect, recommendMode
         }
 
         return result;
-    }, [musics, musicMetas, metaMode, recommendType]);
+    }, [musics, musicMetas, metaMode, effectiveRecommendType]);
 
     // Filter musics [Rest of the logic remains similar]
     const filteredMusics = useMemo(() => {
@@ -295,7 +295,7 @@ export default function MusicSelector({ selectedMusicId, onSelect, recommendMode
                                     {metaMode !== "solo" && (
                                         <button
                                             onClick={() => setRecommendType("efficiency")}
-                                            className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${recommendType === "efficiency"
+                                            className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${effectiveRecommendType === "efficiency"
                                                 ? "bg-white text-miku shadow-sm"
                                                 : "text-slate-500 hover:text-slate-700"
                                                 }`}
@@ -305,7 +305,7 @@ export default function MusicSelector({ selectedMusicId, onSelect, recommendMode
                                     )}
                                     <button
                                         onClick={() => setRecommendType("pt")}
-                                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${recommendType === "pt"
+                                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${effectiveRecommendType === "pt"
                                             ? "bg-white text-miku shadow-sm"
                                             : "text-slate-500 hover:text-slate-700"
                                             }`}
@@ -314,7 +314,7 @@ export default function MusicSelector({ selectedMusicId, onSelect, recommendMode
                                     </button>
                                     <button
                                         onClick={() => setRecommendType("score")}
-                                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${recommendType === "score"
+                                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${effectiveRecommendType === "score"
                                             ? "bg-white text-miku shadow-sm"
                                             : "text-slate-500 hover:text-slate-700"
                                             }`}
@@ -396,7 +396,11 @@ export default function MusicSelector({ selectedMusicId, onSelect, recommendMode
                             onSearchChange={setSearchQuery}
                             sortBy={sortBy}
                             sortOrder={sortOrder}
-                            onSortChange={setSortBy as any}
+                            onSortChange={(nextSortBy, nextSortOrder) => {
+                                if (nextSortBy === "level") return;
+                                setSortBy(nextSortBy);
+                                setSortOrder(nextSortOrder);
+                            }}
                             onReset={() => {
                                 setSelectedTag("all");
                                 setSelectedCategories([]);

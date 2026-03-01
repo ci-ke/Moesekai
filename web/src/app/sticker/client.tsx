@@ -308,6 +308,7 @@ function StickerContent() {
                                         href={getStampUrl(stamp.assetbundleName, assetSource)}
                                         target="_blank"
                                         rel="noopener noreferrer"
+                                        data-shortcut-item="true"
                                         className="group block"
                                     >
                                         <div className="bg-white rounded-xl shadow ring-1 ring-slate-200 overflow-hidden hover:ring-miku hover:shadow-lg transition-all p-2">
@@ -339,6 +340,7 @@ function StickerContent() {
                                 <div className="mt-8 flex justify-center">
                                     <button
                                         onClick={loadMore}
+                                        data-shortcut-load-more="true"
                                         className="px-8 py-3 bg-gradient-to-r from-miku to-miku-dark text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
                                     >
                                         加载更多
