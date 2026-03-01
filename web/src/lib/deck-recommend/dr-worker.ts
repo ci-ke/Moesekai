@@ -7,6 +7,7 @@
  */
 import {
     BaseDeckRecommend,
+    type CardConfig,
     CachedDataProvider,
     ChallengeLiveDeckRecommend,
     DataProvider,
@@ -14,6 +15,7 @@ import {
     LiveCalculator,
     LiveType,
     MusicMeta,
+    type UserCard,
 } from "sekai-calculator";
 
 // ==================== INLINED DATA PROVIDER ====================
@@ -95,7 +97,6 @@ interface ChallengeResultEntry {
 interface DeckCardLite {
     cardId: number;
     masterRank?: number;
-    [key: string]: unknown;
 }
 
 interface DeckResultLite {
@@ -126,9 +127,7 @@ interface EventRarityBonusRateLite {
 }
 
 type UserDataMap = Record<string, unknown>;
-type LiveScoreDeckInput = Parameters<typeof LiveCalculator.getLiveScoreByDeck>[0] & {
-    cards?: DeckCardLite[];
-};
+type LiveScoreDeckInput = Parameters<typeof LiveCalculator.getLiveScoreByDeck>[0];
 type LiveScoreMetaInput = Parameters<typeof LiveCalculator.getLiveScoreByDeck>[1] & {
     event_rate?: number;
 };
@@ -230,7 +229,7 @@ class SnowyDataProvider implements DataProvider {
         if (!(key in all)) {
             throw new Error(`User data key not found: ${key}`);
         }
-        return all[key];
+        return all[key] as T;
     }
 
     async getUserDataAll(): Promise<UserDataMap> {
@@ -302,7 +301,7 @@ export interface WorkerInput {
     liveType?: string; // "multi" | "solo" | "auto" | "cheerful"
     supportCharacterId?: number;
     // Card config
-    cardConfig: Record<string, unknown>;
+    cardConfig: Record<string, CardConfig>;
     // Custom mode
     customUnitBonus?: number;
     customAttrBonus?: number;
@@ -399,7 +398,7 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
         return {
             type: "result",
             challengeHighScore: userChallengeLiveSoloResult,
-            result: result as DeckResultLite[],
+            result: result as unknown as DeckResultLite[],
             userCards,
             duration: currentDuration.done(),
             upload_time: uploadTime,
@@ -456,7 +455,7 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
     sendProgress("done", 100, "计算完成");
     return {
         type: "result",
-        result: result as DeckResultLite[],
+        result: result as unknown as DeckResultLite[],
         userCards,
         duration: currentDuration.done(),
         upload_time: uploadTime,
@@ -497,13 +496,13 @@ async function runMysekaiMode(
         {
             musicMeta: dummyMusicMeta,
             limit: 10,
-            cardConfig: cardConfig || {},
+            cardConfig,
             debugLog: (str: string) => {
                 console.log("[Worker:Mysekai]", str);
             },
         },
         supportCharacterId || 0
-    )) as DeckResultLite[];
+    )) as unknown as DeckResultLite[];
 
     // Re-calculate mysekai event points for each deck
     const mysekaiResults = rawResults.map((deck) => {
@@ -666,19 +665,19 @@ async function runCustomMode(
     };
 
     const result = (await baseRecommend.recommendHighScoreDeck(
-        userCards,
+        userCards as unknown as UserCard[],
         customScoreFunc,
         {
             musicMeta,
             limit: 10,
-            cardConfig: cardConfig || {},
+            cardConfig,
             debugLog: (str: string) => {
                 console.log("[Worker:Custom]", str);
             },
         },
         computedLiveType,
         {} // empty eventConfig - no event bonuses
-    )) as DeckResultLite[];
+    )) as unknown as DeckResultLite[];
 
     // Enrich results with custom bonus info for display
     const enriched = result.map((deck) => {

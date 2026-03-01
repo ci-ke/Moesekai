@@ -6,6 +6,7 @@
  * 部分算法优化修改于: https://github.com/NeuraXmy/sekai-deck-recommend-cpp  作者: luna茶
  */
 import {
+    type CardConfig,
     CachedDataProvider,
     DataProvider,
     EventBonusDeckRecommend,
@@ -183,7 +184,7 @@ class SnowyDataProvider implements DataProvider {
         if (!(key in all)) {
             throw new Error(`User data key not found: ${key}`);
         }
-        return all[key];
+        return all[key] as T;
     }
 
     async getUserDataAll(): Promise<UserDataMap> {
@@ -252,7 +253,7 @@ export interface DeckBuilderInput {
     musicId: number;
     difficulty: string;
     supportCharacterId?: number;
-    cardConfig: Record<string, unknown>;
+    cardConfig: Record<string, CardConfig>;
 }
 
 export interface DeckBuilderOutput {
@@ -334,7 +335,7 @@ async function deckBuilderRunner(args: DeckBuilderInput): Promise<DeckBuilderOut
     );
 
     return {
-        result: result as DeckResultRow[],
+        result: result as unknown as DeckResultRow[],
         userCards,
         duration: currentDuration.done(),
         upload_time: uploadTime,

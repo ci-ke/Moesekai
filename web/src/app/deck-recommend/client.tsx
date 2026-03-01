@@ -5,7 +5,7 @@ import Link from "next/link";
 import ExternalLink from "@/components/ExternalLink";
 import Image from "next/image";
 import MainLayout from "@/components/MainLayout";
-import { CHAR_NAMES } from "@/types/types";
+import { CHAR_NAMES, type ICardInfo } from "@/types/types";
 import CharacterSelector from "@/components/deck-recommend/CharacterSelector";
 import { useTheme, type AssetSourceType } from "@/contexts/ThemeContext";
 import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
@@ -70,12 +70,7 @@ interface ChallengeHighScoreInfo {
     highScore?: number;
 }
 
-interface CardMasterInfo {
-    id: number;
-    cardRarityType?: string;
-    characterId: number;
-    prefix?: string;
-}
+type CardMasterInfo = ICardInfo;
 
 interface UserCardInfo {
     cardId: number;
@@ -773,6 +768,7 @@ function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards
     const totalBonusLabel = mode === "custom" ? "自定义加成" : (showSupportBonusBreakdown ? "总加成" : "加成");
 
     const effectiveSkill = deck.cards && deck.cards.length === 5 ? (deck.cards[0].skill?.scoreUp || 0) + deck.cards.slice(1).reduce((sum: number, card: DeckCardResult) => sum + (card.skill?.scoreUp || 0), 0) / 5 : 0;
+    const totalPower = deck.power?.total ?? 0;
 
     return (
         <div className="dr-result-row rounded-xl border border-slate-100 overflow-hidden hover:border-miku/30 transition-all">
@@ -791,10 +787,10 @@ function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards
                                 <div className="font-bold text-emerald-600 text-sm">{effectiveSkill.toFixed(1)}%</div>
                             </div>
                         )}
-                        {deck.power?.total > 0 && (
+                        {totalPower > 0 && (
                             <div className="flex-shrink-0 min-w-[60px] sm:hidden">
                                 <div className="text-xs text-slate-400">综合力</div>
-                                <div className="font-bold text-miku text-sm">{deck.power.total.toLocaleString()}</div>
+                                <div className="font-bold text-miku text-sm">{totalPower.toLocaleString()}</div>
                             </div>
                         )}
                         {(mode === "event" || mode === "mysekai" || mode === "custom") && totalEventBonus > 0 && (
@@ -837,10 +833,10 @@ function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards
                         );
                     })}
                 </div>
-                {deck.power?.total > 0 && (
+                {totalPower > 0 && (
                     <div className="flex-shrink-0 text-right hidden sm:block">
                         <div className="text-xs text-slate-400">综合力</div>
-                        <div className="font-bold text-sm text-miku">{deck.power.total.toLocaleString()}</div>
+                        <div className="font-bold text-sm text-miku">{totalPower.toLocaleString()}</div>
                     </div>
                 )}
                 <svg className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 hidden sm:block ${showDetails ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -864,6 +860,12 @@ function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards
                                     const masterCard = getCardMaster(card.cardId);
                                     const basePower = card.power?.total || 0;
                                     const eb = card.eventBonus;
+                                    const eventBonusValue = parseCardEventBonusValue(eb);
+                                    const eventBonusText = typeof eb === "string"
+                                        ? eb
+                                        : eventBonusValue > 0
+                                            ? `${formatBonusValue(eventBonusValue)}%`
+                                            : "-";
                                     const cardName = masterCard?.prefix || (masterCard ? CHAR_NAMES[masterCard.characterId] : `ID:${card.characterId}`);
                                     return (
                                         <tr key={i} className="border-t border-slate-50">
@@ -877,7 +879,7 @@ function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards
                                             </td>
                                             {(mode === "event" || mode === "mysekai" || mode === "custom") && (
                                                 <td className="py-1.5 px-1 text-right font-bold text-amber-600">
-                                                    {typeof eb === "string" ? eb : (eb?.total || eb?.all || 0) > 0 ? `${eb?.total || eb?.all}%` : "-"}
+                                                    {eventBonusText}
                                                 </td>
                                             )}
                                         </tr>

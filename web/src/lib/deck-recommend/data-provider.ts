@@ -180,7 +180,7 @@ export class SnowyDataProvider implements DataProvider {
         if (!(key in all)) {
             throw new Error(`User data key not found: ${key}`);
         }
-        return all[key];
+        return all[key] as T;
     }
 
     async getUserDataAll(): Promise<UserDataMap> {

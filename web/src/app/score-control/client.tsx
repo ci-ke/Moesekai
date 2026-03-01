@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import Image from "next/image";
 import Link from "next/link";
 import { IMusicInfo, IMusicMeta } from "@/types/music";
-import { CHAR_NAMES, ATTR_ICON_PATHS } from "@/types/types";
+import { CHAR_NAMES, ATTR_ICON_PATHS, type ICardInfo } from "@/types/types";
 import { fetchMasterData } from "@/lib/fetch";
 import { saveToolState, getAccount } from "@/lib/account";
 import AccountSelector from "@/components/AccountSelector";
@@ -127,12 +127,7 @@ interface UserCardInfo {
     [key: string]: unknown;
 }
 
-interface CardMasterInfo {
-    id: number;
-    cardRarityType?: string;
-    characterId: number;
-    prefix?: string;
-}
+type CardMasterInfo = ICardInfo;
 
 type ServerType = "jp" | "cn" | "tw";
 
