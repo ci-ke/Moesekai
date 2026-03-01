@@ -83,6 +83,29 @@ func isAllowedBilibiliImageURL(u *url.URL) bool {
 	return isAllowedImageHost(strings.ToLower(u.Hostname()))
 }
 
+func normalizeBilibiliImageURL(rawURL string) (*url.URL, error) {
+	trimmedURL := strings.TrimSpace(rawURL)
+	if trimmedURL == "" {
+		return nil, fmt.Errorf("empty url")
+	}
+
+	parsedURL, err := url.Parse(trimmedURL)
+	if err != nil {
+		return nil, err
+	}
+
+	// Bilibili image links can be protocol-relative (//...) or explicit http://.
+	// Upgrade them to https before validation/proxying.
+	if parsedURL.Scheme == "" && parsedURL.Host != "" {
+		parsedURL.Scheme = "https"
+	}
+	if strings.EqualFold(parsedURL.Scheme, "http") {
+		parsedURL.Scheme = "https"
+	}
+
+	return parsedURL, nil
+}
+
 // Client handles Bilibili API requests
 type Client struct {
 	httpClient   *http.Client
@@ -281,7 +304,7 @@ func (c *Client) FetchDynamic(uid string) ([]byte, int, error) {
 
 // FetchImage fetches an image with caching
 func (c *Client) FetchImage(imageUrl string) ([]byte, string, int, error) {
-	parsedURL, err := url.Parse(imageUrl)
+	parsedURL, err := normalizeBilibiliImageURL(imageUrl)
 	if err != nil || !isAllowedBilibiliImageURL(parsedURL) {
 		return nil, "", http.StatusBadRequest, fmt.Errorf("URL is not allowed")
 	}
