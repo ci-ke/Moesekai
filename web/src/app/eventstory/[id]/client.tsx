@@ -4,13 +4,14 @@ import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import MainLayout from "@/components/MainLayout";
-import { fetchMasterData } from "@/lib/fetch";
-import { IEventInfo } from "@/types/events";
+import { fetchMasterData, fetchBilibiliEventsData } from "@/lib/fetch";
+import { IEventInfo, IBilibiliEventsResponse, IBilibiliEvent } from "@/types/events";
 import { IEventStory } from "@/types/story";
 import { getEventLogoUrl, getEventBannerUrl, getStoryEpisodeImageUrl } from "@/lib/assets";
 import { useTheme } from "@/contexts/ThemeContext";
 import { loadTranslations, TranslationData } from "@/lib/translations";
 import { IStoryAdminResponse, IStoryAdminEvent, IStoryAdminChapter } from "@/types/storyAdmin";
+import ExternalLink from "@/components/ExternalLink";
 
 function ChapterItem({
     chapter,
@@ -94,6 +95,7 @@ export default function EventStorySummaryClient() {
 
     const [adminData, setAdminData] = useState<IStoryAdminResponse | null>(null);
     const [eventInfo, setEventInfo] = useState<IEventInfo | null>(null);
+    const [bilibiliEvent, setBilibiliEvent] = useState<IBilibiliEvent | null>(null);
     const [fallbackChapters, setFallbackChapters] = useState<{ chapter_no: number; title: string, scenarioId: string }[]>([]);
     const [showEpImages, setShowEpImages] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
@@ -104,10 +106,11 @@ export default function EventStorySummaryClient() {
             try {
                 setIsLoading(true);
                 // Fetch Master Data for Assets and Admin Data for Content
-                const [eventsData, storiesData, adminRes] = await Promise.all([
+                const [eventsData, storiesData, adminRes, bilibiliData] = await Promise.all([
                     fetchMasterData<IEventInfo[]>("events.json"),
                     fetchMasterData<IEventStory[]>("eventStories.json"),
-                    fetch(`https://sekaistoryadmin.exmeaning.com/api/v1/events/${eventId}`)
+                    fetch(`https://sekaistoryadmin.exmeaning.com/api/v1/events/${eventId}`),
+                    fetchBilibiliEventsData<IBilibiliEventsResponse>()
                 ]);
 
                 const event = eventsData.find(e => e.id === eventId);
@@ -132,6 +135,12 @@ export default function EventStorySummaryClient() {
                 } else {
                     console.warn("Failed to fetch admin data, status:", adminRes.status);
                     // Admin fetch failed, we will use fallbackChapters
+                }
+
+                // Match Bilibili event
+                const bEvent = bilibiliData.events.find(e => e.event_id === eventId);
+                if (bEvent && bEvent.bilibili_url) {
+                    setBilibiliEvent(bEvent);
                 }
 
                 document.title = `${event.name} - 剧情总览 - Moesekai`;
@@ -257,6 +266,32 @@ export default function EventStorySummaryClient() {
                                 </div>
                             </Link>
                         </div>
+
+                        {/* Bilibili Translation Link */}
+                        {bilibiliEvent && (
+                            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden border border-slate-100 dark:border-slate-700 group">
+                                <ExternalLink href={bilibiliEvent.bilibili_url!} className="block">
+                                    <div className="p-5 flex items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                                        <div className="w-12 h-12 rounded-xl bg-[#fb7299]/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
+                                            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path fillRule="evenodd" clipRule="evenodd" d="M4.977 3.561a1.31 1.31 0 111.818-1.884l2.828 2.728c.08.078.149.163.205.254h4.277a1.32 1.32 0 01.205-.254l2.828-2.728a1.31 1.31 0 011.818 1.884L17.82 4.66h.848A5.333 5.333 0 0124 9.992v7.34a5.333 5.333 0 01-5.333 5.334H5.333A5.333 5.333 0 010 17.333V9.992a5.333 5.333 0 015.333-5.333h.781L4.977 3.56zm.356 3.67a2.667 2.667 0 00-2.666 2.667v7.529a2.667 2.667 0 002.666 2.666h13.334a2.667 2.667 0 002.666-2.666v-7.53a2.667 2.667 0 00-2.666-2.666H5.333zm1.334 5.192a1.333 1.333 0 112.666 0v1.192a1.333 1.333 0 11-2.666 0v-1.192zM16 11.09c-.736 0-1.333.597-1.333 1.333v1.192a1.333 1.333 0 102.666 0v-1.192c0-.736-.597-1.333-1.333-1.333z" fill="#FB7299" />
+                                            </svg>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-bold text-slate-800 dark:text-white group-hover:text-[#fb7299] transition-colors">
+                                                资讯站汉化
+                                            </h3>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                                                前往 Bilibili 观看本活动剧情汉化
+                                            </p>
+                                        </div>
+                                        <svg className="w-5 h-5 text-slate-300 group-hover:text-[#fb7299] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                    </div>
+                                </ExternalLink>
+                            </div>
+                        )}
 
                         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 border border-slate-100 dark:border-slate-700">
                             <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">

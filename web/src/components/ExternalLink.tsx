@@ -30,6 +30,8 @@ const ExternalLink: React.FC<ExternalLinkProps> = ({ href, children, className, 
             <Link
                 href={`/leave?target=${encodedTarget}`}
                 className={className}
+                target="_blank"
+                rel="noopener noreferrer"
                 {...props}
             >
                 {children}

@@ -153,6 +153,12 @@ export function getComicUrl(assetbundleName: string, source: AssetSourceType = "
     return `${ASSET_BASE_URL_HARUKI}/startapp/comic/one_frame/${assetbundleName}.png`;
 }
 
+// ==================== Manga Asset URLs ====================
+
+export function getMangaImageUrl(id: number): string {
+    return `https://moe.exmeaning.com/mangas/${id}.png`;
+}
+
 // ==================== Sticker/Stamp Asset URLs ====================
 
 export function getStampUrl(assetbundleName: string, source: AssetSourceType = "uni"): string {

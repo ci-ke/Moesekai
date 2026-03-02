@@ -313,3 +313,33 @@ export async function fetchMasterDataForServer<T>(server: "cn" | "jp" | "tw", pa
 }
 
 
+// ==================== Manga Data Fetching ====================
+
+export const MANGA_JSON_URL = "https://moe.exmeaning.com/mangas/mangas.json";
+
+/**
+ * Fetch official 4-panel manga list from exmeaning CDN
+ * This bypasses the standard sekaimaster runtime cache but still uses basic compression
+ */
+export async function fetchMangaData<T>(): Promise<T> {
+    const response = await fetchWithCompression(MANGA_JSON_URL);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch manga data: HTTP ${response.status}`);
+    }
+    return response.json();
+}
+
+// ==================== Bilibili Data Fetching ====================
+
+export const BILIBILI_EVENTS_JSON_URL = "https://moe.exmeaning.com/data/event_bvid/events_bilibili.json";
+
+/**
+ * Fetch Bilibili video mapping for events
+ */
+export async function fetchBilibiliEventsData<T>(): Promise<T> {
+    const response = await fetchWithCompression(BILIBILI_EVENTS_JSON_URL);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch Bilibili events data: HTTP ${response.status}`);
+    }
+    return response.json();
+}

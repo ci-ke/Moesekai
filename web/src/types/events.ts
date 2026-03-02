@@ -99,3 +99,20 @@ export const EVENT_STATUS_DISPLAY: Record<EventStatus, { label: string; color: s
     ongoing: { label: "进行中", color: "#66BB6A" },
     ended: { label: "已结束", color: "#9E9E9E" },
 };
+
+export interface IBilibiliEvent {
+    event_id: number;
+    event_name: string;
+    bilibili_url: string | null;
+    bvid: string | null;
+    match_status: string;
+}
+
+export interface IBilibiliEventsResponse {
+    generated_at: string;
+    source: {
+        wiki_page: string;
+        events_api: string;
+    };
+    events: IBilibiliEvent[];
+}
