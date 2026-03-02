@@ -211,6 +211,14 @@ export default function Home() {
               <span className="animate-pulse">✨</span>
               <span>现已焕新域名 <span className="underline decoration-2 underline-offset-2 decoration-miku/30">pjsk.moe</span></span>
             </div>
+
+            <ExternalLink
+              href="https://snowyviewer.exmeaning.com"
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-sm sm:text-base font-bold transition-all hover:bg-blue-100 hover:scale-105 duration-300 shadow-sm"
+            >
+              <span className="flex h-2 w-2 rounded-full bg-blue-400"></span>
+              <span>国内镜像站：<span className="underline decoration-1 underline-offset-2 decoration-blue-300">snowyviewer.exmeaning.com</span></span>
+            </ExternalLink>
           </div>
 
           {/* Performance Tip */}
