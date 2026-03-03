@@ -26,6 +26,7 @@ import { useTheme, AssetSourceType } from "@/contexts/ThemeContext";
 import { getCharacterIconUrl, getEventBannerUrl } from "@/lib/assets";
 import { fetchMasterData } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
+import { fetchSongConstants, buildSongConstantsMap } from "@/lib/songConstants";
 
 // Difficulty order for tabs
 const DIFFICULTY_ORDER: MusicDifficultyType[] = ["easy", "normal", "hard", "expert", "master", "append"];
@@ -122,6 +123,7 @@ export default function MusicDetailPage() {
     // View states
     const [selectedDifficulty, setSelectedDifficulty] = useState<MusicDifficultyType>("master");
     const [imageViewerOpen, setImageViewerOpen] = useState(false);
+    const [songConstantsMap, setSongConstantsMap] = useState<Record<number, Record<string, number>>>({});
 
     // Set mounted state
     useEffect(() => {
@@ -245,6 +247,13 @@ export default function MusicDetailPage() {
             }
 
             fetchMetaData();
+
+            // Fetch song constants (non-blocking)
+            fetchSongConstants().then(entries => {
+                setSongConstantsMap(buildSongConstantsMap(entries));
+            }).catch(err => {
+                console.warn("Failed to load song constants:", err);
+            });
         }
     }, [musicId]);
 
@@ -576,6 +585,11 @@ export default function MusicDetailPage() {
                                         >
                                             {diff.playLevel}
                                         </span>
+                                        {songConstantsMap[musicId]?.[diff.musicDifficulty] !== undefined && (
+                                            <span className="text-[9px] font-bold text-slate-400 -mt-0.5">
+                                                {songConstantsMap[musicId][diff.musicDifficulty].toFixed(1)}
+                                            </span>
+                                        )}
                                     </button>
                                 ))}
                             </div>
@@ -589,6 +603,19 @@ export default function MusicDetailPage() {
                                             {selectedDifficultyInfo.totalNoteCount.toLocaleString()}
                                         </span>
                                     </div>
+                                    {songConstantsMap[musicId]?.[selectedDifficulty] !== undefined && (
+                                        <div className="flex items-center justify-between py-2 border-t border-slate-100">
+                                            <span className="text-sm text-slate-500">定数</span>
+                                            <span className="text-sm font-black text-miku">
+                                                {songConstantsMap[musicId][selectedDifficulty].toFixed(1)}
+                                            </span>
+                                        </div>
+                                    )}
+                                    {songConstantsMap[musicId] && Object.keys(songConstantsMap[musicId]).length > 0 && (
+                                        <div className="pt-1 pb-0.5 text-[10px] text-slate-400 text-center">
+                                            社区定数 · 来源非官方 · 仅供参考
+                                        </div>
+                                    )}
 
                                     <a
                                         href={chartUrl}

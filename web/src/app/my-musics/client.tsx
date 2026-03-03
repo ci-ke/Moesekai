@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import MainLayout from "@/components/MainLayout";
 import ExternalLink from "@/components/ExternalLink";
 import MyMusicFilters from "@/components/music/MyMusicFilters";
+import Best30ShareImage from "@/components/music/Best30ShareImage";
 import { TranslatedText } from "@/components/common/TranslatedText";
 import { fetchMasterDataForServer } from "@/lib/fetch";
 import { loadTranslations, TranslationData } from "@/lib/translations";
@@ -21,6 +22,7 @@ import {
     verifyHarukiApi,
     getCharacterIconUrl,
     getTopCharacterId,
+    getCachedAvatarUrl,
     SERVER_LABELS,
     type MoesekaiAccount,
     type ServerType,
@@ -31,6 +33,7 @@ import {
     IMusicTagInfo,
 } from "@/types/music";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
+import { fetchSongConstants, buildSongConstantsMap } from "@/lib/songConstants";
 
 const SERVER_OPTIONS: { value: ServerType; label: string }[] = [
     { value: "cn", label: "简中服" },
@@ -98,6 +101,7 @@ function MyMusicsContent() {
     const [musicTags, setMusicTags] = useState<IMusicTagInfo[]>([]);
     const [userMusicResults, setUserMusicResults] = useState<Map<number, Record<string, PlayResult>>>(new Map());
     const [translations, setTranslations] = useState<TranslationData | null>(null);
+    const [songConstantsMap, setSongConstantsMap] = useState<Record<number, Record<string, number>>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isFetchingUser, setIsFetchingUser] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -105,13 +109,15 @@ function MyMusicsContent() {
     const [uploadTime, setUploadTime] = useState<string | null>(null);
     const [isTwFallback, setIsTwFallback] = useState(false);
     const [filtersInitialized, setFiltersInitialized] = useState(false);
+    const [best30Expanded, setBest30Expanded] = useState(false);
+    const [showBest30Share, setShowBest30Share] = useState(false);
 
     // Filter states
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedDifficulty, setSelectedDifficulty] = useState<string>("master");
     const [selectedTag, setSelectedTag] = useState<MusicTagType>("all");
     const [selectedCategories, setSelectedCategories] = useState<MusicCategoryType[]>([]);
-    const [sortBy, setSortBy] = useState<"publishedAt" | "id" | "level" | "completion">("level");
+    const [sortBy, setSortBy] = useState<"publishedAt" | "id" | "level" | "completion" | "constant">("level");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
     const [completionFilter, setCompletionFilter] = useState<"all" | "no_fc" | "no_ap">("all");
 
@@ -145,7 +151,7 @@ function MyMusicsContent() {
             if (categories) setSelectedCategories(categories.split(",") as MusicCategoryType[]);
             if (difficulty) setSelectedDifficulty(difficulty);
             if (search) setSearchQuery(search);
-            if (sort) setSortBy(sort as "publishedAt" | "id" | "level" | "completion");
+            if (sort) setSortBy(sort as "publishedAt" | "id" | "level" | "completion" | "constant");
             if (order) setSortOrder(order as "asc" | "desc");
             if (completion) setCompletionFilter(completion as "all" | "no_fc" | "no_ap");
         } else {
@@ -226,7 +232,7 @@ function MyMusicsContent() {
 
             try {
                 const server = activeAccount!.server;
-                
+
                 // 台服和国服都使用国服数据
                 const dataServer: ServerType = server === "tw" || server === "cn" ? "cn" : "jp";
 
@@ -245,10 +251,10 @@ function MyMusicsContent() {
                     try {
                         const jpMusics = await fetchMasterDataForServer<Music[]>("jp", "musics.json");
                         const jpDifficulties = await fetchMasterDataForServer<MusicDifficulty[]>("jp", "musicDifficulties.json");
-                        
+
                         const extraMusics = jpMusics.filter(m => !cnMusicIds.has(m.id));
                         const extraDifficulties = jpDifficulties.filter(d => !cnMusicIds.has(d.musicId));
-                        
+
                         if (extraMusics.length > 0) {
                             setIsTwFallback(true);
                             setAllMusics([...musicsData, ...extraMusics]);
@@ -266,9 +272,16 @@ function MyMusicsContent() {
                     setAllMusics(musicsData);
                     setMusicDifficulties(difficultiesData);
                 }
-                
+
                 setMusicTags(tagsData);
                 setTranslations(translationsData);
+
+                // Fetch song constants (non-blocking)
+                fetchSongConstants().then(entries => {
+                    setSongConstantsMap(buildSongConstantsMap(entries));
+                }).catch(err => {
+                    console.warn("Failed to load song constants:", err);
+                });
             } catch (err) {
                 if (!cancelled) {
                     setError(err instanceof Error ? err.message : "加载歌曲数据失败");
@@ -317,7 +330,7 @@ function MyMusicsContent() {
                 }
 
                 const data = await res.json();
-                
+
                 if (data.upload_time) {
                     setUploadTime(data.upload_time);
                 } else {
@@ -336,10 +349,10 @@ function MyMusicsContent() {
                 for (const music of userMusics) {
                     const musicId = music.musicId;
                     const diffStatuses = music.userMusicDifficultyStatuses || [];
-                    
+
                     for (const diffStatus of diffStatuses) {
                         const userResults = diffStatus.userMusicResults || [];
-                        
+
                         for (const result of userResults) {
                             results.push({
                                 musicId: musicId,
@@ -359,14 +372,14 @@ function MyMusicsContent() {
                     const entry = resultsMap.get(r.musicId)!;
                     const diff = r.musicDifficulty;
                     const current = entry[diff] || "";
-                    
+
                     let rank: PlayResult = "";
                     if (r.playResult === "full_perfect") rank = "AP";
                     else if (r.playResult === "full_combo") rank = "FC";
                     else if (r.playResult === "clear") rank = "C";
-                    
+
                     if (!rank) continue;
-                    
+
                     // Priority: AP > FC > C
                     const priority: Record<string, number> = { "AP": 3, "FC": 2, "C": 1, "": 0 };
                     if ((priority[rank] || 0) > (priority[current] || 0)) {
@@ -461,6 +474,11 @@ function MyMusicsContent() {
                     const priority: Record<string, number> = { "": 0, "C": 1, "FC": 2, "AP": 3 };
                     cmp = priority[rankB] - priority[rankA]; // Reverse for high to low
                 }
+            } else if (sortBy === "constant") {
+                const constA = songConstantsMap[a.id]?.[selectedDifficulty] || 0;
+                const constB = songConstantsMap[b.id]?.[selectedDifficulty] || 0;
+                cmp = constA - constB;
+                if (cmp === 0) cmp = a.publishedAt - b.publishedAt;
             } else if (sortBy === "completion") {
                 // Sort by completion status (AP > FC > C > 未完成)
                 const rankA = userMusicResults.get(a.id)?.[selectedDifficulty] || "";
@@ -478,15 +496,15 @@ function MyMusicsContent() {
         });
 
         return result;
-    }, [allMusics, searchQuery, completionFilter, selectedDifficulty, sortBy, sortOrder, userMusicResults, musicDifficultiesMap, translations]);
+    }, [allMusics, searchQuery, completionFilter, selectedDifficulty, sortBy, sortOrder, userMusicResults, musicDifficultiesMap, translations, songConstantsMap]);
 
     // Progress stats
     const progressStats = useMemo(() => {
         if (userMusicResults.size === 0) return null;
-        
+
         const diff = selectedDifficulty;
         let ap = 0, fc = 0, clear = 0, total = 0;
-        
+
         for (const music of filteredMusics) {
             if (musicDifficultiesMap[music.id]?.[diff] !== undefined) {
                 total++;
@@ -496,14 +514,61 @@ function MyMusicsContent() {
                 else if (rank === "C") { clear++; }
             }
         }
-        
+
         return { ap, fc, clear, total };
     }, [filteredMusics, selectedDifficulty, userMusicResults, musicDifficultiesMap]);
+
+    // Best30 calculation
+    const best30Data = useMemo(() => {
+        if (userMusicResults.size === 0 || Object.keys(songConstantsMap).length === 0) return null;
+
+        const allDiffs = ["easy", "normal", "hard", "expert", "master", "append"];
+        const entries: Array<{ musicId: number; difficulty: string; constant: number; userConstant: number; playResult: PlayResult; title: string; assetbundleName: string }> = [];
+
+        for (const music of allMusics) {
+            for (const diff of allDiffs) {
+                const constant = songConstantsMap[music.id]?.[diff];
+                if (constant === undefined) continue;
+
+                const playResult = userMusicResults.get(music.id)?.[diff] || "";
+                // Only AP and FC count
+                if (playResult !== "AP" && playResult !== "FC") continue;
+
+                let userConstant: number;
+                if (playResult === "AP") {
+                    userConstant = constant;
+                } else {
+                    // FC: ≥33 → -1, <33 → -1.5
+                    userConstant = constant >= 33 ? constant - 1 : constant - 1.5;
+                }
+
+                entries.push({
+                    musicId: music.id,
+                    difficulty: diff,
+                    constant,
+                    userConstant,
+                    playResult: playResult as PlayResult,
+                    title: music.title,
+                    assetbundleName: music.assetbundleName,
+                });
+            }
+        }
+
+        // Sort by userConstant descending
+        entries.sort((a, b) => b.userConstant - a.userConstant);
+
+        const top30 = entries.slice(0, 30);
+        const average = top30.length > 0
+            ? top30.reduce((sum, e) => sum + e.userConstant, 0) / top30.length
+            : 0;
+
+        return { entries: top30, average };
+    }, [allMusics, userMusicResults, songConstantsMap]);
 
     // Displayed musics with level separators
     const displayedMusicsWithSeparators = useMemo(() => {
         const musics = filteredMusics.slice(0, displayCount);
-        if (sortBy !== "level") {
+        if (sortBy !== "level" && sortBy !== "constant") {
             return musics.map(m => ({ type: 'music' as const, data: m }));
         }
 
@@ -512,21 +577,25 @@ function MyMusicsContent() {
         let lastLevel: number | null = null;
 
         for (const music of musics) {
-            const level = musicDifficultiesMap[music.id]?.[selectedDifficulty] || 0;
+            const rawLevel = sortBy === "constant"
+                ? (songConstantsMap[music.id]?.[selectedDifficulty] || 0)
+                : (musicDifficultiesMap[music.id]?.[selectedDifficulty] || 0);
+            // For constant sorting, group by integer level only
+            const groupLevel = sortBy === "constant" ? Math.floor(rawLevel) : rawLevel;
 
-            if (level !== lastLevel) {
+            if (groupLevel !== lastLevel) {
                 result.push({
                     type: 'separator',
-                    data: { level, difficulty: selectedDifficulty.toUpperCase() }
+                    data: { level: groupLevel, difficulty: selectedDifficulty.toUpperCase() }
                 });
-                lastLevel = level;
+                lastLevel = groupLevel;
             }
 
             result.push({ type: 'music', data: music });
         }
 
         return result;
-    }, [filteredMusics, displayCount, sortBy, musicDifficultiesMap, selectedDifficulty]);
+    }, [filteredMusics, displayCount, sortBy, musicDifficultiesMap, selectedDifficulty, songConstantsMap]);
 
     const resetFilters = useCallback(() => {
         setSearchQuery("");
@@ -547,7 +616,7 @@ function MyMusicsContent() {
     const getMusicThumbnailUrl = useCallback((music: Music): string => {
         // Determine asset source based on server
         let finalAssetSource: AssetSourceType = assetSource;
-        
+
         // For CN/TW servers, force CN assets (ignore settings)
         if (activeAccount && (activeAccount.server === "cn" || activeAccount.server === "tw")) {
             // Map JP sources to CN equivalents
@@ -560,7 +629,7 @@ function MyMusicsContent() {
             };
             finalAssetSource = cnSourceMap[assetSource] || "snowyassets_cn";
         }
-        
+
         return getMusicJacketUrl(music.assetbundleName, finalAssetSource);
     }, [assetSource, activeAccount]);
 
@@ -657,6 +726,101 @@ function MyMusicsContent() {
                 </div>
             )}
 
+            {/* Best30 Card */}
+            {!isLoading && !isFetchingUser && best30Data && best30Data.entries.length > 0 && (
+                <div className="mb-6 glass-card rounded-2xl overflow-hidden">
+                    <div className="p-4 flex items-center justify-between">
+                        <div
+                            className="flex items-center gap-3 cursor-pointer flex-1 hover:opacity-80 transition-opacity"
+                            onClick={() => setBest30Expanded(!best30Expanded)}
+                        >
+                            <span className="text-sm font-bold text-primary-text">Best30</span>
+                            <span className="text-2xl font-black text-miku">{best30Data.average.toFixed(2)}</span>
+                            <span className="text-[10px] text-slate-400">社区定数 · 仅供参考</span>
+                            <svg
+                                className={`w-4 h-4 text-slate-400 transition-transform ${best30Expanded ? 'rotate-180' : ''}`}
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                        <button
+                            onClick={() => setShowBest30Share(true)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-miku/10 hover:bg-miku/20 text-miku text-xs font-bold rounded-lg transition-colors"
+                        >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            分享
+                        </button>
+                    </div>
+                    {best30Expanded && (
+                        <div className="border-t border-slate-200/50 grid grid-cols-1 sm:grid-cols-2">
+                            {best30Data.entries.map((entry, idx) => (
+                                <Link
+                                    key={`${entry.musicId}-${entry.difficulty}`}
+                                    href={`/music/${entry.musicId}`}
+                                    className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50/80 transition-colors border-b border-r border-slate-100/50"
+                                >
+                                    <span className="text-[10px] font-bold text-slate-400 w-5 text-right">#{idx + 1}</span>
+                                    <div className="w-8 h-8 rounded-md overflow-hidden relative flex-shrink-0">
+                                        <Image
+                                            src={getMusicThumbnailUrl({ assetbundleName: entry.assetbundleName } as Music)}
+                                            alt=""
+                                            fill
+                                            className="object-cover"
+                                            unoptimized
+                                        />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-[11px] font-bold text-primary-text truncate">{entry.title}</div>
+                                    </div>
+                                    <span className={`text-[9px] font-bold uppercase px-1 py-0.5 rounded ${entry.difficulty === 'master' ? 'bg-purple-100 text-purple-600' :
+                                        entry.difficulty === 'append' ? 'bg-pink-100 text-pink-600' :
+                                            entry.difficulty === 'expert' ? 'bg-red-100 text-red-600' :
+                                                'bg-slate-100 text-slate-600'
+                                        }`}>
+                                        {entry.difficulty.slice(0, 3)}
+                                    </span>
+                                    <Image
+                                        src={entry.playResult === 'AP' ? '/data/music/icon_allPerfect.png' : '/data/music/icon_fullCombo.png'}
+                                        alt={entry.playResult}
+                                        width={14}
+                                        height={14}
+                                        className="drop-shadow-sm flex-shrink-0"
+                                    />
+                                    <div className="text-right flex-shrink-0 w-10">
+                                        <div className="text-[11px] font-black text-miku">{entry.userConstant.toFixed(1)}</div>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Best30 Share Image Modal */}
+            {showBest30Share && best30Data && activeAccount && (
+                <Best30ShareImage
+                    entries={best30Data.entries}
+                    average={best30Data.average}
+                    gameId={activeAccount.gameId}
+                    serverLabel={SERVER_LABELS[activeAccount.server]}
+                    getMusicThumbnailUrl={(entry) => getMusicThumbnailUrl({ assetbundleName: entry.assetbundleName } as Music)}
+                    avatarUrl={
+                        getCachedAvatarUrl(activeAccount.id) ||
+                        getCharacterIconUrl(
+                            activeAccount.userCharacters
+                                ? getTopCharacterId(activeAccount.userCharacters)
+                                : 21
+                        )
+                    }
+                    nickname={activeAccount.userGamedata?.name || activeAccount.nickname || undefined}
+                    uploadTime={uploadTime || undefined}
+                    onClose={() => setShowBest30Share(false)}
+                />
+            )}
+
             {/* Error */}
             {error && (
                 <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
@@ -685,7 +849,6 @@ function MyMusicsContent() {
                         onSortChange={(newSortBy, newSortOrder) => {
                             setSortBy(newSortBy);
                             setSortOrder(newSortOrder);
-                            resetDisplayCount();
                         }}
                         onReset={resetFilters}
                         totalMusics={allMusics.length}
@@ -696,73 +859,75 @@ function MyMusicsContent() {
 
                 {/* Main Content */}
                 <div className="flex-1 min-w-0">
-                {isLoading || isFetchingUser ? (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-3">
-                        {Array.from({ length: 12 }).map((_, i) => (
-                            <div key={i} className="rounded-xl overflow-hidden bg-white border border-slate-100 shadow-sm animate-pulse">
-                                <div className="aspect-square bg-gradient-to-br from-slate-100 to-slate-200" />
-                            </div>
-                        ))}
-                    </div>
-                ) : filteredMusics.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-center">
-                        <svg className="w-16 h-16 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                        </svg>
-                        <p className="text-slate-400 font-medium">没有找到符合条件的歌曲</p>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-3">
-                        {displayedMusicsWithSeparators.map((item, index) => {
-                            if (item.type === 'separator') {
-                                const sepData = item.data as { level: number, difficulty: string };
-                                return (
-                                    <LevelSeparatorCard
-                                        key={`sep-${sepData.difficulty}-${sepData.level}`}
-                                        level={sepData.level}
-                                        difficulty={sepData.difficulty}
-                                    />
-                                );
-                            } else {
-                                const music = item.data as Music;
-                                return (
-                                    <MusicItem
-                                        key={music.id}
-                                        music={music}
-                                        difficulties={musicDifficultiesMap[music.id] || {}}
-                                        results={userMusicResults.get(music.id) || {}}
-                                        thumbnailUrl={getMusicThumbnailUrl(music)}
-                                        hasUserData={userMusicResults.size > 0}
-                                        selectedDifficulty={selectedDifficulty}
-                                    />
-                                );
-                            }
-                        })}
-                    </div>
-                )}
+                    {isLoading || isFetchingUser ? (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-3">
+                            {Array.from({ length: 12 }).map((_, i) => (
+                                <div key={i} className="rounded-xl overflow-hidden bg-white border border-slate-100 shadow-sm animate-pulse">
+                                    <div className="aspect-square bg-gradient-to-br from-slate-100 to-slate-200" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : filteredMusics.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-center">
+                            <svg className="w-16 h-16 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                            </svg>
+                            <p className="text-slate-400 font-medium">没有找到符合条件的歌曲</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-3">
+                            {displayedMusicsWithSeparators.map((item, index) => {
+                                if (item.type === 'separator') {
+                                    const sepData = item.data as { level: number, difficulty: string };
+                                    return (
+                                        <LevelSeparatorCard
+                                            key={`sep-${sepData.difficulty}-${sepData.level}`}
+                                            level={sepData.level}
+                                            difficulty={sepData.difficulty}
+                                        />
+                                    );
+                                } else {
+                                    const music = item.data as Music;
+                                    return (
+                                        <MusicItem
+                                            key={music.id}
+                                            music={music}
+                                            difficulties={musicDifficultiesMap[music.id] || {}}
+                                            results={userMusicResults.get(music.id) || {}}
+                                            thumbnailUrl={getMusicThumbnailUrl(music)}
+                                            hasUserData={userMusicResults.size > 0}
+                                            selectedDifficulty={selectedDifficulty}
+                                            constant={songConstantsMap[music.id]?.[selectedDifficulty]}
+                                            sortBy={sortBy}
+                                        />
+                                    );
+                                }
+                            })}
+                        </div>
+                    )}
 
-                {/* Load More Button */}
-                {!isLoading && displayedMusicsWithSeparators.filter(i => i.type === 'music').length < filteredMusics.length && (
-                    <div className="mt-8 flex justify-center">
-                        <button
-                            onClick={loadMore}
-                            data-shortcut-load-more="true"
-                            className="px-8 py-3 bg-gradient-to-r from-miku to-miku-dark text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
-                        >
-                            加载更多
-                            <span className="ml-2 text-sm opacity-80">
-                                ({displayedMusicsWithSeparators.filter(i => i.type === 'music').length} / {filteredMusics.length})
-                            </span>
-                        </button>
-                    </div>
-                )}
+                    {/* Load More Button */}
+                    {!isLoading && displayedMusicsWithSeparators.filter(i => i.type === 'music').length < filteredMusics.length && (
+                        <div className="mt-8 flex justify-center">
+                            <button
+                                onClick={loadMore}
+                                data-shortcut-load-more="true"
+                                className="px-8 py-3 bg-gradient-to-r from-miku to-miku-dark text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                            >
+                                加载更多
+                                <span className="ml-2 text-sm opacity-80">
+                                    ({displayedMusicsWithSeparators.filter(i => i.type === 'music').length} / {filteredMusics.length})
+                                </span>
+                            </button>
+                        </div>
+                    )}
 
-                {/* All loaded indicator */}
-                {!isLoading && displayedMusicsWithSeparators.filter(i => i.type === 'music').length > 0 && displayedMusicsWithSeparators.filter(i => i.type === 'music').length >= filteredMusics.length && (
-                    <div className="mt-8 text-center text-slate-400 text-sm">
-                        已显示全部 {filteredMusics.length} 首歌曲
-                    </div>
-                )}
+                    {/* All loaded indicator */}
+                    {!isLoading && displayedMusicsWithSeparators.filter(i => i.type === 'music').length > 0 && displayedMusicsWithSeparators.filter(i => i.type === 'music').length >= filteredMusics.length && (
+                        <div className="mt-8 text-center text-slate-400 text-sm">
+                            已显示全部 {filteredMusics.length} 首歌曲
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -781,9 +946,9 @@ function LevelSeparatorCard({ level, difficulty }: { level: number; difficulty: 
         MASTER: "from-purple-500 to-purple-600",
         APPEND: "from-pink-500 to-pink-600",
     };
-    
+
     const gradientClass = difficultyColors[difficulty] || "from-slate-400 to-slate-500";
-    
+
     return (
         <div className={`aspect-square rounded-xl bg-gradient-to-br ${gradientClass} flex flex-col items-center justify-center shadow-lg`}>
             <div className="text-white text-center px-2">
@@ -821,12 +986,14 @@ interface MusicItemProps {
     thumbnailUrl: string;
     hasUserData: boolean;
     selectedDifficulty: string;
+    constant?: number;
+    sortBy?: string;
 }
 
-function MusicItem({ music, difficulties, results, thumbnailUrl, hasUserData, selectedDifficulty }: MusicItemProps) {
+function MusicItem({ music, difficulties, results, thumbnailUrl, hasUserData, selectedDifficulty, constant, sortBy }: MusicItemProps) {
     const allDiffs = ["easy", "normal", "hard", "expert", "master", "append"];
     const currentLevel = difficulties[selectedDifficulty];
-    
+
     return (
         <Link href={`/music/${music.id}`} className="group block" data-shortcut-item="true">
             <div className="relative cursor-pointer rounded-xl overflow-hidden transition-all bg-white/60 ring-1 ring-slate-200/60 hover:ring-miku hover:shadow-xl hover:-translate-y-1">
@@ -839,21 +1006,21 @@ function MusicItem({ music, difficulties, results, thumbnailUrl, hasUserData, se
                         className="object-cover group-hover:scale-105 transition-transform duration-300"
                         unoptimized
                     />
-                    
-                    {/* Level Badge - top right corner */}
+
+                    {/* Badge - top right corner */}
                     {currentLevel !== undefined && (
-                        <div className="absolute top-1 right-1 bg-black/70 text-white text-xs font-bold px-1.5 py-0.5 rounded">
-                            {currentLevel}
+                        <div className={`absolute top-1 right-1 text-white font-bold px-1.5 py-0.5 rounded ${constant ? 'bg-miku/80 backdrop-blur-sm text-[10px] shadow-sm' : 'bg-black/70 text-xs'}`}>
+                            {constant ? constant.toFixed(1) : (sortBy === 'constant' ? `${currentLevel}.?` : currentLevel)}
                         </div>
                     )}
-                    
+
                     {/* Completion Badges - bottom left corner */}
                     {hasUserData && (
                         <div className="absolute bottom-1 left-1 flex gap-0.5">
                             {allDiffs.map(diff => {
                                 if (difficulties[diff] === undefined) return null;
                                 const result = results[diff] || "";
-                                
+
                                 return (
                                     <div key={diff} className="flex-shrink-0">
                                         {result === "AP" && (

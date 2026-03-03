@@ -141,13 +141,23 @@ export default function AboutPage() {
                             </div>
                         </div>
                     </div>
-                    {/* Card 5: Special Thanks */}
+                    {/* Card 5: Sponsors */}
+                    <div className="md:col-span-3 p-6 rounded-xl shadow-md border border-slate-100 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow">
+                        <div className="flex items-center gap-2 mb-4">
+                            <p className="text-md font-bold text-primary-text">赞助者致谢 （不分先后）</p>
+                        </div>
+                        <p className="text-sm text-slate-600 leading-7 text-justify">
+                            cike 一位不愿意透露具体ID的支持者 Hakuchumu 性价比 luoxia
+                        </p>
+                    </div>
+
+                    {/* Card 6: Special Thanks */}
                     <div className="md:col-span-3 p-6 rounded-xl shadow-md border border-slate-100 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow">
                         <div className="flex items-center gap-2 mb-4">
                             <p className="text-md font-bold text-primary-text">感谢支持Moesekai的名单（不分先后）</p>
                         </div>
                         <p className="text-sm text-slate-600 leading-7 text-justify">
-                            深海 Luna茶 Kazuhira 灵潜 咖啡不甜 郁郁葱葱 TONY_ALL# M氏 大梦 Hakuchumu 葡萄柚 Amia 不解 旭光 阳子 弥佑瑶 サクラかぜ luoxia 陈睿ガチ恋势 猫尾草 笨牛奶 霞綾 世说心羽 木口 沧溟 Aya Belos 兔兔 明日天気に シラ
+                            深海 Luna茶 cike Kazuhira 灵潜 咖啡不甜 郁郁葱葱 TONY_ALL# M氏 大梦 Hakuchumu 葡萄柚 Amia 不解 旭光 阳子 弥佑瑶 サクラかぜ luoxia 陈睿ガチ恋势 猫尾草 笨牛奶 霞綾 世说心羽 木口 沧溟 Aya Belos 兔兔 明日天気に シラ
                             偶像大师希罗酱 性价比……（以上为部分名单 感谢所有默默支持Moesekai的人）
                         </p>
                     </div>

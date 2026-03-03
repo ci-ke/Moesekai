@@ -89,38 +89,41 @@ export default function ProfileClient() {
             setLoaded(true);
         });
 
-        // 自动刷新没有 userGamedata 的旧账号
-        const refreshOldAccounts = async () => {
+        // 自动刷新所有账号的数据（uploadTime、名称、头像等）
+        const refreshAllAccounts = async () => {
             const accs = getAccounts();
             for (const acc of accs) {
-                if (!acc.userGamedata) {
-                    console.log(`刷新旧账号数据: ${acc.gameId} (${acc.server})`);
-                    const result = await verifyHarukiApi(acc.server, acc.gameId);
+                console.log(`刷新账号数据: ${acc.gameId} (${acc.server})`);
+                const result = await verifyHarukiApi(acc.server, acc.gameId);
 
-                    if (!result.success) {
-                        console.warn(`账号 ${acc.gameId} 刷新失败，删除账号`);
+                if (!result.success) {
+                    if (!acc.userGamedata) {
+                        // 从未成功获取过数据的旧账号，删除
+                        console.warn(`账号 ${acc.gameId} 刷新失败，删除旧账号`);
                         removeAccount(acc.id);
                     } else {
-                        const userGamedata = result.userGamedata || null;
-                        const userDecks = result.userDecks || null;
-                        const uploadTime = result.uploadTime || null;
-                        const avatarCardId = getLeaderCardId(userGamedata, userDecks);
-
-                        updateAccount(acc.id, {
-                            userGamedata,
-                            userDecks,
-                            uploadTime,
-                            avatarCardId,
-                            nickname: userGamedata?.name || acc.nickname,
-                        });
+                        console.warn(`账号 ${acc.gameId} 刷新失败，保留已有数据`);
                     }
+                } else {
+                    const userGamedata = result.userGamedata || null;
+                    const userDecks = result.userDecks || null;
+                    const uploadTime = result.uploadTime || null;
+                    const avatarCardId = getLeaderCardId(userGamedata, userDecks);
+
+                    updateAccount(acc.id, {
+                        userGamedata,
+                        userDecks,
+                        uploadTime,
+                        avatarCardId,
+                        nickname: userGamedata?.name || acc.nickname,
+                    });
                 }
             }
             // 刷新完成后重新加载
             reload();
         };
 
-        refreshOldAccounts();
+        refreshAllAccounts();
         return () => cancelAnimationFrame(raf);
     }, [reload]);
 

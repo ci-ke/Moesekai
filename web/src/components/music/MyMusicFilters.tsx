@@ -27,9 +27,9 @@ interface MyMusicFiltersProps {
     searchQuery: string;
     onSearchChange: (query: string) => void;
     // Sort
-    sortBy: "publishedAt" | "id" | "level" | "completion";
+    sortBy: "publishedAt" | "id" | "level" | "completion" | "constant";
     sortOrder: "asc" | "desc";
-    onSortChange: (sortBy: "publishedAt" | "id" | "level" | "completion", sortOrder: "asc" | "desc") => void;
+    onSortChange: (sortBy: "publishedAt" | "id" | "level" | "completion" | "constant", sortOrder: "asc" | "desc") => void;
     // Reset
     onReset: () => void;
     // Stats
@@ -62,7 +62,8 @@ const SORT_OPTIONS = [
     { id: "completion", label: "完成度" },
     { id: "publishedAt", label: "发布日期" },
     { id: "id", label: "ID" },
-    { id: "level", label: "定数" },
+    { id: "level", label: "难度" },
+    { id: "constant", label: "定数" },
 ];
 
 export default function MyMusicFilters({
@@ -110,7 +111,7 @@ export default function MyMusicFilters({
             sortOptions={SORT_OPTIONS}
             sortBy={sortBy}
             sortOrder={sortOrder}
-            onSortChange={(id, order) => onSortChange(id as "publishedAt" | "id" | "level" | "completion", order)}
+            onSortChange={(id, order) => onSortChange(id as "publishedAt" | "id" | "level" | "completion" | "constant", order)}
             hasActiveFilters={hasActiveFilters}
             onReset={onReset}
         >
@@ -123,11 +124,10 @@ export default function MyMusicFilters({
                             <button
                                 key={diff.value}
                                 onClick={() => onDifficultyChange(diff.value)}
-                                className={`px-2 py-2 rounded-lg text-xs font-bold transition-all ${
-                                    isSelected
-                                        ? "bg-miku text-white shadow-md"
-                                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                }`}
+                                className={`px-2 py-2 rounded-lg text-xs font-bold transition-all ${isSelected
+                                    ? "bg-miku text-white shadow-md"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                    }`}
                             >
                                 {diff.label}
                             </button>
@@ -147,11 +147,10 @@ export default function MyMusicFilters({
                             <button
                                 key={tag}
                                 onClick={() => onTagChange(tag)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all ${
-                                    isSelected
-                                        ? "ring-2 ring-miku shadow-lg bg-white"
-                                        : "hover:bg-slate-100 border border-slate-200 bg-slate-50/50"
-                                }`}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all ${isSelected
+                                    ? "ring-2 ring-miku shadow-lg bg-white"
+                                    : "hover:bg-slate-100 border border-slate-200 bg-slate-50/50"
+                                    }`}
                                 title={MUSIC_TAG_NAMES[tag]}
                             >
                                 {hasIcon && (
@@ -183,11 +182,10 @@ export default function MyMusicFilters({
                             <button
                                 key={cat}
                                 onClick={() => toggleCategory(cat)}
-                                className={`h-9 px-3 rounded-xl transition-all flex items-center justify-center border ${
-                                    isSelected
-                                        ? "text-white shadow-lg border-transparent"
-                                        : "hover:bg-slate-100 border-slate-200 bg-slate-50/50 text-slate-600"
-                                }`}
+                                className={`h-9 px-3 rounded-xl transition-all flex items-center justify-center border ${isSelected
+                                    ? "text-white shadow-lg border-transparent"
+                                    : "hover:bg-slate-100 border-slate-200 bg-slate-50/50 text-slate-600"
+                                    }`}
                                 style={
                                     isSelected
                                         ? { backgroundColor: MUSIC_CATEGORY_COLORS[cat] }
@@ -209,31 +207,28 @@ export default function MyMusicFilters({
                     <div className="grid grid-cols-3 gap-2">
                         <button
                             onClick={() => onCompletionFilterChange("all")}
-                            className={`px-2 py-2 rounded-lg text-xs font-bold transition-all ${
-                                completionFilter === "all"
-                                    ? "bg-miku text-white shadow-md"
-                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                            }`}
+                            className={`px-2 py-2 rounded-lg text-xs font-bold transition-all ${completionFilter === "all"
+                                ? "bg-miku text-white shadow-md"
+                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                }`}
                         >
                             全部
                         </button>
                         <button
                             onClick={() => onCompletionFilterChange("no_fc")}
-                            className={`px-2 py-2 rounded-lg text-xs font-bold transition-all ${
-                                completionFilter === "no_fc"
-                                    ? "bg-miku text-white shadow-md"
-                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                            }`}
+                            className={`px-2 py-2 rounded-lg text-xs font-bold transition-all ${completionFilter === "no_fc"
+                                ? "bg-miku text-white shadow-md"
+                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                }`}
                         >
                             未FC
                         </button>
                         <button
                             onClick={() => onCompletionFilterChange("no_ap")}
-                            className={`px-2 py-2 rounded-lg text-xs font-bold transition-all ${
-                                completionFilter === "no_ap"
-                                    ? "bg-miku text-white shadow-md"
-                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                            }`}
+                            className={`px-2 py-2 rounded-lg text-xs font-bold transition-all ${completionFilter === "no_ap"
+                                ? "bg-miku text-white shadow-md"
+                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                }`}
                         >
                             未AP
                         </button>

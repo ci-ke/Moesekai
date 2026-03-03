@@ -8,9 +8,10 @@ import { TranslatedText } from "@/components/common/TranslatedText";
 interface MusicItemProps {
     music: IMusicInfo;
     isSpoiler?: boolean;
+    constant?: number;
 }
 
-export default function MusicItem({ music, isSpoiler }: MusicItemProps) {
+export default function MusicItem({ music, isSpoiler, constant }: MusicItemProps) {
     const { assetSource } = useTheme();
     const jacketUrl = getMusicJacketUrl(music.assetbundleName, assetSource);
 
@@ -45,6 +46,13 @@ export default function MusicItem({ music, isSpoiler }: MusicItemProps) {
                     <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-black/60 rounded text-[10px] text-white font-mono">
                         #{music.id}
                     </div>
+
+                    {/* Constant Badge - bottom right */}
+                    {constant !== undefined && (
+                        <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-miku/80 backdrop-blur-sm rounded text-[10px] text-white font-bold shadow-sm">
+                            {constant.toFixed(1)}
+                        </div>
+                    )}
 
                     {/* Spoiler Badge - Top Left */}
                     {isSpoiler && (

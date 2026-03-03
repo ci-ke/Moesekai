@@ -397,7 +397,7 @@ export default function MusicSelector({ selectedMusicId, onSelect, recommendMode
                             sortBy={sortBy}
                             sortOrder={sortOrder}
                             onSortChange={(nextSortBy, nextSortOrder) => {
-                                if (nextSortBy === "level") return;
+                                if (nextSortBy === "level" || nextSortBy === "constant") return;
                                 setSortBy(nextSortBy);
                                 setSortOrder(nextSortOrder);
                             }}

@@ -23,6 +23,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { fetchMasterData } from "@/lib/fetch";
 import { loadTranslations, TranslationData } from "@/lib/translations";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
+import { fetchSongConstants, buildSongConstantsMap } from "@/lib/songConstants";
 
 // Level Separator Card Component
 function LevelSeparatorCard({ level, difficulty }: { level: number; difficulty: string }) {
@@ -34,9 +35,9 @@ function LevelSeparatorCard({ level, difficulty }: { level: number; difficulty: 
         MASTER: "from-purple-500 to-purple-600",
         APPEND: "from-pink-500 to-pink-600",
     };
-    
+
     const gradientClass = difficultyColors[difficulty] || "from-slate-400 to-slate-500";
-    
+
     return (
         <div className={`aspect-square rounded-xl bg-gradient-to-br ${gradientClass} flex flex-col items-center justify-center shadow-lg`}>
             <div className="text-white text-center px-2">
@@ -64,6 +65,7 @@ function MusicContent() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [filtersInitialized, setFiltersInitialized] = useState(false);
+    const [songConstantsMap, setSongConstantsMap] = useState<Record<number, Record<string, number>>>({});
 
 
     // Filter states
@@ -74,7 +76,7 @@ function MusicContent() {
     const [selectedDifficulty, setSelectedDifficulty] = useState<string>("master");
 
     // Sort states
-    const [sortBy, setSortBy] = useState<"publishedAt" | "id" | "level">("publishedAt");
+    const [sortBy, setSortBy] = useState<"publishedAt" | "id" | "level" | "constant">("publishedAt");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
     // Pagination with scroll restore
@@ -104,7 +106,7 @@ function MusicContent() {
             if (categories) setSelectedCategories(categories.split(",") as MusicCategoryType[]);
             if (eventOnly === "true") setHasEventOnly(true);
             if (search) setSearchQuery(search);
-            if (sort) setSortBy(sort as "publishedAt" | "id");
+            if (sort) setSortBy(sort as "publishedAt" | "id" | "level" | "constant");
             if (order) setSortOrder(order as "asc" | "desc");
         } else {
             try {
@@ -188,6 +190,13 @@ function MusicContent() {
                 setEventMusicIds(new Set(eventMusicsData.map((em) => em.musicId)));
                 setTranslations(translationsData);
                 setError(null);
+
+                // Fetch song constants (non-blocking)
+                fetchSongConstants().then(entries => {
+                    setSongConstantsMap(buildSongConstantsMap(entries));
+                }).catch(err => {
+                    console.warn("Failed to load song constants:", err);
+                });
 
             } catch (err) {
                 console.error("Error fetching music data:", err);
@@ -278,41 +287,51 @@ function MusicContent() {
                     comparison = levelA - levelB;
                     if (comparison === 0) comparison = a.publishedAt - b.publishedAt;
                     break;
+                case "constant":
+                    const constA = songConstantsMap[a.id]?.[selectedDifficulty] || 0;
+                    const constB = songConstantsMap[b.id]?.[selectedDifficulty] || 0;
+                    comparison = constA - constB;
+                    if (comparison === 0) comparison = a.publishedAt - b.publishedAt;
+                    break;
             }
             return sortOrder === "asc" ? comparison : -comparison;
         });
 
         return result;
-    }, [musics, musicTags, eventMusicIds, selectedTag, selectedCategories, hasEventOnly, searchQuery, sortBy, sortOrder, isShowSpoiler, translations, musicDifficultiesMap, selectedDifficulty]);
+    }, [musics, musicTags, eventMusicIds, selectedTag, selectedCategories, hasEventOnly, searchQuery, sortBy, sortOrder, isShowSpoiler, translations, musicDifficultiesMap, selectedDifficulty, songConstantsMap]);
 
     // Displayed musics with level separators (only when sorting by level)
     const displayedMusicsWithSeparators = useMemo(() => {
         const musics = filteredMusics.slice(0, displayCount);
-        
-        if (sortBy !== "level") {
+
+        if (sortBy !== "level" && sortBy !== "constant") {
             return musics.map(m => ({ type: 'music' as const, data: m }));
         }
-        
-        // Group by level and insert separators
+
+        // Group by level/constant and insert separators
         const result: Array<{ type: 'music' | 'separator', data: IMusicInfo | { level: number, difficulty: string } }> = [];
         let lastLevel: number | null = null;
-        
+
         for (const music of musics) {
-            const level = musicDifficultiesMap[music.id]?.[selectedDifficulty] || 0;
-            
-            if (level !== lastLevel) {
+            const rawLevel = sortBy === "constant"
+                ? (songConstantsMap[music.id]?.[selectedDifficulty] || 0)
+                : (musicDifficultiesMap[music.id]?.[selectedDifficulty] || 0);
+            // For constant sorting, group by integer level only (e.g., 35 not 35.1/35.2)
+            const groupLevel = sortBy === "constant" ? Math.floor(rawLevel) : rawLevel;
+
+            if (groupLevel !== lastLevel) {
                 result.push({
                     type: 'separator',
-                    data: { level, difficulty: selectedDifficulty.toUpperCase() }
+                    data: { level: groupLevel, difficulty: selectedDifficulty.toUpperCase() }
                 });
-                lastLevel = level;
+                lastLevel = groupLevel;
             }
-            
+
             result.push({ type: 'music', data: music });
         }
-        
+
         return result;
-    }, [filteredMusics, displayCount, sortBy, musicDifficultiesMap, selectedDifficulty]);
+    }, [filteredMusics, displayCount, sortBy, musicDifficultiesMap, selectedDifficulty, songConstantsMap]);
 
 
 
@@ -329,7 +348,7 @@ function MusicContent() {
 
     // Sort change handler
     const handleSortChange = useCallback(
-        (newSortBy: "publishedAt" | "id" | "level", newSortOrder: "asc" | "desc") => {
+        (newSortBy: "publishedAt" | "id" | "level" | "constant", newSortOrder: "asc" | "desc") => {
             setSortBy(newSortBy);
             setSortOrder(newSortOrder);
             resetDisplayCount();
@@ -444,7 +463,8 @@ function MusicContent() {
                                     const music = item.data as IMusicInfo;
                                     const now = Date.now();
                                     const isSpoiler = music.publishedAt > now;
-                                    return <MusicItem key={music.id} music={music} isSpoiler={isSpoiler} />;
+                                    const musicConstant = songConstantsMap[music.id]?.[selectedDifficulty];
+                                    return <MusicItem key={music.id} music={music} isSpoiler={isSpoiler} constant={musicConstant} />;
                                 }
                             })}
                         </div>

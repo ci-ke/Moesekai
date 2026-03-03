@@ -27,9 +27,9 @@ interface MusicFiltersProps {
     selectedDifficulty?: string;
     onDifficultyChange?: (difficulty: string) => void;
     // Sort
-    sortBy: "publishedAt" | "id" | "level";
+    sortBy: "publishedAt" | "id" | "level" | "constant";
     sortOrder: "asc" | "desc";
-    onSortChange: (sortBy: "publishedAt" | "id" | "level", sortOrder: "asc" | "desc") => void;
+    onSortChange: (sortBy: "publishedAt" | "id" | "level" | "constant", sortOrder: "asc" | "desc") => void;
     // Reset
     onReset: () => void;
     // Stats
@@ -50,7 +50,8 @@ const TAG_ICONS: Partial<Record<MusicTagType, string>> = {
 const SORT_OPTIONS = [
     { id: "publishedAt", label: "发布日期" },
     { id: "id", label: "ID" },
-    { id: "level", label: "定数" },
+    { id: "level", label: "难度" },
+    { id: "constant", label: "定数" },
 ];
 
 const DIFFICULTY_OPTIONS = [
@@ -106,7 +107,7 @@ export default function MusicFilters({
             sortOptions={SORT_OPTIONS}
             sortBy={sortBy}
             sortOrder={sortOrder}
-            onSortChange={(id, order) => onSortChange(id as "publishedAt" | "id" | "level", order)}
+            onSortChange={(id, order) => onSortChange(id as "publishedAt" | "id" | "level" | "constant", order)}
             hasActiveFilters={hasActiveFilters}
             onReset={onReset}
         >
@@ -176,7 +177,7 @@ export default function MusicFilters({
             </FilterSection>
 
             {/* Difficulty Filter - Only show when sorting by level */}
-            {sortBy === "level" && selectedDifficulty && onDifficultyChange && (
+            {(sortBy === "level" || sortBy === "constant") && selectedDifficulty && onDifficultyChange && (
                 <FilterSection label="难度选择">
                     <div className="grid grid-cols-2 gap-2">
                         {DIFFICULTY_OPTIONS.map((diff) => {
@@ -185,11 +186,10 @@ export default function MusicFilters({
                                 <button
                                     key={diff.id}
                                     onClick={() => onDifficultyChange(diff.id)}
-                                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                                        isSelected
-                                            ? `bg-gradient-to-r ${diff.color} text-white shadow-lg`
-                                            : "bg-slate-50/50 border border-slate-200 text-slate-600 hover:bg-slate-100"
-                                    }`}
+                                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${isSelected
+                                        ? `bg-gradient-to-r ${diff.color} text-white shadow-lg`
+                                        : "bg-slate-50/50 border border-slate-200 text-slate-600 hover:bg-slate-100"
+                                        }`}
                                 >
                                     {diff.label}
                                 </button>
