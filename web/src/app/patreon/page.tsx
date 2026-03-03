@@ -154,7 +154,15 @@ export default function PatreonPage() {
                     </section>
 
                     <section className="space-y-4 pt-8 border-t border-slate-100 mb-8">
-                        <h2 className="text-2xl font-bold text-primary-text mb-6">附上赞助二维码</h2>
+                        <h2 className="text-2xl font-bold text-primary-text mb-2">赞助</h2>
+
+                        <p className="text-slate-600 bg-miku/10 border border-miku/20 p-4 rounded-lg mb-6">
+                            <strong className="text-miku">附言：</strong>赞助时请附言你的<strong>个人ID</strong>，以便于 moesekai 将你加入我们的感谢名单中！
+                        </p>
+
+                        <p className="text-slate-500 text-sm mb-6 text-center">
+                            目前 moesekai 的服务器已增加过两轮，哪怕你不进行赞助，只要你一直支持我们，我们都会持续进行运营的！
+                        </p>
 
                         <div className="flex flex-col sm:flex-row gap-12 justify-center items-center">
                             {/* Alipay */}
