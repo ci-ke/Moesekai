@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
 import QRCode from "qrcode";
 import { useTheme } from "@/contexts/ThemeContext";
+import Modal from "@/components/common/Modal";
 
 // ==================== Types ====================
 
@@ -450,14 +450,88 @@ export default function Best30ShareImage({
     const [isGenerating, setIsGenerating] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [progressText, setProgressText] = useState("准备中...");
+    const [canvasReady, setCanvasReady] = useState(false);
+    const copyResetTimerRef = useRef<number | null>(null);
+    const saveResetTimerRef = useRef<number | null>(null);
 
     const { themeColor } = useTheme();
 
-    // Prevent body scroll when modal is open
     useEffect(() => {
-        document.body.style.overflow = "hidden";
-        return () => { document.body.style.overflow = ""; };
+        return () => {
+            if (copyResetTimerRef.current) {
+                window.clearTimeout(copyResetTimerRef.current);
+            }
+            if (saveResetTimerRef.current) {
+                window.clearTimeout(saveResetTimerRef.current);
+            }
+        };
     }, []);
+
+    // Callback ref: detect when canvas actually mounts in the DOM
+    // (Modal delays rendering by one rAF, so the canvas isn't available on first render)
+    const canvasCallbackRef = useCallback((node: HTMLCanvasElement | null) => {
+        canvasRef.current = node;
+        if (node) setCanvasReady(true);
+    }, []);
+
+    // Fake progress bar — slow progression over ~15s, capping at 95%
+    useEffect(() => {
+        if (!isGenerating) {
+            setProgress(100);
+            setProgressText("完成!");
+            return;
+        }
+
+        setProgress(0);
+        setProgressText("加载资源...");
+
+        const stages = [
+            { target: 15, text: "加载资源...", duration: 2000 },
+            { target: 35, text: "绘制卡片...", duration: 4000 },
+            { target: 55, text: "渲染封面...", duration: 4000 },
+            { target: 70, text: "生成二维码...", duration: 3000 },
+            { target: 85, text: "即将完成...", duration: 5000 },
+            { target: 95, text: "最终处理...", duration: 12000 },
+        ];
+
+        const startTime = Date.now();
+
+        const timer = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            let currentStage = 0;
+            let totalDuration = 0;
+
+            for (let i = 0; i < stages.length; i++) {
+                totalDuration += stages[i].duration;
+                if (elapsed < totalDuration) {
+                    currentStage = i;
+                    break;
+                }
+                if (i === stages.length - 1) {
+                    currentStage = i;
+                }
+            }
+
+            const stage = stages[currentStage];
+            const prevTarget = currentStage > 0 ? stages[currentStage - 1].target : 0;
+            const prevDuration = stages.slice(0, currentStage).reduce((s, st) => s + st.duration, 0);
+            const stageElapsed = elapsed - prevDuration;
+            const stageProgress = Math.min(stageElapsed / stage.duration, 1);
+            // Ease out cubic for very smooth slow-down
+            const eased = 1 - Math.pow(1 - stageProgress, 3);
+
+            let currentProgress = prevTarget + (stage.target - prevTarget) * eased;
+            currentProgress = Math.min(currentProgress, 95);
+
+            setProgress(Math.round(currentProgress));
+            setProgressText(stage.text);
+        }, 80);
+
+        return () => clearInterval(timer);
+    }, [isGenerating]);
 
     const generateImage = useCallback(async () => {
         const canvas = canvasRef.current;
@@ -474,22 +548,37 @@ export default function Best30ShareImage({
         }
     }, [entries, average, gameId, serverLabel, getMusicThumbnailUrl, themeColor, avatarUrl, nickname, uploadTime]);
 
+    // Trigger image generation when canvas is ready (after Modal mounts it)
     useEffect(() => {
-        generateImage();
-    }, [generateImage]);
+        if (canvasReady) {
+            generateImage();
+        }
+    }, [canvasReady, generateImage]);
 
     const handleDownload = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
+
+        setSaveSuccess(false);
         const link = document.createElement("a");
         link.download = `best30_${gameId}.png`;
         link.href = canvas.toDataURL("image/png");
         link.click();
+
+        setSaveSuccess(true);
+        if (saveResetTimerRef.current) {
+            window.clearTimeout(saveResetTimerRef.current);
+        }
+        saveResetTimerRef.current = window.setTimeout(() => {
+            setSaveSuccess(false);
+        }, 1800);
     }, [gameId]);
 
     const handleCopy = useCallback(async () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
+
+        setCopied(false);
         try {
             canvas.toBlob(async (blob) => {
                 if (!blob) return;
@@ -498,7 +587,12 @@ export default function Best30ShareImage({
                         new ClipboardItem({ "image/png": blob }),
                     ]);
                     setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
+                    if (copyResetTimerRef.current) {
+                        window.clearTimeout(copyResetTimerRef.current);
+                    }
+                    copyResetTimerRef.current = window.setTimeout(() => {
+                        setCopied(false);
+                    }, 1800);
                 } catch {
                     alert("复制失败，请尝试使用下载功能");
                 }
@@ -508,86 +602,115 @@ export default function Best30ShareImage({
         }
     }, []);
 
-    const modalContent = (
-        <div
-            className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-            style={{ zIndex: 9999 }}
-            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-        >
-            <div
-                className="relative bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-                style={{ maxWidth: "95vw", maxHeight: "92vh" }}
+    const headerActions = (
+        <>
+            <button
+                onClick={handleCopy}
+                disabled={isGenerating}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
+                aria-label="复制图片"
+                title={copied ? "复制成功" : "复制图片"}
             >
-                {/* Header */}
-                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 flex-shrink-0">
-                    <h3 className="text-slate-800 font-bold text-sm">Best30 分享图片</h3>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={handleCopy}
-                            disabled={isGenerating}
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                        >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                            {copied ? "已复制 ✓" : "复制"}
-                        </button>
-                        <button
-                            onClick={handleDownload}
-                            disabled={isGenerating}
-                            className="px-3 py-1.5 bg-miku hover:bg-miku-dark text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
-                        >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                            下载图片
-                        </button>
-                        <button
-                            onClick={onClose}
-                            className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
-                        >
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-
-                {/* Canvas Area - scrollable */}
-                <div className="overflow-auto flex-1 min-h-0 p-4 flex items-start justify-center bg-slate-50">
-                    {isGenerating && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
-                            <div className="flex flex-col items-center gap-3">
-                                <div className="w-8 h-8 border-3 border-slate-200 border-t-miku rounded-full animate-spin" />
-                                <span className="text-slate-500 text-xs">正在生成图片...</span>
-                            </div>
-                        </div>
-                    )}
-                    {error && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
-                            <div className="text-center">
-                                <p className="text-red-500 text-sm font-medium mb-2">{error}</p>
-                                <button
-                                    onClick={generateImage}
-                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs rounded-lg transition-colors"
-                                >
-                                    重新生成
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                    <canvas
-                        ref={canvasRef}
-                        className="rounded-lg shadow-lg"
-                        style={{ maxWidth: "100%", height: "auto" }}
-                    />
-                </div>
-            </div>
-        </div>
+                <span className="relative block w-4 h-4">
+                    <svg
+                        className={`absolute inset-0 w-4 h-4 transition-all duration-200 ${copied ? "opacity-0 scale-75" : "opacity-100 scale-100"}`}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    <svg
+                        className={`absolute inset-0 w-4 h-4 transition-all duration-200 ${copied ? "opacity-100 scale-100" : "opacity-0 scale-75"}`}
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                </span>
+            </button>
+            <button
+                onClick={handleDownload}
+                disabled={isGenerating}
+                className="p-1.5 text-slate-400 hover:text-miku hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
+                aria-label="保存图片"
+                title={saveSuccess ? "保存完成" : "保存图片"}
+            >
+                <span className="relative block w-4 h-4">
+                    <svg
+                        className={`absolute inset-0 w-4 h-4 transition-all duration-200 ${saveSuccess ? "opacity-0 scale-75" : "opacity-100 scale-100"}`}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    <svg
+                        className={`absolute inset-0 w-4 h-4 transition-all duration-200 ${saveSuccess ? "opacity-100 scale-100" : "opacity-0 scale-75"}`}
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                </span>
+            </button>
+        </>
     );
 
-    if (typeof document !== "undefined") {
-        return createPortal(modalContent, document.body);
-    }
-    return null;
+    return (
+        <Modal
+            isOpen
+            onClose={onClose}
+            title="Best30 分享图片"
+            size="xl"
+            headerActions={headerActions}
+        >
+            <div className="space-y-4">
+                <div className="relative rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="overflow-auto max-h-[68vh] flex items-start justify-center">
+                        {isGenerating && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 rounded-xl">
+                                <div className="flex flex-col items-center gap-4 w-64">
+                                    <div className="w-10 h-10 border-3 border-slate-200 border-t-miku rounded-full animate-spin" />
+                                    <div className="w-full">
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <span className="text-slate-500 text-xs font-medium">{progressText}</span>
+                                            <span className="text-miku text-xs font-bold">{progress}%</span>
+                                        </div>
+                                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-gradient-to-r from-miku to-miku-dark rounded-full transition-all duration-500 ease-out"
+                                                style={{ width: `${progress}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <span className="text-slate-400 text-[10px]">正在生成 Best30 分享图片</span>
+                                </div>
+                            </div>
+                        )}
+                        {error && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 rounded-xl">
+                                <div className="text-center">
+                                    <p className="text-red-500 text-sm font-medium mb-2">{error}</p>
+                                    <button
+                                        onClick={generateImage}
+                                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs rounded-lg transition-colors"
+                                    >
+                                        重新生成
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        <canvas
+                            ref={canvasCallbackRef}
+                            className="rounded-lg shadow-lg"
+                            style={{ maxWidth: "100%", height: "auto" }}
+                        />
+                    </div>
+                </div>
+            </div>
+        </Modal>
+    );
 }

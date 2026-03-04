@@ -10,6 +10,7 @@ import { getStampUrl } from "@/lib/assets";
 import { fetchMasterData } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
+import ImagePreviewModal from "@/components/common/ImagePreviewModal";
 
 interface IStampInfo {
     id: number;
@@ -37,6 +38,7 @@ function StickerContent() {
     const [selectedChar2, setSelectedChar2] = useState<number | null>(null);
     const [stampType, setStampType] = useState<string>("");
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+    const [selectedStamp, setSelectedStamp] = useState<IStampInfo | null>(null);
 
     // Pagination with scroll restore
     const { displayCount, loadMore } = useScrollRestore({
@@ -140,6 +142,15 @@ function StickerContent() {
 
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8">
+            <ImagePreviewModal
+                isOpen={!!selectedStamp}
+                onClose={() => setSelectedStamp(null)}
+                title={selectedStamp ? `${selectedStamp.name} 贴纸预览` : "贴纸预览"}
+                imageUrl={selectedStamp ? getStampUrl(selectedStamp.assetbundleName, assetSource) : ""}
+                alt={selectedStamp?.name || "Sticker"}
+                fileName={selectedStamp ? `sticker_${selectedStamp.id}.png` : "sticker.png"}
+            />
+
             {/* Page Header */}
             <div className="text-center mb-8">
                 <div className="inline-flex items-center gap-2 px-4 py-2 border border-miku/30 bg-miku/5 rounded-full mb-4">
@@ -303,13 +314,12 @@ function StickerContent() {
                         <>
                             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
                                 {displayedStamps.map(stamp => (
-                                    <a
+                                    <button
+                                        type="button"
                                         key={stamp.id}
-                                        href={getStampUrl(stamp.assetbundleName, assetSource)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                        onClick={() => setSelectedStamp(stamp)}
                                         data-shortcut-item="true"
-                                        className="group block"
+                                        className="group block w-full text-left"
                                     >
                                         <div className="bg-white rounded-xl shadow ring-1 ring-slate-200 overflow-hidden hover:ring-miku hover:shadow-lg transition-all p-2">
                                             <div className="relative aspect-square">
@@ -331,7 +341,7 @@ function StickerContent() {
                                                 />
                                             </div>
                                         </div>
-                                    </a>
+                                    </button>
                                 ))}
                             </div>
 

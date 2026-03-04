@@ -10,6 +10,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
 import { fetchMasterData } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
+import ImagePreviewModal from "@/components/common/ImagePreviewModal";
 
 // Gacha Simulator Types
 interface GachaStatistic {
@@ -62,6 +63,7 @@ export default function GachaDetailClient() {
     const [error, setError] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
     const [activeImageTab, setActiveImageTab] = useState<"logo" | "bg">("logo");
+    const [imageViewerOpen, setImageViewerOpen] = useState(false);
     const [customSpinCount, setCustomSpinCount] = useState<string>("");
     const { isShowSpoiler, useTrainedThumbnail, assetSource } = useTheme();
 
@@ -400,9 +402,20 @@ export default function GachaDetailClient() {
     const logoUrl = getGachaLogoUrl(gacha.assetbundleName, assetSource);
     const bgUrl = getGachaScreenUrl(gacha.assetbundleName, gacha.id, assetSource);
     const status = getGachaStatus();
+    const activeImageUrl = activeImageTab === "logo" ? logoUrl : bgUrl;
+    const activeImageLabel = activeImageTab === "logo" ? "Logo" : "背景";
 
     return (
         <MainLayout>
+            <ImagePreviewModal
+                isOpen={imageViewerOpen}
+                onClose={() => setImageViewerOpen(false)}
+                title={`${gacha.name} ${activeImageLabel} 大图`}
+                imageUrl={activeImageUrl}
+                alt={`${gacha.name} ${activeImageLabel}`}
+                fileName={`gacha_${gacha.id}_${activeImageTab}.png`}
+            />
+
             <div className="container mx-auto px-4 sm:px-6 py-8">
                 {/* Breadcrumb */}
                 <nav className="mb-6">
@@ -513,7 +526,10 @@ export default function GachaDetailClient() {
                                     ))}
                                 </div>
                                 {/* Image Content */}
-                                <div className="relative aspect-[16/9] bg-gradient-to-br from-slate-50 to-slate-100">
+                                <div
+                                    className="relative aspect-[16/9] bg-gradient-to-br from-slate-50 to-slate-100 cursor-zoom-in group"
+                                    onClick={() => setImageViewerOpen(true)}
+                                >
                                     {activeImageTab === "logo" && (
                                         <Image
                                             src={logoUrl}
@@ -533,6 +549,12 @@ export default function GachaDetailClient() {
                                             unoptimized
                                         />
                                     )}
+                                    <div className="absolute bottom-3 right-3 z-10 bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-lg flex items-center gap-1">
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                        </svg>
+                                        点击放大
+                                    </div>
                                 </div>
                             </div>
                         )}

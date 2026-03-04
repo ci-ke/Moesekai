@@ -29,7 +29,10 @@ export default function MainNavbar({
     const [showDomainNotice, setShowDomainNotice] = useState(false);
 
     useEffect(() => {
-        setShowDomainNotice(!localStorage.getItem("moesekai_domain_notice_dismissed"));
+        const dismissed = localStorage.getItem("moesekai_domain_notice_dismissed");
+        queueMicrotask(() => {
+            setShowDomainNotice(!dismissed);
+        });
     }, []);
 
     const dismissDomainNotice = (e: React.MouseEvent) => {
@@ -80,7 +83,7 @@ export default function MainNavbar({
                         />
                         <div className="flex items-center gap-1.5 h-full">
                             <span className="text-[8px] px-1.5 py-0.5 bg-amber-400 text-white font-bold rounded-full leading-none">
-                                BETA1.126
+                                BETA1.129
                             </span>
 
                             {showDomainNotice && (

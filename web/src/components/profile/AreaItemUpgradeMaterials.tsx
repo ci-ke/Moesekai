@@ -126,6 +126,7 @@ export default function AreaItemUpgradeMaterials({
     const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
     const [selectedCharacterId, setSelectedCharacterId] = useState<number | null>(null);
     const [selectedAttr, setSelectedAttr] = useState<AttrFilter | null>(null);
+    const [expandedItemId, setExpandedItemId] = useState<number | null>(null);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -293,6 +294,10 @@ export default function AreaItemUpgradeMaterials({
 
     const emptyHint = !selectedUnitId && selectedCharacterId === null && !selectedAttr;
 
+    useEffect(() => {
+        setExpandedItemId(null);
+    }, [selectedUnitId, selectedCharacterId, selectedAttr]);
+
     return (
         <div id="profile-area-item-materials" className="scroll-mt-20 glass-card p-5 sm:p-6 rounded-2xl mb-6">
             <div className="mb-4">
@@ -427,7 +432,12 @@ export default function AreaItemUpgradeMaterials({
                     {sortedItems.map((meta) => {
                         const currentLv = userItemLvMap.get(meta.item.id) || 0;
                         const costsByLv = itemLevelCosts.get(meta.item.id) || new Map<number, Map<number, number>>();
-                        const lvRows = [];
+                        const lvRows: Array<{
+                            level: number;
+                            bonus: number;
+                            lvCost: Map<number, number>;
+                            sumCost: Map<number, number>;
+                        }> = [];
                         const running = new Map<number, number>();
 
                         for (let lv = currentLv + 1; lv <= meta.maxLevel; lv += 1) {
@@ -440,6 +450,15 @@ export default function AreaItemUpgradeMaterials({
                                 sumCost: new Map(running),
                             });
                         }
+
+                        const levelsRemaining = Math.max(meta.maxLevel - currentLv, 0);
+                        const currentBonus = meta.levelBonuses.get(currentLv) || 0;
+                        const maxBonus = meta.levelBonuses.get(meta.maxLevel) || currentBonus;
+                        const totalCost = lvRows.length > 0
+                            ? lvRows[lvRows.length - 1].sumCost
+                            : new Map<number, number>();
+                        const totalMaterials = Array.from(totalCost.entries()).sort((a, b) => b[1] - a[1]);
+                        const expanded = expandedItemId === meta.item.id;
 
                         return (
                             <div key={meta.item.id} className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
@@ -456,6 +475,7 @@ export default function AreaItemUpgradeMaterials({
                                     <div className="min-w-0">
                                         <div className="text-sm font-bold text-primary-text truncate">{meta.item.name}</div>
                                         <div className="text-xs text-slate-500">当前 Lv.{currentLv} / 上限 Lv.{meta.maxLevel}</div>
+                                        <div className="text-xs text-slate-500 mt-0.5">加成 {currentBonus.toFixed(1)}% → {maxBonus.toFixed(1)}%</div>
                                     </div>
                                 </div>
 
@@ -464,59 +484,114 @@ export default function AreaItemUpgradeMaterials({
                                         <div className="text-xs text-emerald-600 font-semibold">已满级，无需材料</div>
                                     )}
 
-                                    {lvRows.map((row) => (
-                                        <div key={row.level} className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="text-sm font-bold text-slate-700">
-                                                    Lv.{row.level}
-                                                    <span className="ml-2 text-xs text-slate-500 font-semibold">+{row.bonus.toFixed(1)}%</span>
+                                    {lvRows.length > 0 && (
+                                        <>
+                                            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="text-xs font-bold text-slate-600">总计所需材料</div>
+                                                    <div className="text-xs font-semibold text-slate-500">还需 {levelsRemaining} 级</div>
                                                 </div>
-                                                <div
-                                                    className="h-1.5 rounded-full"
-                                                    style={{
-                                                        width: `${Math.max(4, Math.min((row.level / meta.maxLevel) * 100, 100))}%`,
-                                                        backgroundColor: themeColor,
-                                                    }}
-                                                />
-                                            </div>
-
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                {Array.from(row.lvCost.entries()).map(([materialId, quantity]) => {
-                                                    const have = userMaterialMap.get(materialId) || 0;
-                                                    const sumNeed = row.sumCost.get(materialId) || 0;
-                                                    const enoughClass = getAvailableColor(have, sumNeed);
-                                                    const isCoin = materialId === COIN_ID;
-                                                    const materialName = isCoin ? "金币" : (materialNameMap.get(materialId) || `材料 ${materialId}`);
-                                                    return (
-                                                        <div key={materialId} className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5">
-                                                            {isCoin ? (
-                                                                <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-sm font-black">¥</div>
-                                                            ) : (
-                                                                <div className="relative w-8 h-8 rounded-md overflow-hidden bg-slate-100">
-                                                                    <Image
-                                                                        src={getMaterialThumbnailUrl(materialId, assetSource)}
-                                                                        alt={materialName}
-                                                                        fill
-                                                                        className="object-cover"
-                                                                        unoptimized
-                                                                    />
-                                                                </div>
-                                                            )}
-                                                            <div className="min-w-0">
-                                                                <div className="text-[11px] text-slate-500 truncate">{materialName}</div>
-                                                                <div className="text-xs font-bold text-slate-700">
-                                                                    本级所需 {formatNumber(quantity)}
-                                                                </div>
-                                                                <div className={`text-xs font-bold ${enoughClass}`}>
-                                                                    持有/累计 {formatNumber(have)}/{formatNumber(sumNeed)}
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                    {totalMaterials.map(([materialId, quantity]) => {
+                                                        const have = userMaterialMap.get(materialId) || 0;
+                                                        const enoughClass = getAvailableColor(have, quantity);
+                                                        const isCoin = materialId === COIN_ID;
+                                                        const materialName = isCoin ? "金币" : (materialNameMap.get(materialId) || `材料 ${materialId}`);
+                                                        return (
+                                                            <div key={materialId} className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5">
+                                                                {isCoin ? (
+                                                                    <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-sm font-black">¥</div>
+                                                                ) : (
+                                                                    <div className="relative w-8 h-8 rounded-md overflow-hidden bg-slate-100">
+                                                                        <Image
+                                                                            src={getMaterialThumbnailUrl(materialId, assetSource)}
+                                                                            alt={materialName}
+                                                                            fill
+                                                                            className="object-cover"
+                                                                            unoptimized
+                                                                        />
+                                                                    </div>
+                                                                )}
+                                                                <div className="min-w-0">
+                                                                    <div className="text-[11px] text-slate-500 truncate">{materialName}</div>
+                                                                    <div className={`text-xs font-bold ${enoughClass}`}>
+                                                                        持有/总需 {formatNumber(have)}/{formatNumber(quantity)}
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    );
-                                                })}
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+
+                                            <div className="flex justify-end pt-1">
+                                                <button
+                                                    onClick={() => setExpandedItemId((prev) => prev === meta.item.id ? null : meta.item.id)}
+                                                    className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:border-miku/40 hover:text-miku transition-colors"
+                                                >
+                                                    {expanded ? "收起等级明细" : "查看等级明细"}
+                                                </button>
+                                            </div>
+
+                                            {expanded && (
+                                                <div className="space-y-2 pt-1">
+                                                    {lvRows.map((row) => (
+                                                        <div key={row.level} className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <div className="text-sm font-bold text-slate-700">
+                                                                    Lv.{row.level}
+                                                                    <span className="ml-2 text-xs text-slate-500 font-semibold">+{row.bonus.toFixed(1)}%</span>
+                                                                </div>
+                                                                <div
+                                                                    className="h-1.5 rounded-full"
+                                                                    style={{
+                                                                        width: `${Math.max(4, Math.min((row.level / meta.maxLevel) * 100, 100))}%`,
+                                                                        backgroundColor: themeColor,
+                                                                    }}
+                                                                />
+                                                            </div>
+
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                                {Array.from(row.lvCost.entries()).map(([materialId, quantity]) => {
+                                                                    const have = userMaterialMap.get(materialId) || 0;
+                                                                    const sumNeed = row.sumCost.get(materialId) || 0;
+                                                                    const enoughClass = getAvailableColor(have, sumNeed);
+                                                                    const isCoin = materialId === COIN_ID;
+                                                                    const materialName = isCoin ? "金币" : (materialNameMap.get(materialId) || `材料 ${materialId}`);
+                                                                    return (
+                                                                        <div key={materialId} className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5">
+                                                                            {isCoin ? (
+                                                                                <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-sm font-black">¥</div>
+                                                                            ) : (
+                                                                                <div className="relative w-8 h-8 rounded-md overflow-hidden bg-slate-100">
+                                                                                    <Image
+                                                                                        src={getMaterialThumbnailUrl(materialId, assetSource)}
+                                                                                        alt={materialName}
+                                                                                        fill
+                                                                                        className="object-cover"
+                                                                                        unoptimized
+                                                                                    />
+                                                                                </div>
+                                                                            )}
+                                                                            <div className="min-w-0">
+                                                                                <div className="text-[11px] text-slate-500 truncate">{materialName}</div>
+                                                                                <div className="text-xs font-bold text-slate-700">
+                                                                                    本级所需 {formatNumber(quantity)}
+                                                                                </div>
+                                                                                <div className={`text-xs font-bold ${enoughClass}`}>
+                                                                                    持有/累计 {formatNumber(have)}/{formatNumber(sumNeed)}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         );

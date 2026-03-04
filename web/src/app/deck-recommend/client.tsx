@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import ExternalLink from "@/components/ExternalLink";
 import Image from "next/image";
 import MainLayout from "@/components/MainLayout";
 import { CHAR_NAMES, type ICardInfo } from "@/types/types";
 import CharacterSelector from "@/components/deck-recommend/CharacterSelector";
-import { useTheme, type AssetSourceType } from "@/contexts/ThemeContext";
 import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
 import { fetchMasterData } from "@/lib/fetch";
 import { saveToolState, getAccount } from "@/lib/account";
@@ -146,6 +146,11 @@ const LIVE_TYPE_OPTIONS = [
     { value: "cheerful", label: "嘉年华 (Cheerful)" },
 ];
 
+const SERVER_VALUE_SET = new Set<ServerType>(SERVER_OPTIONS.map((option) => option.value));
+const MODE_VALUE_SET = new Set<DeckMode>(MODE_OPTIONS.map((option) => option.value));
+const DIFFICULTY_VALUE_SET = new Set(DIFFICULTY_OPTIONS.map((option) => option.value));
+const LIVE_TYPE_VALUE_SET = new Set(LIVE_TYPE_OPTIONS.map((option) => option.value));
+
 const RARITY_CONFIG_KEYS = [
     { key: "rarity_1", label: "★1", color: "#888888" },
     { key: "rarity_2", label: "★2", color: "#88BB44" },
@@ -227,6 +232,12 @@ function formatBonusValue(value: number): string {
     return Number.isInteger(rounded) ? rounded.toString() : rounded.toFixed(1);
 }
 
+function parsePositiveInt(value: string | null): number | null {
+    if (!value) return null;
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 // ==================== Fake Progress Bar ====================
 function ProgressBar({ stage, percent, stageLabel }: { stage: string; percent: number; stageLabel: string }) {
     const [displayPercent, setDisplayPercent] = useState(0);
@@ -277,7 +288,8 @@ function ProgressBar({ stage, percent, stageLabel }: { stage: string; percent: n
 
 // ==================== Main Component ====================
 export default function DeckRecommendClient() {
-    const { assetSource } = useTheme();
+    const searchParams = useSearchParams();
+    const isScreenshotMode = searchParams.get("mode") === "screenshot";
     const [userId, setUserId] = useState("");
     const [server, setServer] = useState<ServerType>("jp");
     const [mode, setMode] = useState<DeckMode>("event");
@@ -306,9 +318,13 @@ export default function DeckRecommendClient() {
     const [cardsMaster, setCardsMaster] = useState<CardMasterInfo[]>([]);
     const [userCards, setUserCards] = useState<UserCardInfo[]>([]);
     const workerRef = useRef<Worker | null>(null);
+    const autoCalculateKeyRef = useRef<string>("");
 
     useEffect(() => {
         fetchMasterData<CardMasterInfo[]>("cards.json").then(setCardsMaster).catch(console.error);
+
+        if (isScreenshotMode) return;
+
         let nextUserId = "";
         let nextServer: ServerType = "jp";
         let nextAllowSave = false;
@@ -335,7 +351,89 @@ export default function DeckRecommendClient() {
             setServer(nextServer);
             setAllowSaveUserId(nextAllowSave);
         });
-    }, []);
+    }, [isScreenshotMode]);
+
+    useEffect(() => {
+        if (!isScreenshotMode) return;
+
+        const queuedUpdates: Array<() => void> = [];
+
+        const userIdParam = searchParams.get("userId")?.trim();
+        if (userIdParam) {
+            queuedUpdates.push(() => setUserId(userIdParam));
+        }
+
+        const serverParam = searchParams.get("server");
+        if (serverParam && SERVER_VALUE_SET.has(serverParam as ServerType)) {
+            queuedUpdates.push(() => setServer(serverParam as ServerType));
+        }
+
+        const deckModeParam = searchParams.get("deckMode");
+        if (deckModeParam && MODE_VALUE_SET.has(deckModeParam as DeckMode)) {
+            queuedUpdates.push(() => setMode(deckModeParam as DeckMode));
+        }
+
+        const characterParam = parsePositiveInt(searchParams.get("characterId"));
+        if (characterParam !== null) {
+            queuedUpdates.push(() => setCharacterId(characterParam));
+        }
+
+        const eventParam = parsePositiveInt(searchParams.get("eventId"));
+        if (eventParam !== null) {
+            queuedUpdates.push(() => setEventId(String(eventParam)));
+        }
+
+        const supportCharacterParam = parsePositiveInt(searchParams.get("supportCharacterId"));
+        if (supportCharacterParam !== null) {
+            queuedUpdates.push(() => setSupportCharacterId(supportCharacterParam));
+        }
+
+        const musicParam = parsePositiveInt(searchParams.get("musicId"));
+        if (musicParam !== null) {
+            queuedUpdates.push(() => setMusicId(String(musicParam)));
+        }
+
+        const difficultyParam = searchParams.get("difficulty");
+        if (difficultyParam && DIFFICULTY_VALUE_SET.has(difficultyParam)) {
+            queuedUpdates.push(() => setDifficulty(difficultyParam));
+        }
+
+        const liveTypeParam = searchParams.get("liveType");
+        if (liveTypeParam && LIVE_TYPE_VALUE_SET.has(liveTypeParam)) {
+            queuedUpdates.push(() => setLiveType(liveTypeParam));
+        }
+
+        const customUnitParam = searchParams.get("customUnit");
+        if (customUnitParam) {
+            queuedUpdates.push(() => setCustomUnit(customUnitParam));
+        }
+
+        const customAttrParam = searchParams.get("customAttr");
+        if (customAttrParam) {
+            queuedUpdates.push(() => setCustomAttr(customAttrParam));
+        }
+
+        const customUnitBonusParam = Number.parseFloat(searchParams.get("customUnitBonus") || "");
+        if (Number.isFinite(customUnitBonusParam)) {
+            queuedUpdates.push(() => setCustomUnitBonus(customUnitBonusParam));
+        }
+
+        const customAttrBonusParam = Number.parseFloat(searchParams.get("customAttrBonus") || "");
+        if (Number.isFinite(customAttrBonusParam)) {
+            queuedUpdates.push(() => setCustomAttrBonus(customAttrBonusParam));
+        }
+
+        const expandConfigParam = searchParams.get("expandConfig");
+        if (expandConfigParam === "1" || expandConfigParam === "true") {
+            queuedUpdates.push(() => setShowCardConfig(true));
+        }
+
+        if (queuedUpdates.length > 0) {
+            queueMicrotask(() => {
+                queuedUpdates.forEach((update) => update());
+            });
+        }
+    }, [isScreenshotMode, searchParams]);
 
     const updateCardConfig = useCallback((rarity: string, field: keyof CardConfigItem, value: boolean) => {
         setCardConfig(prev => ({ ...prev, [rarity]: { ...prev[rarity], [field]: value } }));
@@ -344,6 +442,12 @@ export default function DeckRecommendClient() {
     const needsMusic = mode !== "mysekai";
     const needsEvent = mode === "event" || mode === "mysekai";
     const scoreLabel = mode === "mysekai" ? "烤森PT" : mode === "challenge" ? "分数" : "PT";
+    const canAutoCalculateInScreenshot =
+        isScreenshotMode &&
+        !!userId.trim() &&
+        (!needsMusic || !!musicId) &&
+        (!needsEvent || !!eventId.trim()) &&
+        (mode !== "challenge" || characterId !== null);
 
     const handleCalculate = useCallback(() => {
         if (!userId.trim()) { setError("请输入用户ID"); return; }
@@ -402,6 +506,54 @@ export default function DeckRecommendClient() {
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null; }
         setIsCalculating(false); setProgressStage("idle"); setProgressPercent(0);
     }, []);
+
+    useEffect(() => {
+        if (!isScreenshotMode) {
+            autoCalculateKeyRef.current = "";
+            return;
+        }
+        if (!canAutoCalculateInScreenshot || isCalculating) return;
+
+        const autoCalculateKey = [
+            userId.trim(),
+            server,
+            mode,
+            characterId ?? "",
+            eventId,
+            liveType,
+            supportCharacterId ?? "",
+            musicId,
+            difficulty,
+            customUnit,
+            customAttr,
+            customUnitBonus,
+            customAttrBonus,
+        ].join("|");
+
+        if (autoCalculateKeyRef.current === autoCalculateKey) return;
+        autoCalculateKeyRef.current = autoCalculateKey;
+        queueMicrotask(() => {
+            handleCalculate();
+        });
+    }, [
+        isScreenshotMode,
+        canAutoCalculateInScreenshot,
+        isCalculating,
+        userId,
+        server,
+        mode,
+        characterId,
+        eventId,
+        liveType,
+        supportCharacterId,
+        musicId,
+        difficulty,
+        customUnit,
+        customAttr,
+        customUnitBonus,
+        customAttrBonus,
+        handleCalculate,
+    ]);
 
     const getCardMaster = useCallback((cardId: number) => cardsMaster.find((c) => c.id === cardId), [cardsMaster]);
 
@@ -639,7 +791,7 @@ export default function DeckRecommendClient() {
                                         <th className="py-2 px-2 text-slate-500 font-medium">满技能</th>
                                     </tr></thead>
                                     <tbody>
-                                        {RARITY_CONFIG_KEYS.map(({ key, label }) => (
+                                        {RARITY_CONFIG_KEYS.map(({ key }) => (
                                             <tr key={key} className="border-t border-slate-100">
                                                 <td className="py-2 px-2">
                                                     <div className="flex items-center gap-0.5">
@@ -719,7 +871,7 @@ export default function DeckRecommendClient() {
                         )}
                         <div className="space-y-4">
                             {results.map((deck, index: number) => (
-                                <DeckResultRow key={index} deck={deck} rank={index + 1} getCardMaster={getCardMaster} assetSource={assetSource} mode={mode} userCards={userCards} scoreLabel={scoreLabel} />
+                                <DeckResultRow key={index} deck={deck} rank={index + 1} getCardMaster={getCardMaster} mode={mode} userCards={userCards} scoreLabel={scoreLabel} forceExpand={isScreenshotMode} />
                             ))}
                         </div>
                     </div>
@@ -746,14 +898,15 @@ interface DeckResultRowProps {
     deck: DeckResult;
     rank: number;
     getCardMaster: (id: number) => CardMasterInfo | undefined;
-    assetSource: AssetSourceType;
     mode: DeckMode;
     userCards: UserCardInfo[];
     scoreLabel: string;
+    forceExpand?: boolean;
 }
 
-function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards, scoreLabel }: DeckResultRowProps) {
-    const [showDetails, setShowDetails] = useState(false);
+function DeckResultRow({ deck, rank, getCardMaster, mode, userCards, scoreLabel, forceExpand = false }: DeckResultRowProps) {
+    const [showDetails, setShowDetails] = useState(forceExpand);
+    const detailsExpanded = forceExpand || showDetails;
     const baseEventBonus = deck.eventBonus !== undefined
         ? parseBonusNumber(deck.eventBonus)
         : (deck.cards?.reduce((sum: number, card: DeckCardResult) => {
@@ -772,7 +925,10 @@ function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards
 
     return (
         <div className="dr-result-row rounded-xl border border-slate-100 overflow-hidden hover:border-miku/30 transition-all">
-            <button onClick={() => setShowDetails(!showDetails)}
+            <button onClick={() => {
+                if (forceExpand) return;
+                setShowDetails(!showDetails);
+            }}
                 className="w-full p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 text-left hover:bg-slate-50/50 transition-colors">
                 <div className="flex items-center justify-between sm:justify-start gap-3">
                     <div className="flex items-center gap-3">
@@ -804,7 +960,7 @@ function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards
                         )}
 
                     </div>
-                    <svg className={`w-4 h-4 text-slate-400 transition-transform sm:hidden ${showDetails ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className={`w-4 h-4 text-slate-400 transition-transform sm:hidden ${detailsExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                 </div>
@@ -839,11 +995,11 @@ function DeckResultRow({ deck, rank, getCardMaster, assetSource, mode, userCards
                         <div className="font-bold text-sm text-miku">{totalPower.toLocaleString()}</div>
                     </div>
                 )}
-                <svg className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 hidden sm:block ${showDetails ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 hidden sm:block ${detailsExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
             </button>
-            {showDetails && (
+            {detailsExpanded && (
                 <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-t border-slate-100">
                     <div className="mt-3 overflow-x-auto">
                         <table className="w-full text-xs">

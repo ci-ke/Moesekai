@@ -13,6 +13,7 @@ import {
     SERVERS, RoomPlayer, RoomRecord
 } from "@/lib/supabase";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import Modal from "@/components/common/Modal";
 import "./multiplayer.css";
 
 // ==================== CONSTANTS ====================
@@ -1910,64 +1911,61 @@ function MultiplayerContent() {
 
                 </div>
 
-                {/* Rules Modal */}
-                {showRules && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-                        <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-                            <div className="p-4 border-b flex justify-between items-center bg-slate-50">
-                                <h3 className="font-bold text-lg text-slate-800">游戏规则说明</h3>
-                                <button onClick={() => setShowRules(false)} className="text-slate-400 hover:text-slate-600">✕</button>
-                            </div>
-                            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
-                                <section>
-                                    <h4 className="font-black text-slate-700 mb-2 flex items-center gap-2">
-                                        <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs">1</span>
-                                        无限次猜测
-                                    </h4>
-                                    <p className="text-sm text-slate-500 leading-relaxed pl-8">
-                                        你可以无限次尝试猜测卡面。但要注意，<strong>每次错误猜测会扣除你的血量</strong>。
-                                        如果不作答或超时，每局结束时也会扣除固定血量。
-                                    </p>
-                                </section>
+                <Modal
+                    isOpen={showRules}
+                    onClose={() => setShowRules(false)}
+                    title="游戏规则说明"
+                    size="lg"
+                >
+                    <div className="space-y-6">
+                        <section>
+                            <h4 className="font-black text-slate-700 mb-2 flex items-center gap-2">
+                                <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs">1</span>
+                                无限次猜测
+                            </h4>
+                            <p className="text-sm text-slate-500 leading-relaxed pl-8">
+                                你可以无限次尝试猜测卡面。但要注意，<strong>每次错误猜测会扣除你的血量</strong>。
+                                如果不作答或超时，每局结束时也会扣除固定血量。
+                            </p>
+                        </section>
 
-                                <section>
-                                    <h4 className="font-black text-slate-700 mb-2 flex items-center gap-2">
-                                        <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-xs">2</span>
-                                        斩杀 & 格挡
-                                    </h4>
-                                    <div className="text-sm text-slate-500 leading-relaxed pl-8 space-y-2">
-                                        <p>
-                                            <strong>斩杀：</strong>在一次机会（无错误）就猜中，会发动“斩杀”，立即扣除所有在该回合还未答题玩家的血量！
-                                        </p>
-                                        <p>
-                                            <strong>格挡：</strong>同样地，猜中也会赋予你“格挡条”。格挡条可以用来抵消其他人对你发动的斩杀伤害，猜中花费的次数越少，格挡条越多。
-                                        </p>
-                                    </div>
-                                </section>
+                        <section>
+                            <h4 className="font-black text-slate-700 mb-2 flex items-center gap-2">
+                                <span className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-xs">2</span>
+                                斩杀 & 格挡
+                            </h4>
+                            <div className="text-sm text-slate-500 leading-relaxed pl-8 space-y-2">
+                                <p>
+                                    <strong>斩杀：</strong>在一次机会（无错误）就猜中，会发动“斩杀”，立即扣除所有在该回合还未答题玩家的血量！
+                                </p>
+                                <p>
+                                    <strong>格挡：</strong>同样地，猜中也会赋予你“格挡条”。格挡条可以用来抵消其他人对你发动的斩杀伤害，猜中花费的次数越少，格挡条越多。
+                                </p>
+                            </div>
+                        </section>
 
-                                <section>
-                                    <h4 className="font-black text-slate-700 mb-2 flex items-center gap-2">
-                                        <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-xs">3</span>
-                                        濒死状态 (Last Stand)
-                                    </h4>
-                                    <p className="text-sm text-slate-500 leading-relaxed pl-8">
-                                        当你的血量扣减至0以下时，你不会立即出局，而是进入<strong>濒死状态</strong>。
-                                        在下一局中，如果你能<strong>一次猜中</strong>（无错误），你将立即复活并恢复 20% 的血量！
-                                        否则，你将被彻底淘汰。
-                                    </p>
-                                </section>
-                            </div>
-                            <div className="p-4 bg-slate-50 border-t flex justify-center">
-                                <button
-                                    onClick={() => setShowRules(false)}
-                                    className="px-6 py-2 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 transition-colors"
-                                >
-                                    明白了
-                                </button>
-                            </div>
+                        <section>
+                            <h4 className="font-black text-slate-700 mb-2 flex items-center gap-2">
+                                <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-xs">3</span>
+                                濒死状态 (Last Stand)
+                            </h4>
+                            <p className="text-sm text-slate-500 leading-relaxed pl-8">
+                                当你的血量扣减至0以下时，你不会立即出局，而是进入<strong>濒死状态</strong>。
+                                在下一局中，如果你能<strong>一次猜中</strong>（无错误），你将立即复活并恢复 20% 的血量！
+                                否则，你将被彻底淘汰。
+                            </p>
+                        </section>
+
+                        <div className="pt-2 flex justify-center">
+                            <button
+                                onClick={() => setShowRules(false)}
+                                className="px-6 py-2 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 transition-colors"
+                            >
+                                明白了
+                            </button>
                         </div>
                     </div>
-                )}
+                </Modal>
             </div>
         );
     }

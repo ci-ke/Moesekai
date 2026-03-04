@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import MainNavbar from "./MainNavbar";
 import Sidebar from "./Sidebar";
 import MainFooter from "./MainFooter";
@@ -11,6 +11,14 @@ import KeyboardShortcutsHelp from "./KeyboardShortcutsHelp";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { usePageListShortcuts } from "@/hooks/usePageListShortcuts";
 import { useTheme } from "@/contexts/ThemeContext";
+
+function ScreenshotParamsListener({ onChange }: { onChange: (isScreenshot: boolean) => void }) {
+    const searchParams = useSearchParams();
+    useEffect(() => {
+        onChange(searchParams.get("mode") === "screenshot");
+    }, [searchParams, onChange]);
+    return null;
+}
 
 interface MainLayoutProps {
     children: React.ReactNode;
@@ -28,6 +36,7 @@ export default function MainLayout({
     // Keep the initial value false to avoid hydration mismatch.
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [hasMounted, setHasMounted] = useState(false);
+    const [isScreenshotMode, setIsScreenshotMode] = useState(false);
 
     // Centralized UI states managed by MainLayout.
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -37,10 +46,12 @@ export default function MainLayout({
     // Restore sidebar state from sessionStorage after mount.
     // Use two RAF ticks: set position first, then enable transitions.
     useEffect(() => {
-        const saved = sessionStorage.getItem("sidebar_open");
-        const nextSidebarOpen = saved !== null
-            ? saved === "true"
-            : window.innerWidth >= 768;
+        const nextSidebarOpen = isScreenshotMode
+            ? false
+            : (() => {
+                const saved = sessionStorage.getItem("sidebar_open");
+                return saved !== null ? saved === "true" : window.innerWidth >= 768;
+            })();
         let raf1 = 0;
         let raf2 = 0;
 
@@ -55,24 +66,30 @@ export default function MainLayout({
             cancelAnimationFrame(raf1);
             cancelAnimationFrame(raf2);
         };
-    }, []);
+    }, [isScreenshotMode]);
+
+    const effectiveSidebarOpen = isScreenshotMode ? false : isSidebarOpen;
 
     const handleMenuToggle = useCallback(() => {
+        if (isScreenshotMode) return;
         setIsSidebarOpen(prev => {
             const newState = !prev;
             sessionStorage.setItem('sidebar_open', String(newState));
             return newState;
         });
-    }, []);
+    }, [isScreenshotMode]);
 
     const handleSidebarClose = useCallback(() => {
         setIsSidebarOpen(false);
-        sessionStorage.setItem('sidebar_open', 'false');
-    }, []);
+        if (!isScreenshotMode) {
+            sessionStorage.setItem('sidebar_open', 'false');
+        }
+    }, [isScreenshotMode]);
 
     // Keyboard shortcut handlers.
     const shortcutHandlers = useMemo(() => ({
         onToggleSidebar: () => {
+            if (isScreenshotMode) return;
             setIsSidebarOpen(prev => {
                 const newState = !prev;
                 sessionStorage.setItem('sidebar_open', String(newState));
@@ -90,7 +107,7 @@ export default function MainLayout({
         onNavigateMusic: () => router.push("/music"),
         onNavigateEvents: () => router.push("/events"),
         onNavigateProfile: () => router.push("/profile"),
-    }), [router, useTrainedThumbnail, setUseTrainedThumbnail]);
+    }), [router, useTrainedThumbnail, setUseTrainedThumbnail, isScreenshotMode]);
 
     const isShortcutScopeLocked = isSearchOpen || isSettingsOpen || isShortcutsHelpOpen;
 
@@ -105,6 +122,10 @@ export default function MainLayout({
 
     return (
         <main className="min-h-screen relative selection:bg-miku selection:text-white font-sans flex flex-col">
+            <Suspense fallback={null}>
+                <ScreenshotParamsListener onChange={setIsScreenshotMode} />
+            </Suspense>
+
             {/* Loading Animation */}
             {showLoader && <SekaiLoader />}
 
@@ -127,21 +148,21 @@ export default function MainLayout({
             <div className="flex flex-grow pt-[4.5rem] relative">
                 {/* Sidebar */}
                 <Sidebar
-                    isOpen={isSidebarOpen}
+                    isOpen={effectiveSidebarOpen}
                     onClose={handleSidebarClose}
                     hasMounted={hasMounted}
                     disableKeyboardNavigation={isShortcutScopeLocked}
                 />
 
                 {/* Main content area */}
-                <div ref={pageContentRef} data-shortcut-page-root="true" className={`flex-grow relative z-10 w-full min-w-0 ${hasMounted ? 'transition-all duration-300' : ''} ${isSidebarOpen ? 'md:ml-64' : 'md:ml-0'
+                <div ref={pageContentRef} data-shortcut-page-root="true" className={`flex-grow relative z-10 w-full min-w-0 ${hasMounted ? 'transition-all duration-300' : ''} ${effectiveSidebarOpen ? 'md:ml-64' : 'md:ml-0'
                     }`}>
                     {children}
                 </div>
             </div>
 
             {/* Footer */}
-            <div className={`relative z-[5] ${hasMounted ? 'transition-all duration-300' : ''} ${isSidebarOpen ? 'md:ml-64' : 'md:ml-0'
+            <div className={`relative z-[5] ${hasMounted ? 'transition-all duration-300' : ''} ${effectiveSidebarOpen ? 'md:ml-64' : 'md:ml-0'
                 }`}>
                 <MainFooter />
             </div>

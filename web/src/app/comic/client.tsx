@@ -9,6 +9,7 @@ import { getComicUrl } from "@/lib/assets";
 import { fetchMasterData } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
+import ImagePreviewModal from "@/components/common/ImagePreviewModal";
 
 interface ITipInfo {
     id: number;
@@ -88,31 +89,14 @@ function ComicContent() {
 
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8">
-            {/* Full Image Viewer */}
-            {selectedComic && (
-                <div
-                    className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4"
-                    onClick={() => setSelectedComic(null)}
-                >
-                    <button
-                        className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors z-10"
-                        onClick={() => setSelectedComic(null)}
-                    >
-                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                    <div className="max-w-4xl max-h-[90vh] overflow-auto">
-                        <img
-                            src={getComicUrl(selectedComic.assetbundleName!, assetSource)}
-                            alt={selectedComic.title}
-                            className="max-w-full h-auto"
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                        <p className="text-white text-center mt-4 font-bold">{selectedComic.title}</p>
-                    </div>
-                </div>
-            )}
+            <ImagePreviewModal
+                isOpen={!!selectedComic}
+                onClose={() => setSelectedComic(null)}
+                title={selectedComic ? `${selectedComic.title} 大图` : "漫画大图"}
+                imageUrl={selectedComic?.assetbundleName ? getComicUrl(selectedComic.assetbundleName, assetSource) : ""}
+                alt={selectedComic?.title || "Comic"}
+                fileName={selectedComic ? `comic_${selectedComic.id}.png` : "comic.png"}
+            />
 
             {/* Page Header */}
             <div className="text-center mb-8">

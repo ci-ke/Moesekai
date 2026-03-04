@@ -70,6 +70,9 @@ export interface UserChallengeLiveSoloResult {
 export interface UserChallengeLiveSoloHighScoreReward {
     characterId: number;
     challengeLiveHighScoreRewardId: number;
+    gameCharacterId?: number;
+    challengeLiveSoloHighScoreRewardId?: number;
+    rewardId?: number;
 }
 
 export interface UserBond {

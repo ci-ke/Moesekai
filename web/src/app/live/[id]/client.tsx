@@ -16,6 +16,7 @@ import { getVirtualLiveBannerUrl, getMusicJacketUrl, getEventLogoUrl, getEventBa
 import { useTheme } from "@/contexts/ThemeContext";
 import { fetchMasterData, fetchWithCompression } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
+import ImagePreviewModal from "@/components/common/ImagePreviewModal";
 
 interface IMusic {
     id: number;
@@ -52,6 +53,7 @@ export default function VirtualLiveDetailClient() {
     const [error, setError] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
     const [relatedEvent, setRelatedEvent] = useState<IEventInfo | null>(null);
+    const [imageViewerOpen, setImageViewerOpen] = useState(false);
 
     // Set mounted state
     useEffect(() => {
@@ -193,6 +195,15 @@ export default function VirtualLiveDetailClient() {
 
     return (
         <MainLayout>
+            <ImagePreviewModal
+                isOpen={imageViewerOpen}
+                onClose={() => setImageViewerOpen(false)}
+                title={`${virtualLive.name} Banner 大图`}
+                imageUrl={bannerUrl}
+                alt={`${virtualLive.name} Banner`}
+                fileName={`live_${virtualLive.id}_banner.png`}
+            />
+
             <div className="container mx-auto px-4 sm:px-6 py-8">
                 {/* Breadcrumb */}
                 <nav className="mb-6">
@@ -253,7 +264,10 @@ export default function VirtualLiveDetailClient() {
                             <div className="px-4 py-3 bg-slate-50 border-b border-slate-100">
                                 <span className="text-sm font-bold text-slate-600">演唱会 Banner</span>
                             </div>
-                            <div className="relative aspect-[16/5] bg-gradient-to-br from-slate-50 to-slate-100">
+                            <div
+                                className="relative aspect-[16/5] bg-gradient-to-br from-slate-50 to-slate-100 cursor-zoom-in"
+                                onClick={() => setImageViewerOpen(true)}
+                            >
                                 <Image
                                     src={bannerUrl}
                                     alt={`${virtualLive.name} Banner`}
@@ -262,6 +276,12 @@ export default function VirtualLiveDetailClient() {
                                     unoptimized
                                     priority
                                 />
+                                <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-lg flex items-center gap-1">
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                    </svg>
+                                    点击放大
+                                </div>
                             </div>
                         </div>
                     </div>

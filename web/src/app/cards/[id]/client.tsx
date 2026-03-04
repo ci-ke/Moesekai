@@ -22,6 +22,7 @@ import { formatSkillDescription } from "@/lib/skill";
 import { useTheme, type AssetSourceType } from "@/contexts/ThemeContext";
 import { fetchMasterData, fetchWithCompression } from "@/lib/fetch";
 import { TranslatedText, useTranslatedText } from "@/components/common/TranslatedText";
+import ImagePreviewModal from "@/components/common/ImagePreviewModal";
 
 // Max levels by rarity
 const MAX_LEVELS: Record<string, { normal: number; trained?: number }> = {
@@ -362,28 +363,14 @@ export default function CardDetailPage() {
 
     return (
         <MainLayout>
-            {/* Full Image Viewer Modal */}
-            {imageViewerOpen && (
-                <div
-                    className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4"
-                    onClick={() => setImageViewerOpen(false)}
-                >
-                    <button
-                        className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
-                        onClick={() => setImageViewerOpen(false)}
-                    >
-                        <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                    <img
-                        src={getCardFullUrl(card.characterId, card.assetbundleName, effectiveShowTrained, assetSource)}
-                        alt={card.prefix}
-                        className="max-w-full max-h-full object-contain"
-                        onClick={(e) => e.stopPropagation()}
-                    />
-                </div>
-            )}
+            <ImagePreviewModal
+                isOpen={imageViewerOpen}
+                onClose={() => setImageViewerOpen(false)}
+                title={`${card.prefix} 卡面大图`}
+                imageUrl={mainImageUrl}
+                alt={card.prefix}
+                fileName={`card_${card.id}_${effectiveShowTrained ? "trained" : "normal"}.png`}
+            />
 
             <div className="container mx-auto px-4 sm:px-6 py-8">
                 {/* Breadcrumb */}

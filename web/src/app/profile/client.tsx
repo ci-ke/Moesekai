@@ -6,8 +6,8 @@ import Link from "next/link";
 import MainLayout from "@/components/MainLayout";
 import ExternalLink from "@/components/ExternalLink";
 import CharacterRankRadar from "@/components/profile/CharacterRankRadar";
+import ChallengeStageChart from "@/components/profile/ChallengeStageChart";
 import BondsRankTable from "@/components/profile/BondsRankTable";
-import AreaItemUpgradeMaterials from "@/components/profile/AreaItemUpgradeMaterials";
 import PowerBonusDetail from "@/components/profile/PowerBonusDetail";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCardThumbnail } from "@/hooks/useCardThumbnail";
@@ -244,7 +244,7 @@ export default function ProfileClient() {
     if (!loaded) {
         return (
             <MainLayout>
-                <div className="container mx-auto px-4 sm:px-6 py-8 max-w-3xl">
+                <div className="container mx-auto px-4 sm:px-6 py-8 max-w-7xl">
                     <div className="text-center py-20 text-slate-400">加载中...</div>
                 </div>
             </MainLayout>
@@ -253,7 +253,7 @@ export default function ProfileClient() {
 
     return (
         <MainLayout>
-            <div className="container mx-auto px-4 sm:px-6 py-8 max-w-3xl">
+            <div className="container mx-auto px-4 sm:px-6 py-8 max-w-7xl">
                 {/* Header */}
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center gap-2 px-4 py-2 border border-miku/30 bg-miku/5 rounded-full mb-4">
@@ -494,34 +494,41 @@ export default function ProfileClient() {
                 </div>
 
                 {activeAccount && (
-                    <>
-                        <CharacterRankRadar
-                            characterRanks={activeCharacterRanks}
-                            challengeStageRanks={activeChallengeStageRanks}
-                            server={activeAccount.server}
-                            challengeSoloStages={activeAccount.userChallengeLiveSoloStages || []}
-                            challengeSoloResults={activeAccount.userChallengeLiveSoloResults || []}
-                            challengeHighScoreRewards={activeAccount.userChallengeLiveSoloHighScoreRewards || []}
-                            uploadTime={activeAccount.uploadTime}
-                        />
-                        <BondsRankTable
-                            userBonds={activeAccount.userBonds || []}
-                            userCharacters={activeAccount.userCharacters || []}
-                        />
-                        <AreaItemUpgradeMaterials
-                            server={activeAccount.server}
-                            userAreas={activeAccount.userAreas || []}
-                            userMaterials={activeAccount.userMaterials || []}
-                            userGamedata={activeAccount.userGamedata || null}
-                        />
-                        <PowerBonusDetail
-                            server={activeAccount.server}
-                            userAreas={activeAccount.userAreas || []}
-                            userCharacters={activeAccount.userCharacters || []}
-                            userMysekaiFixtureGameCharacterPerformanceBonuses={activeAccount.userMysekaiFixtureGameCharacterPerformanceBonuses || []}
-                            userMysekaiGates={activeAccount.userMysekaiGates || []}
-                        />
-                    </>
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-stretch mb-6">
+                        <div className="min-w-0 h-full flex flex-col gap-6">
+                            <div className="min-w-0">
+                                <CharacterRankRadar
+                                    characterRanks={activeCharacterRanks}
+                                />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <ChallengeStageChart
+                                    challengeStageRanks={activeChallengeStageRanks}
+                                    server={activeAccount.server}
+                                    challengeSoloStages={activeAccount.userChallengeLiveSoloStages || []}
+                                    challengeSoloResults={activeAccount.userChallengeLiveSoloResults || []}
+                                    challengeHighScoreRewards={activeAccount.userChallengeLiveSoloHighScoreRewards || []}
+                                />
+                            </div>
+                        </div>
+                        <div className="min-w-0 h-full flex flex-col gap-6">
+                            <div className="min-w-0">
+                                <BondsRankTable
+                                    userBonds={activeAccount.userBonds || []}
+                                    userCharacters={activeAccount.userCharacters || []}
+                                />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <PowerBonusDetail
+                                    server={activeAccount.server}
+                                    userAreas={activeAccount.userAreas || []}
+                                    userCharacters={activeAccount.userCharacters || []}
+                                    userMysekaiFixtureGameCharacterPerformanceBonuses={activeAccount.userMysekaiFixtureGameCharacterPerformanceBonuses || []}
+                                    userMysekaiGates={activeAccount.userMysekaiGates || []}
+                                />
+                            </div>
+                        </div>
+                    </div>
                 )}
 
                 {/* Tool Quick Links */}

@@ -16,7 +16,10 @@ export async function GET(request: NextRequest) {
         "snowyassets.exmeaning.com",
         "assets.exmeaning.com",
         "assets.unipjsk.com",
+        "sekai-assets-bdf29c81.seiunx.net",
         "storage.sekai.best",
+        "moe.exmeaning.com",
+        "charts-new.unipjsk.com",
     ];
 
     try {

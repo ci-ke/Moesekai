@@ -20,6 +20,7 @@ import { useTheme, type AssetSourceType } from "@/contexts/ThemeContext";
 import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
 import { fetchMasterData, fetchWithCompression } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
+import ImagePreviewModal from "@/components/common/ImagePreviewModal";
 
 // Asset URL helpers - Now imported from @/lib/assets
 
@@ -98,6 +99,7 @@ export default function EventDetailPage() {
     const [error, setError] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
     const [activeImageTab, setActiveImageTab] = useState<"logo" | "banner" | "character">("logo");
+    const [imageViewerOpen, setImageViewerOpen] = useState(false);
     const { useTrainedThumbnail, assetSource } = useTheme();
 
     // Set mounted state
@@ -263,9 +265,20 @@ export default function EventDetailPage() {
     const characterUrl = getEventCharacterUrl(event.assetbundleName, assetSource);
     const status = getEventStatus(event);
     const statusDisplay = EVENT_STATUS_DISPLAY[status];
+    const activeImageUrl = activeImageTab === "logo" ? logoUrl : activeImageTab === "banner" ? bannerUrl : characterUrl;
+    const activeImageLabel = activeImageTab === "logo" ? "Logo" : activeImageTab === "banner" ? "背景" : "角色";
 
     return (
         <MainLayout>
+            <ImagePreviewModal
+                isOpen={imageViewerOpen}
+                onClose={() => setImageViewerOpen(false)}
+                title={`${event.name} ${activeImageLabel} 大图`}
+                imageUrl={activeImageUrl}
+                alt={`${event.name} ${activeImageLabel}`}
+                fileName={`event_${event.id}_${activeImageTab}.png`}
+            />
+
             <div className="container mx-auto px-4 sm:px-6 py-8">
                 {/* Breadcrumb */}
                 <nav className="mb-6">
@@ -395,7 +408,10 @@ export default function EventDetailPage() {
                                     ))}
                                 </div>
                                 {/* Image Content */}
-                                <div className="relative aspect-[16/9] bg-gradient-to-br from-slate-50 to-slate-100">
+                                <div
+                                    className="relative aspect-[16/9] bg-gradient-to-br from-slate-50 to-slate-100 cursor-zoom-in group"
+                                    onClick={() => setImageViewerOpen(true)}
+                                >
                                     {activeImageTab === "logo" && (
                                         <Image
                                             src={logoUrl}
@@ -424,6 +440,12 @@ export default function EventDetailPage() {
                                             unoptimized
                                         />
                                     )}
+                                    <div className="absolute bottom-3 right-3 z-10 bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-lg flex items-center gap-1">
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                        </svg>
+                                        点击放大
+                                    </div>
                                 </div>
                             </div>
                         )}

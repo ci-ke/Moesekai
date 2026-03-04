@@ -1,11 +1,22 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import MainLayout from "@/components/MainLayout";
 import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
+import Modal from "@/components/common/Modal";
+import ImagePreviewModal from "@/components/common/ImagePreviewModal";
 
 export default function DesignSystemPage() {
+    const [modalSize, setModalSize] = useState<"sm" | "md" | "lg" | "xl">("md");
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+
+    const openModal = (size: "sm" | "md" | "lg" | "xl") => {
+        setModalSize(size);
+        setIsModalOpen(true);
+    };
+
     return (
         <MainLayout>
             <div className="container mx-auto px-6 py-12 max-w-6xl">
@@ -545,8 +556,97 @@ export default function DesignSystemPage() {
                         </div>
                     </div>
                 </section>
-            </div>
-        </MainLayout>
+
+                {/* Modal / Dialog Section */}
+                <section className="mb-16">
+                    <h2 className="text-2xl font-bold text-primary-text mb-6 flex items-center gap-2">
+                        <span className="w-1.5 h-8 bg-sky-400 rounded-full"></span>
+                        Modal / Dialog
+                    </h2>
+
+                    <div className="glass-card p-8 rounded-2xl">
+                        <p className="text-slate-500 mb-6">
+                            Generic modal component with theme-colored header, backdrop blur, and smooth framer-motion animations.
+                            Rendered via <code className="px-1.5 py-0.5 bg-slate-100 rounded text-xs font-mono text-slate-600">createPortal</code> to
+                            ensure viewport-centered positioning regardless of sidebar state.
+                        </p>
+
+                        <div className="flex flex-wrap gap-4 items-center">
+                            <button
+                                onClick={() => openModal("sm")}
+                                className="px-5 py-2 border-2 border-miku text-miku rounded-lg font-bold hover:bg-miku hover:text-white active:scale-95 transition-all text-sm"
+                            >
+                                Small
+                            </button>
+                            <button
+                                onClick={() => openModal("md")}
+                                className="px-6 py-2 bg-miku text-white rounded-lg font-bold shadow-lg shadow-miku/20 hover:opacity-90 active:scale-95 transition-all text-sm"
+                            >
+                                Medium (Default)
+                            </button>
+                            <button
+                                onClick={() => openModal("lg")}
+                                className="px-5 py-2 border-2 border-miku text-miku rounded-lg font-bold hover:bg-miku hover:text-white active:scale-95 transition-all text-sm"
+                            >
+                                Large
+                            </button>
+                            <button
+                                onClick={() => openModal("xl")}
+                                className="px-5 py-2 border-2 border-miku text-miku rounded-lg font-bold hover:bg-miku hover:text-white active:scale-95 transition-all text-sm"
+                            >
+                                Extra Large
+                            </button>
+                            <button
+                                onClick={() => setIsImageModalOpen(true)}
+                                className="px-5 py-2 border-2 border-emerald-500 text-emerald-600 rounded-lg font-bold hover:bg-emerald-500 hover:text-white active:scale-95 transition-all text-sm"
+                            >
+                                Image Preview
+                            </button>
+                        </div>
+
+                        <div className="mt-4 text-xs text-slate-400 font-mono">
+                            {`<Modal isOpen={…} onClose={…} title="弹出窗口标题" size="sm | md | lg | xl">{children}</Modal>`}
+                        </div>
+                        <div className="mt-2 text-xs text-slate-400 font-mono">
+                            {`<ImagePreviewModal isOpen={…} onClose={…} title="图片预览" imageUrl="..." fileName="example.png" />`}
+                        </div>
+                    </div>
+
+                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="弹出窗口示例" size={modalSize}>
+                        <div className="space-y-4">
+                            <p className="text-slate-600">
+                                这是一个通用弹出窗口组件的演示。它会始终在视口中央显示，不受侧边栏和顶栏的影响。
+                            </p>
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                <h3 className="text-sm font-bold text-slate-700 mb-2">特性</h3>
+                                <ul className="text-sm text-slate-500 space-y-1.5 list-disc list-inside">
+                                    <li>使用 createPortal 渲染，避免 z-index 层级问题</li>
+                                    <li>framer-motion 入场/出场动画</li>
+                                    <li>ESC 键关闭 / 点击遮罩关闭</li>
+                                    <li>打开时禁用背景滚动</li>
+                                    <li>支持 sm / md / lg / xl 四种尺寸</li>
+                                    <li>应用主题色（miku）作为标题栏装饰</li>
+                                </ul>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-miku/10 text-miku border border-miku/20">
+                                    当前尺寸: {modalSize}
+                                </span>
+                            </div>
+                        </div>
+                    </Modal>
+
+                    <ImagePreviewModal
+                        isOpen={isImageModalOpen}
+                        onClose={() => setIsImageModalOpen(false)}
+                        title="图片预览弹窗示例"
+                        imageUrl="/sticker-maker/img/ichika/ichika1.png"
+                        alt="Image Preview Demo"
+                        fileName="design_system_image_preview.png"
+                    />
+                </section>
+            </div >
+        </MainLayout >
     );
 }
 

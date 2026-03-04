@@ -6,6 +6,12 @@ export const metadata: Metadata = {
     description: "自动推荐最优卡组，支持挑战Live和活动模式",
 };
 
+import { Suspense } from "react";
+
 export default function DeckRecommendPage() {
-    return <DeckRecommendClient />;
+    return (
+        <Suspense fallback={<div className="flex h-screen w-full items-center justify-center">Loading...</div>}>
+            <DeckRecommendClient />
+        </Suspense>
+    );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import {
     getAccounts,
@@ -8,6 +8,7 @@ import {
     getCharacterIconUrl,
     getTopCharacterId,
     SERVER_LABELS,
+    type MoesekaiAccount,
     type ServerType,
 } from "@/lib/account";
 
@@ -20,7 +21,17 @@ interface AccountSelectorProps {
 }
 
 export default function AccountSelector({ onSelect, currentUserId, currentServer }: AccountSelectorProps) {
-    const accounts = getAccounts();
+    const [accounts, setAccounts] = useState<MoesekaiAccount[]>([]);
+
+    useEffect(() => {
+        const syncAccounts = () => {
+            setAccounts(getAccounts());
+        };
+        syncAccounts();
+        window.addEventListener("storage", syncAccounts);
+        return () => window.removeEventListener("storage", syncAccounts);
+    }, []);
+
     if (accounts.length === 0) return null;
 
     return (
