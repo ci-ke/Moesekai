@@ -5,6 +5,10 @@ import Image from "next/image";
 import Link from "next/link";
 import MainLayout from "@/components/MainLayout";
 import ExternalLink from "@/components/ExternalLink";
+import CharacterRankRadar from "@/components/profile/CharacterRankRadar";
+import BondsRankTable from "@/components/profile/BondsRankTable";
+import AreaItemUpgradeMaterials from "@/components/profile/AreaItemUpgradeMaterials";
+import PowerBonusDetail from "@/components/profile/PowerBonusDetail";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useCardThumbnail } from "@/hooks/useCardThumbnail";
 import {
@@ -107,14 +111,35 @@ export default function ProfileClient() {
                 } else {
                     const userGamedata = result.userGamedata || null;
                     const userDecks = result.userDecks || null;
+                    const userCharacters = result.userCharacters || null;
+                    const userChallengeLiveSoloStages = result.userChallengeLiveSoloStages || null;
+                    const userChallengeLiveSoloResults = result.userChallengeLiveSoloResults || null;
+                    const userChallengeLiveSoloHighScoreRewards = result.userChallengeLiveSoloHighScoreRewards || null;
+                    const userBonds = result.userBonds || null;
+                    const userMaterials = result.userMaterials || null;
+                    const userAreas = result.userAreas || null;
+                    const userMysekaiFixtureGameCharacterPerformanceBonuses = result.userMysekaiFixtureGameCharacterPerformanceBonuses || null;
+                    const userMysekaiGates = result.userMysekaiGates || null;
                     const uploadTime = result.uploadTime || null;
                     const avatarCardId = getLeaderCardId(userGamedata, userDecks);
 
                     updateAccount(acc.id, {
+                        userCharacters,
+                        userChallengeLiveSoloStages,
+                        userChallengeLiveSoloResults,
+                        userChallengeLiveSoloHighScoreRewards,
+                        userBonds,
+                        userMaterials,
+                        userAreas,
+                        userMysekaiFixtureGameCharacterPerformanceBonuses,
+                        userMysekaiGates,
                         userGamedata,
                         userDecks,
                         uploadTime,
                         avatarCardId,
+                        avatarCharacterId: userCharacters && userCharacters.length > 0
+                            ? getTopCharacterId(userCharacters)
+                            : acc.avatarCharacterId,
                         nickname: userGamedata?.name || acc.nickname,
                     });
                 }
@@ -148,19 +173,41 @@ export default function ProfileClient() {
 
         const userGamedata = result.userGamedata || null;
         const userDecks = result.userDecks || null;
+        const userCharacters = result.userCharacters || null;
+        const userChallengeLiveSoloStages = result.userChallengeLiveSoloStages || null;
+        const userChallengeLiveSoloResults = result.userChallengeLiveSoloResults || null;
+        const userChallengeLiveSoloHighScoreRewards = result.userChallengeLiveSoloHighScoreRewards || null;
+        const userBonds = result.userBonds || null;
+        const userMaterials = result.userMaterials || null;
+        const userAreas = result.userAreas || null;
+        const userMysekaiFixtureGameCharacterPerformanceBonuses = result.userMysekaiFixtureGameCharacterPerformanceBonuses || null;
+        const userMysekaiGates = result.userMysekaiGates || null;
         const uploadTime = result.uploadTime || null;
 
         // 获取 leader 卡面 ID
         const avatarCardId = getLeaderCardId(userGamedata, userDecks);
         const nickname = userGamedata?.name || "";
+        const avatarCharacterId = userCharacters && userCharacters.length > 0
+            ? getTopCharacterId(userCharacters)
+            : null;
 
         // 创建账号并设置新字段
-        const account = createAccount(formGameId.trim(), formServer, nickname, null, null, true);
+        const account = createAccount(formGameId.trim(), formServer, nickname, avatarCharacterId, userCharacters, true);
         updateAccount(account.id, {
+            userCharacters,
+            userChallengeLiveSoloStages,
+            userChallengeLiveSoloResults,
+            userChallengeLiveSoloHighScoreRewards,
+            userBonds,
+            userMaterials,
+            userAreas,
+            userMysekaiFixtureGameCharacterPerformanceBonuses,
+            userMysekaiGates,
             userGamedata,
             userDecks,
             uploadTime,
             avatarCardId,
+            avatarCharacterId,
         });
 
         setFormGameId("");
@@ -186,6 +233,13 @@ export default function ProfileClient() {
         setShowClearConfirm(false);
         reload();
     }, [reload]);
+    const activeAccount = accounts.find((acc) => acc.id === activeId) || null;
+    const activeCharacterRanks = new Map((activeAccount?.userCharacters || []).map((c) => [c.characterId, c.characterRank]));
+    const activeChallengeStageRanks = new Map<number, number>();
+    (activeAccount?.userChallengeLiveSoloStages || []).forEach((stage) => {
+        const current = activeChallengeStageRanks.get(stage.characterId) || 0;
+        if (stage.rank > current) activeChallengeStageRanks.set(stage.characterId, stage.rank);
+    });
 
     if (!loaded) {
         return (
@@ -438,6 +492,37 @@ export default function ProfileClient() {
                         </div>
                     )}
                 </div>
+
+                {activeAccount && (
+                    <>
+                        <CharacterRankRadar
+                            characterRanks={activeCharacterRanks}
+                            challengeStageRanks={activeChallengeStageRanks}
+                            server={activeAccount.server}
+                            challengeSoloStages={activeAccount.userChallengeLiveSoloStages || []}
+                            challengeSoloResults={activeAccount.userChallengeLiveSoloResults || []}
+                            challengeHighScoreRewards={activeAccount.userChallengeLiveSoloHighScoreRewards || []}
+                            uploadTime={activeAccount.uploadTime}
+                        />
+                        <BondsRankTable
+                            userBonds={activeAccount.userBonds || []}
+                            userCharacters={activeAccount.userCharacters || []}
+                        />
+                        <AreaItemUpgradeMaterials
+                            server={activeAccount.server}
+                            userAreas={activeAccount.userAreas || []}
+                            userMaterials={activeAccount.userMaterials || []}
+                            userGamedata={activeAccount.userGamedata || null}
+                        />
+                        <PowerBonusDetail
+                            server={activeAccount.server}
+                            userAreas={activeAccount.userAreas || []}
+                            userCharacters={activeAccount.userCharacters || []}
+                            userMysekaiFixtureGameCharacterPerformanceBonuses={activeAccount.userMysekaiFixtureGameCharacterPerformanceBonuses || []}
+                            userMysekaiGates={activeAccount.userMysekaiGates || []}
+                        />
+                    </>
+                )}
 
                 {/* Tool Quick Links */}
                 <div className="glass-card p-5 sm:p-6 rounded-2xl mb-6">

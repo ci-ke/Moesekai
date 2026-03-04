@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import SettingsPanel from "./SettingsPanel";
 import CommandPalette from "./CommandPalette";
@@ -26,10 +26,11 @@ export default function MainNavbar({
     onSettingsClose,
     onShortcutsHelpToggle,
 }: MainNavbarProps) {
-    const [showDomainNotice, setShowDomainNotice] = useState(() => {
-        if (typeof window === "undefined") return false;
-        return !localStorage.getItem("moesekai_domain_notice_dismissed");
-    });
+    const [showDomainNotice, setShowDomainNotice] = useState(false);
+
+    useEffect(() => {
+        setShowDomainNotice(!localStorage.getItem("moesekai_domain_notice_dismissed"));
+    }, []);
 
     const dismissDomainNotice = (e: React.MouseEvent) => {
         e.preventDefault();

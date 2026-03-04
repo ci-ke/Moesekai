@@ -21,6 +21,7 @@ interface NavItem {
     name: string;
     href: string;
     icon: React.ReactNode;
+    children?: { name: string; href: string }[];
 }
 
 interface NavGroup {
@@ -264,6 +265,12 @@ const navigationGroups: NavGroup[] = [
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                 ),
+                children: [
+                    { name: "角色等级相关", href: "/profile#profile-character-related" },
+                    { name: "羁绊等级查询", href: "/profile#profile-bonds-rank" },
+                    { name: "区域道具升级材料", href: "/profile#profile-area-item-materials" },
+                    { name: "加成信息", href: "/profile#profile-power-bonus" },
+                ],
             },
             {
                 name: "卡牌进度",
@@ -319,6 +326,8 @@ export default function Sidebar({
         navigationGroups.map(group => group.title)
     );
     const [activeAccount, setActiveAccountState] = useState<MoesekaiAccount | null>(null);
+    const [expandedProfileShortcuts, setExpandedProfileShortcuts] = useState(true);
+    const [currentHash, setCurrentHash] = useState("");
     const navRef = useRef<HTMLElement>(null);
 
     // 键盘导航状态：-1 表示无焦点
@@ -331,16 +340,29 @@ export default function Sidebar({
             if (expandedGroups.includes(group.title)) {
                 for (const item of group.items) {
                     items.push({ name: item.name, href: item.href });
+                    if (item.href === "/profile" && item.children && expandedProfileShortcuts) {
+                        for (const child of item.children) {
+                            items.push({ name: child.name, href: child.href });
+                        }
+                    }
                 }
             }
         }
         return items;
-    }, [expandedGroups]);
+    }, [expandedGroups, expandedProfileShortcuts]);
 
     // 加载当前激活账号
     useEffect(() => {
         const account = getActiveAccount();
         setActiveAccountState(account);
+    }, []);
+
+    // 跟踪 hash，供 profile 快捷入口高亮
+    useEffect(() => {
+        const syncHash = () => setCurrentHash(window.location.hash || "");
+        syncHash();
+        window.addEventListener("hashchange", syncHash);
+        return () => window.removeEventListener("hashchange", syncHash);
     }, []);
 
     // 恢复导航栏滚动位置
@@ -518,21 +540,73 @@ export default function Sidebar({
                                         flatIdx++;
                                         const isFocused = focusedIndex === thisIdx;
                                         return (
-                                            <Link
-                                                key={item.href}
-                                                href={item.href}
-                                                onClick={handleNavClick}
-                                                data-nav-index={thisIdx}
-                                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${isFocused
+                                            <div key={item.href}>
+                                                <div className={`flex items-center rounded-lg transition-all ${isFocused
                                                     ? "bg-miku/15 text-miku ring-2 ring-miku/30"
                                                     : active
                                                         ? "bg-miku/10 text-miku"
                                                         : "text-slate-600 hover:bg-slate-50 hover:text-miku"
-                                                    }`}
-                                            >
-                                                {item.icon}
-                                                <span>{item.name}</span>
-                                            </Link>
+                                                    }`}>
+                                                    <Link
+                                                        href={item.href}
+                                                        onClick={handleNavClick}
+                                                        data-nav-index={thisIdx}
+                                                        className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium flex-1 min-w-0"
+                                                    >
+                                                        {item.icon}
+                                                        <span>{item.name}</span>
+                                                    </Link>
+                                                    {item.href === "/profile" && item.children && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                setExpandedProfileShortcuts((v) => !v);
+                                                            }}
+                                                            className="px-2 py-2 text-slate-400 hover:text-miku transition-colors"
+                                                            aria-label={expandedProfileShortcuts ? "收起个人主页快捷方式" : "展开个人主页快捷方式"}
+                                                        >
+                                                            <svg
+                                                                className={`w-4 h-4 transition-transform ${expandedProfileShortcuts ? "rotate-180" : ""}`}
+                                                                fill="none"
+                                                                viewBox="0 0 24 24"
+                                                                stroke="currentColor"
+                                                            >
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                            </svg>
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                {item.href === "/profile" && item.children && (
+                                                    <div className={`ml-9 mt-1 space-y-1 overflow-hidden transition-all duration-200 ${expandedProfileShortcuts ? "max-h-56 opacity-100" : "max-h-0 opacity-0"}`}>
+                                                        {item.children.map((child) => {
+                                                            const childIdx = flatIdx;
+                                                            flatIdx++;
+                                                            const childFocused = focusedIndex === childIdx;
+                                                            const childActive = pathname === "/profile" && currentHash === child.href.replace("/profile", "");
+                                                            return (
+                                                                <Link
+                                                                    key={child.href}
+                                                                    href={child.href}
+                                                                    onClick={handleNavClick}
+                                                                    data-nav-index={childIdx}
+                                                                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${childFocused
+                                                                        ? "bg-miku/15 text-miku ring-1 ring-miku/30"
+                                                                        : childActive
+                                                                            ? "bg-miku/10 text-miku"
+                                                                            : "text-slate-500 hover:bg-slate-50 hover:text-miku"
+                                                                        }`}
+                                                                >
+                                                                    <span className="w-1 h-1 rounded-full bg-current opacity-80"></span>
+                                                                    <span>{child.name}</span>
+                                                                </Link>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
                                         );
                                     })}
                                 </div>

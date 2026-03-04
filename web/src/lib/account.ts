@@ -17,6 +17,14 @@ export interface MoesekaiAccount {
     userCharacters: UserCharacter[] | null;
     userGamedata: UserGamedata | null;
     userDecks: UserDeck[] | null;
+    userChallengeLiveSoloStages: UserChallengeLiveSoloStage[] | null;
+    userChallengeLiveSoloResults: UserChallengeLiveSoloResult[] | null;
+    userChallengeLiveSoloHighScoreRewards: UserChallengeLiveSoloHighScoreReward[] | null;
+    userBonds: UserBond[] | null;
+    userMaterials: UserMaterial[] | null;
+    userAreas: UserArea[] | null;
+    userMysekaiFixtureGameCharacterPerformanceBonuses: UserMysekaiFixtureGameCharacterPerformanceBonus[] | null;
+    userMysekaiGates: UserMysekaiGate[] | null;
     uploadTime: number | null;        // 数据上传时间戳
     createdAt: number;
     updatedAt: number;
@@ -49,6 +57,52 @@ export interface UserDeck {
     name: string;
 }
 
+export interface UserChallengeLiveSoloStage {
+    characterId: number;
+    rank: number;
+}
+
+export interface UserChallengeLiveSoloResult {
+    characterId: number;
+    highScore: number;
+}
+
+export interface UserChallengeLiveSoloHighScoreReward {
+    characterId: number;
+    challengeLiveHighScoreRewardId: number;
+}
+
+export interface UserBond {
+    bondsGroupId: number;
+    rank: number;
+    exp: number;
+}
+
+export interface UserMaterial {
+    materialId: number;
+    quantity: number;
+}
+
+export interface UserAreaItem {
+    areaItemId: number;
+    level: number;
+}
+
+export interface UserArea {
+    areaId: number;
+    areaItems: UserAreaItem[];
+}
+
+export interface UserMysekaiFixtureGameCharacterPerformanceBonus {
+    gameCharacterId: number;
+    totalBonusRate: number;
+}
+
+export interface UserMysekaiGate {
+    mysekaiGateId: number;
+    mysekaiGateLevel: number;
+}
+
 export interface HarukiApiResult {
     success: boolean;
     error?: "NOT_FOUND" | "API_NOT_PUBLIC" | "NETWORK_ERROR";
@@ -56,6 +110,14 @@ export interface HarukiApiResult {
     userCharacters?: UserCharacter[];
     userGamedata?: UserGamedata;
     userDecks?: UserDeck[];
+    userChallengeLiveSoloStages?: UserChallengeLiveSoloStage[];
+    userChallengeLiveSoloResults?: UserChallengeLiveSoloResult[];
+    userChallengeLiveSoloHighScoreRewards?: UserChallengeLiveSoloHighScoreReward[];
+    userBonds?: UserBond[];
+    userMaterials?: UserMaterial[];
+    userAreas?: UserArea[];
+    userMysekaiFixtureGameCharacterPerformanceBonuses?: UserMysekaiFixtureGameCharacterPerformanceBonus[];
+    userMysekaiGates?: UserMysekaiGate[];
     uploadTime?: number;
 }
 
@@ -97,7 +159,7 @@ export function getLeaderCardId(userGamedata: UserGamedata | null, userDecks: Us
 
 /** 调用 Haruki API 验证用户数据可用性 */
 export async function verifyHarukiApi(server: ServerType, gameId: string): Promise<HarukiApiResult> {
-    const url = `https://suite-api.haruki.seiunx.com/public/${server}/suite/${gameId}?key=userGamedata,userDecks,upload_time`;
+    const url = `https://suite-api.haruki.seiunx.com/public/${server}/suite/${gameId}?key=userGamedata,userDecks,userCharacters,userChallengeLiveSoloStages,userChallengeLiveSoloResults,userChallengeLiveSoloHighScoreRewards,userBonds,userMaterials,userAreas,userMysekaiFixtureGameCharacterPerformanceBonuses,userMysekaiGates,upload_time`;
     try {
         const res = await fetch(url);
         if (res.status === 404) {
@@ -117,6 +179,15 @@ export async function verifyHarukiApi(server: ServerType, gameId: string): Promi
             success: true,
             userGamedata: data.userGamedata,
             userDecks: data.userDecks || [],
+            userCharacters: data.userCharacters || [],
+            userChallengeLiveSoloStages: data.userChallengeLiveSoloStages || [],
+            userChallengeLiveSoloResults: data.userChallengeLiveSoloResults || [],
+            userChallengeLiveSoloHighScoreRewards: data.userChallengeLiveSoloHighScoreRewards || [],
+            userBonds: data.userBonds || [],
+            userMaterials: data.userMaterials || [],
+            userAreas: data.userAreas || [],
+            userMysekaiFixtureGameCharacterPerformanceBonuses: data.userMysekaiFixtureGameCharacterPerformanceBonuses || [],
+            userMysekaiGates: data.userMysekaiGates || [],
             uploadTime: data.upload_time,
         };
     } catch {
@@ -209,6 +280,14 @@ export function createAccount(
         userCharacters,
         userGamedata: null,
         userDecks: null,
+        userChallengeLiveSoloStages: null,
+        userChallengeLiveSoloResults: null,
+        userChallengeLiveSoloHighScoreRewards: null,
+        userBonds: null,
+        userMaterials: null,
+        userAreas: null,
+        userMysekaiFixtureGameCharacterPerformanceBonuses: null,
+        userMysekaiGates: null,
         uploadTime: null,
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -284,6 +363,14 @@ function migrateFromLegacy(): MoesekaiAccount[] {
                     userCharacters: null,
                     userGamedata: null,
                     userDecks: null,
+                    userChallengeLiveSoloStages: null,
+                    userChallengeLiveSoloResults: null,
+                    userChallengeLiveSoloHighScoreRewards: null,
+                    userBonds: null,
+                    userMaterials: null,
+                    userAreas: null,
+                    userMysekaiFixtureGameCharacterPerformanceBonuses: null,
+                    userMysekaiGates: null,
                     uploadTime: null,
                     createdAt: old.createdAt || Date.now(),
                     updatedAt: Date.now(),
@@ -309,6 +396,14 @@ function migrateFromLegacy(): MoesekaiAccount[] {
                     userCharacters: null,
                     userGamedata: null,
                     userDecks: null,
+                    userChallengeLiveSoloStages: null,
+                    userChallengeLiveSoloResults: null,
+                    userChallengeLiveSoloHighScoreRewards: null,
+                    userBonds: null,
+                    userMaterials: null,
+                    userAreas: null,
+                    userMysekaiFixtureGameCharacterPerformanceBonuses: null,
+                    userMysekaiGates: null,
                     uploadTime: null,
                     createdAt: Date.now(),
                     updatedAt: Date.now(),

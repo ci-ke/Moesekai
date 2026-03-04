@@ -41,6 +41,22 @@ export function getCharacterIconUrl(characterId: number): string {
     return `https://assets.exmeaning.com/character_icons/chr_ts_${characterId}.png`;
 }
 
+export function getAreaItemThumbnailUrl(
+    assetbundleName: string,
+    source: AssetSourceType = "uni"
+): string {
+    const baseUrl = getAssetBaseUrl(source);
+    return `${baseUrl}/startapp/thumbnail/areaitem/${assetbundleName}.png`;
+}
+
+export function getMaterialThumbnailUrl(
+    materialId: number,
+    source: AssetSourceType = "uni"
+): string {
+    const baseUrl = getAssetBaseUrl(source);
+    return `${baseUrl}/startapp/thumbnail/material/material${materialId}.png`;
+}
+
 export function getAttrIconUrl(attr: string, source: AssetSourceType = "uni"): string {
     const baseUrl = getAssetBaseUrl(source);
     return `${baseUrl}/startapp/thumbnail/common/attribute/${attr}.png`;
