@@ -2583,6 +2583,18 @@
     "さいたま2000": {
       "text": "埼玉2000",
       "source": "llm"
+    },
+    "ラムネ": {
+      "text": "弹珠汽水",
+      "source": "llm"
+    },
+    "erase or zero": {
+      "text": "erase or zero",
+      "source": "llm"
+    },
+    "About me": {
+      "text": "About me",
+      "source": "llm"
     }
   },
   "artist": {
@@ -4008,6 +4020,10 @@
     },
     "LindaAI-CUE(BNSI)": {
       "text": "LindaAI-CUE(BNSI)",
+      "source": "llm"
+    },
+    "HzEdge（クリスタルP）": {
+      "text": "HzEdge（Crystal-P）",
       "source": "llm"
     }
   },

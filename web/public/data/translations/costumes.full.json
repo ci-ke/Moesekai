@@ -595,6 +595,14 @@
     "momoco。": {
       "text": "momoco。",
       "source": "llm"
+    },
+    "夢回廊るら": {
+      "text": "梦回廊Rura",
+      "source": "llm"
+    },
+    "△○□×": {
+      "text": "△○□×",
+      "source": "llm"
     }
   },
   "colorName": {
@@ -3801,8 +3809,8 @@
       "source": "llm"
     },
     "Bittersweet Guardian": {
-      "text": "苦甜守护者",
-      "source": "llm"
+      "text": "绽放的圆舞曲",
+      "source": "cn"
     },
     "おとぎ話の森コーデ（メンズ）": {
       "text": "童话森林套装（男款）",
@@ -3869,8 +3877,8 @@
       "source": "llm"
     },
     "Prince of the CK": {
-      "text": "糖果骑士王子",
-      "source": "llm"
+      "text": "拇指国的玫瑰公主",
+      "source": "cn"
     },
     "lady of charming": {
       "text": "魅力淑女",
@@ -4502,6 +4510,26 @@
     },
     "Cushy butler": {
       "text": "软绵绵执事",
+      "source": "llm"
+    },
+    "USAMIMI♡GAMERS": {
+      "text": "兔耳♡游戏玩家",
+      "source": "llm"
+    },
+    "Lunatic Puppeteer": {
+      "text": "疯狂的傀儡师",
+      "source": "llm"
+    },
+    "Melting Curse": {
+      "text": "融化的诅咒",
+      "source": "llm"
+    },
+    "Insomnia Night": {
+      "text": "不眠之夜",
+      "source": "llm"
+    },
+    "Bビットボーイ": {
+      "text": "B比特男孩",
       "source": "llm"
     }
   }
