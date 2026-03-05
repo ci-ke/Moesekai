@@ -2,8 +2,9 @@
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import QRCode from "qrcode";
-import { useTheme } from "@/contexts/ThemeContext";
+import { useTheme, type AssetSourceType } from "@/contexts/ThemeContext";
 import Modal from "@/components/common/Modal";
+import { getMusicJacketUrl } from "@/lib/assets";
 
 // ==================== Types ====================
 
@@ -25,7 +26,7 @@ interface Best30ShareImageProps {
     getMusicThumbnailUrl: (entry: { assetbundleName: string }) => string;
     avatarUrl?: string;
     nickname?: string;
-    uploadTime?: string;
+    uploadTime?: string | number;
     onClose: () => void;
 }
 
@@ -91,6 +92,14 @@ const DIFFICULTY_SHORT: Record<string, string> = {
     append: "APD",
 };
 
+const JACKET_FALLBACK_SOURCES: AssetSourceType[] = [
+    "snowyassets",
+    "haruki",
+    "uni",
+    "snowyassets_cn",
+    "haruki_cn",
+];
+
 // ==================== Helpers ====================
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -101,6 +110,55 @@ function loadImage(src: string): Promise<HTMLImageElement> {
         img.onerror = () => reject(new Error(`Failed to load: ${src}`));
         img.src = src;
     });
+}
+
+function toProxyImageUrl(src: string): string {
+    if (!/^https?:\/\//i.test(src)) return src;
+    return `/api/image-proxy?url=${encodeURIComponent(src)}`;
+}
+
+async function loadImageWithFallback(sources: string[]): Promise<HTMLImageElement | null> {
+    const uniqueSources = Array.from(new Set(sources.filter(Boolean)));
+    for (const source of uniqueSources) {
+        try {
+            return await loadImage(source);
+        } catch {
+            // Continue trying fallbacks.
+        }
+    }
+    return null;
+}
+
+function buildJacketCandidateUrls(
+    assetbundleName: string,
+    getMusicThumbnailUrl: (entry: { assetbundleName: string }) => string,
+): string[] {
+    const primaryUrl = getMusicThumbnailUrl({ assetbundleName });
+    const fallbackUrls = JACKET_FALLBACK_SOURCES.map((source) =>
+        getMusicJacketUrl(assetbundleName, source)
+    );
+    return [primaryUrl, ...fallbackUrls];
+}
+
+function parseUploadTimeToDate(uploadTime: string | number): Date | null {
+    if (typeof uploadTime === "number" && Number.isFinite(uploadTime)) {
+        const normalized = uploadTime < 1_000_000_000_000 ? uploadTime * 1000 : uploadTime;
+        const date = new Date(normalized);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const text = uploadTime.trim();
+    if (!text) return null;
+
+    const numeric = Number(text);
+    if (Number.isFinite(numeric)) {
+        const normalized = numeric < 1_000_000_000_000 ? numeric * 1000 : numeric;
+        const date = new Date(normalized);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const date = new Date(text);
+    return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function truncateText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
@@ -141,7 +199,7 @@ async function drawBest30Canvas(
     themeColor: string,
     avatarUrl?: string,
     nickname?: string,
-    uploadTime?: string,
+    uploadTime?: string | number,
 ): Promise<void> {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -264,19 +322,21 @@ async function drawBest30Canvas(
         ctx.fillStyle = THEME.textMuted;
         ctx.font = "13px 'Segoe UI', system-ui, sans-serif";
         ctx.textAlign = "right";
-        try {
-            const date = new Date(uploadTime);
+        const date = parseUploadTimeToDate(uploadTime);
+        if (date) {
             const timeStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
             ctx.fillText(`数据时间: ${timeStr}`, textRightX, nickname ? 114 : 96);
-        } catch {
+        } else {
             ctx.fillText(`数据时间: ${uploadTime}`, textRightX, nickname ? 114 : 96);
         }
     }
 
     // ====================== Load Assets ======================
-    const jacketPromises = entries.map(e =>
-        loadImage(getMusicThumbnailUrl({ assetbundleName: e.assetbundleName })).catch(() => null)
-    );
+    const jacketPromises = entries.map(async (entry) => {
+        const candidateUrls = buildJacketCandidateUrls(entry.assetbundleName, getMusicThumbnailUrl);
+        const proxiedCandidates = candidateUrls.map(toProxyImageUrl);
+        return loadImageWithFallback([...proxiedCandidates, ...candidateUrls]);
+    });
 
     const [apIcon, fcIcon] = await Promise.all([
         loadImage("/data/music/icon_allPerfect.png").catch(() => null),

@@ -59,28 +59,230 @@ interface MusicDifficulty {
     playLevel: number;
 }
 
-interface UserMusicResult {
-    musicId: number;
-    musicDifficultyType: string;
-    playResult: string;
-    highScore: number;
-    playType: string;
+interface RawUserMusicResult {
+    musicId?: number | string;
+    musicDifficultyType?: string;
+    musicDifficulty?: string;
+    playResult?: string;
+    fullPerfectFlg?: boolean;
+    fullComboFlg?: boolean;
+}
+
+interface RawUserMusicDifficultyStatus extends RawUserMusicResult {
+    userMusicResults?: RawUserMusicResult[];
+}
+
+interface RawUserMusic {
+    musicId?: number | string;
+    userMusicDifficultyStatuses?: RawUserMusicDifficultyStatus[];
+    userMusicResults?: RawUserMusicResult[];
 }
 
 type PlayResult = "AP" | "FC" | "C" | "";
 
-// Format upload time in a way that's consistent between server and client
-function formatUploadTime(uploadTime: string): string {
-    try {
-        const date = new Date(uploadTime);
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hour = String(date.getHours()).padStart(2, '0');
-        const minute = String(date.getMinutes()).padStart(2, '0');
-        return `${month}-${day} ${hour}:${minute}`;
-    } catch {
-        return uploadTime;
+const PLAY_RESULT_PRIORITY: Record<PlayResult, number> = {
+    "": 0,
+    C: 1,
+    FC: 2,
+    AP: 3,
+};
+
+function parseUploadTimeToDate(uploadTime: string | number): Date | null {
+    if (typeof uploadTime === "number" && Number.isFinite(uploadTime)) {
+        const normalized = uploadTime < 1_000_000_000_000 ? uploadTime * 1000 : uploadTime;
+        const date = new Date(normalized);
+        return Number.isNaN(date.getTime()) ? null : date;
     }
+
+    const text = uploadTime.trim();
+    if (!text) return null;
+
+    const numeric = Number(text);
+    if (Number.isFinite(numeric)) {
+        const normalized = numeric < 1_000_000_000_000 ? numeric * 1000 : numeric;
+        const date = new Date(normalized);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const date = new Date(text);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+// Format upload time in a way that's consistent between server and client
+function formatUploadTime(uploadTime: string | number): string {
+    const date = parseUploadTimeToDate(uploadTime);
+    if (!date) return String(uploadTime);
+
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hour = String(date.getHours()).padStart(2, "0");
+    const minute = String(date.getMinutes()).padStart(2, "0");
+    return `${month}-${day} ${hour}:${minute}`;
+}
+
+function parseMusicId(value: number | string | undefined, fallback?: number): number | null {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return parsed;
+    }
+    if (typeof fallback === "number" && Number.isFinite(fallback)) return fallback;
+    return null;
+}
+
+function normalizeDifficulty(value: string | undefined | null): string | null {
+    if (!value) return null;
+    const normalized = value.trim().toLowerCase();
+    return normalized || null;
+}
+
+function normalizePlayResult(result: Pick<RawUserMusicResult, "playResult" | "fullPerfectFlg" | "fullComboFlg">): PlayResult {
+    if (result.fullPerfectFlg) return "AP";
+
+    const playResult = result.playResult?.toLowerCase();
+    if (playResult === "full_perfect" || playResult === "all_perfect" || playResult === "ap") {
+        return "AP";
+    }
+
+    if (result.fullComboFlg) return "FC";
+    if (playResult === "full_combo" || playResult === "fc") {
+        return "FC";
+    }
+
+    if (playResult === "clear" || playResult === "c") {
+        return "C";
+    }
+
+    return "";
+}
+
+function upsertMusicResult(
+    resultsMap: Map<number, Record<string, PlayResult>>,
+    musicId: number,
+    difficulty: string,
+    rank: PlayResult
+): void {
+    if (!rank) return;
+
+    if (!resultsMap.has(musicId)) {
+        resultsMap.set(musicId, {});
+    }
+
+    const entry = resultsMap.get(musicId)!;
+    const current = entry[difficulty] || "";
+    if (PLAY_RESULT_PRIORITY[rank] > PLAY_RESULT_PRIORITY[current]) {
+        entry[difficulty] = rank;
+    }
+}
+
+function addRawResultsToMap(
+    resultsMap: Map<number, Record<string, PlayResult>>,
+    rawResults: RawUserMusicResult[],
+    fallbackMusicId?: number,
+    fallbackDifficulty?: string
+): void {
+    for (const rawResult of rawResults) {
+        const musicId = parseMusicId(rawResult.musicId, fallbackMusicId);
+        const difficulty = normalizeDifficulty(
+            rawResult.musicDifficultyType || rawResult.musicDifficulty || fallbackDifficulty
+        );
+        const rank = normalizePlayResult(rawResult);
+
+        if (musicId === null || !difficulty || !rank) continue;
+        upsertMusicResult(resultsMap, musicId, difficulty, rank);
+    }
+}
+
+function parseTopLevelMusicResults(data: unknown): Map<number, Record<string, PlayResult>> {
+    const resultsMap = new Map<number, Record<string, PlayResult>>();
+
+    if (Array.isArray(data)) {
+        addRawResultsToMap(resultsMap, data as RawUserMusicResult[]);
+        return resultsMap;
+    }
+
+    if (!data || typeof data !== "object") {
+        return resultsMap;
+    }
+
+    const topLevelResults = (data as { userMusicResults?: unknown }).userMusicResults;
+    if (Array.isArray(topLevelResults)) {
+        addRawResultsToMap(resultsMap, topLevelResults as RawUserMusicResult[]);
+    }
+
+    return resultsMap;
+}
+
+function parseLegacyMusicResults(data: unknown): Map<number, Record<string, PlayResult>> {
+    const resultsMap = new Map<number, Record<string, PlayResult>>();
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+        return resultsMap;
+    }
+
+    const userMusics = (data as { userMusics?: unknown }).userMusics;
+    if (!Array.isArray(userMusics)) {
+        return resultsMap;
+    }
+
+    for (const music of userMusics as RawUserMusic[]) {
+        const musicId = parseMusicId(music.musicId);
+        if (musicId === null) continue;
+
+        if (Array.isArray(music.userMusicResults)) {
+            addRawResultsToMap(resultsMap, music.userMusicResults, musicId);
+        }
+
+        const diffStatuses = Array.isArray(music.userMusicDifficultyStatuses)
+            ? music.userMusicDifficultyStatuses
+            : [];
+
+        for (const diffStatus of diffStatuses) {
+            const statusDifficulty = normalizeDifficulty(
+                diffStatus.musicDifficultyType || diffStatus.musicDifficulty
+            );
+
+            // Some legacy payloads store clear/fc/ap directly on difficulty status.
+            addRawResultsToMap(
+                resultsMap,
+                [diffStatus],
+                musicId,
+                statusDifficulty || undefined
+            );
+
+            const nestedResults = Array.isArray(diffStatus.userMusicResults)
+                ? diffStatus.userMusicResults
+                : [];
+            addRawResultsToMap(
+                resultsMap,
+                nestedResults,
+                musicId,
+                statusDifficulty || undefined
+            );
+        }
+    }
+
+    return resultsMap;
+}
+
+function mergeFallbackMusicResults(
+    primaryResultsMap: Map<number, Record<string, PlayResult>>,
+    fallbackResultsMap: Map<number, Record<string, PlayResult>>
+): Map<number, Record<string, PlayResult>> {
+    fallbackResultsMap.forEach((fallbackEntry, musicId) => {
+        const primaryEntry = primaryResultsMap.get(musicId);
+        if (!primaryEntry) {
+            primaryResultsMap.set(musicId, { ...fallbackEntry });
+            return;
+        }
+
+        Object.entries(fallbackEntry).forEach(([difficulty, rank]) => {
+            if (!primaryEntry[difficulty]) {
+                primaryEntry[difficulty] = rank;
+            }
+        });
+    });
+
+    return primaryResultsMap;
 }
 
 // ==================== Main Component ====================
@@ -106,7 +308,7 @@ function MyMusicsContent() {
     const [isFetchingUser, setIsFetchingUser] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [userError, setUserError] = useState<string | null>(null);
-    const [uploadTime, setUploadTime] = useState<string | null>(null);
+    const [uploadTime, setUploadTime] = useState<string | number | null>(null);
     const [isTwFallback, setIsTwFallback] = useState(false);
     const [filtersInitialized, setFiltersInitialized] = useState(false);
     const [best30Expanded, setBest30Expanded] = useState(false);
@@ -309,7 +511,7 @@ function MyMusicsContent() {
             setUserError(null);
 
             const { server, gameId } = activeAccount!;
-            const url = `https://suite-api.haruki.seiunx.com/public/${server}/suite/${gameId}?key=userMusics,upload_time`;
+            const url = `https://suite-api.haruki.seiunx.com/public/${server}/suite/${gameId}?key=userMusics,userMusicResults,upload_time`;
 
             try {
                 const res = await fetch(url);
@@ -337,58 +539,21 @@ function MyMusicsContent() {
                     setUploadTime(null);
                 }
 
-                // Parse nested suite API structure
-                const userMusics = data.userMusics || [];
-                const results: Array<{
-                    musicId: number;
-                    musicDifficulty: string;
-                    playResult: string;
-                }> = [];
+                // New payload: top-level userMusicResults
+                const topLevelResultsMap = parseTopLevelMusicResults(data);
+                const topLevelCount = topLevelResultsMap.size;
 
-                // Flatten nested structure: userMusics[].userMusicDifficultyStatuses[].userMusicResults[]
-                for (const music of userMusics) {
-                    const musicId = music.musicId;
-                    const diffStatuses = music.userMusicDifficultyStatuses || [];
+                // Legacy payload fallback: userMusics nested structures
+                const legacyResultsMap = parseLegacyMusicResults(data);
+                const legacyCount = legacyResultsMap.size;
 
-                    for (const diffStatus of diffStatuses) {
-                        const userResults = diffStatus.userMusicResults || [];
+                // Keep top-level as source-of-truth, fill missing difficulties from legacy payload.
+                const mergedResultsMap = mergeFallbackMusicResults(topLevelResultsMap, legacyResultsMap);
 
-                        for (const result of userResults) {
-                            results.push({
-                                musicId: musicId,
-                                musicDifficulty: result.musicDifficulty,
-                                playResult: result.playResult
-                            });
-                        }
-                    }
-                }
-
-                // Parse results similar to MusicsView.vue
-                const resultsMap = new Map<number, Record<string, PlayResult>>();
-                for (const r of results) {
-                    if (!resultsMap.has(r.musicId)) {
-                        resultsMap.set(r.musicId, {});
-                    }
-                    const entry = resultsMap.get(r.musicId)!;
-                    const diff = r.musicDifficulty;
-                    const current = entry[diff] || "";
-
-                    let rank: PlayResult = "";
-                    if (r.playResult === "full_perfect") rank = "AP";
-                    else if (r.playResult === "full_combo") rank = "FC";
-                    else if (r.playResult === "clear") rank = "C";
-
-                    if (!rank) continue;
-
-                    // Priority: AP > FC > C
-                    const priority: Record<string, number> = { "AP": 3, "FC": 2, "C": 1, "": 0 };
-                    if ((priority[rank] || 0) > (priority[current] || 0)) {
-                        entry[diff] = rank;
-                    }
-                }
-
-                console.log(`[MyMusics] Loaded ${resultsMap.size} music results from API`);
-                if (!cancelled) setUserMusicResults(resultsMap);
+                console.log(
+                    `[MyMusics] Loaded ${mergedResultsMap.size} music results from API (top-level: ${topLevelCount}, legacy fallback: ${legacyCount})`
+                );
+                if (!cancelled) setUserMusicResults(mergedResultsMap);
             } catch {
                 if (!cancelled) setUserError("NETWORK_ERROR");
             } finally {
