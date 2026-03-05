@@ -141,13 +141,14 @@ function buildJacketCandidateUrls(
 }
 
 function parseUploadTimeToDate(uploadTime: string | number): Date | null {
-    if (typeof uploadTime === "number" && Number.isFinite(uploadTime)) {
+    if (typeof uploadTime === "number") {
+        if (!Number.isFinite(uploadTime)) return null;
         const normalized = uploadTime < 1_000_000_000_000 ? uploadTime * 1000 : uploadTime;
         const date = new Date(normalized);
         return Number.isNaN(date.getTime()) ? null : date;
     }
 
-    const text = uploadTime.trim();
+    const text = String(uploadTime).trim();
     if (!text) return null;
 
     const numeric = Number(text);

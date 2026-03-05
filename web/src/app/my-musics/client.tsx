@@ -88,13 +88,14 @@ const PLAY_RESULT_PRIORITY: Record<PlayResult, number> = {
 };
 
 function parseUploadTimeToDate(uploadTime: string | number): Date | null {
-    if (typeof uploadTime === "number" && Number.isFinite(uploadTime)) {
+    if (typeof uploadTime === "number") {
+        if (!Number.isFinite(uploadTime)) return null;
         const normalized = uploadTime < 1_000_000_000_000 ? uploadTime * 1000 : uploadTime;
         const date = new Date(normalized);
         return Number.isNaN(date.getTime()) ? null : date;
     }
 
-    const text = uploadTime.trim();
+    const text = String(uploadTime).trim();
     if (!text) return null;
 
     const numeric = Number(text);
@@ -661,16 +662,32 @@ function MyMusicsContent() {
         });
 
         return result;
-    }, [allMusics, searchQuery, completionFilter, selectedDifficulty, sortBy, sortOrder, userMusicResults, musicDifficultiesMap, translations, songConstantsMap]);
+    }, [
+        allMusics,
+        musicTags,
+        selectedTag,
+        selectedCategories,
+        searchQuery,
+        completionFilter,
+        selectedDifficulty,
+        sortBy,
+        sortOrder,
+        userMusicResults,
+        musicDifficultiesMap,
+        translations,
+        songConstantsMap,
+    ]);
 
     // Progress stats
     const progressStats = useMemo(() => {
         if (userMusicResults.size === 0) return null;
 
         const diff = selectedDifficulty;
+        const now = Date.now();
         let ap = 0, fc = 0, clear = 0, total = 0;
 
-        for (const music of filteredMusics) {
+        for (const music of allMusics) {
+            if (music.publishedAt > now) continue;
             if (musicDifficultiesMap[music.id]?.[diff] !== undefined) {
                 total++;
                 const rank = userMusicResults.get(music.id)?.[diff] || "";
@@ -681,7 +698,7 @@ function MyMusicsContent() {
         }
 
         return { ap, fc, clear, total };
-    }, [filteredMusics, selectedDifficulty, userMusicResults, musicDifficultiesMap]);
+    }, [allMusics, selectedDifficulty, userMusicResults, musicDifficultiesMap]);
 
     // Best30 calculation
     const best30Data = useMemo(() => {
