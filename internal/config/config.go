@@ -2,7 +2,6 @@ package config
 
 import (
 	"os"
-	"path/filepath"
 )
 
 type Config struct {
@@ -12,9 +11,10 @@ type Config struct {
 	Port                string
 	MasterDataPath      string
 	TranslationPath     string
-	GitRepoPath         string
-	TranslationRelDir   string
-	GitPushBranch       string
+	GitHubToken         string
+	GitHubRepo          string
+	GitHubWorkflowFile  string
+	GitHubWorkflowRef   string
 	TranslationAutoPush bool
 	TranslatorAccounts  string
 	JWTSecret           string
@@ -28,9 +28,10 @@ func Load() *Config {
 		Port:                getEnv("PORT", "8080"),
 		MasterDataPath:      getEnv("MASTER_DATA_PATH", "./data/master"),
 		TranslationPath:     resolveTranslationPath(),
-		GitRepoPath:         resolveGitRepoPath(),
-		TranslationRelDir:   getEnv("TRANSLATION_REL_DIR", "web/public/data/translations"),
-		GitPushBranch:       getEnv("GIT_PUSH_BRANCH", "main"),
+		GitHubToken:         os.Getenv("GITHUB_TOKEN"),
+		GitHubRepo:          os.Getenv("GITHUB_REPO"),
+		GitHubWorkflowFile:  getEnv("GITHUB_WORKFLOW_FILE", "sync-translations-from-deploy.yml"),
+		GitHubWorkflowRef:   getEnv("GITHUB_WORKFLOW_REF", "main"),
 		TranslationAutoPush: getEnvBool("TRANSLATION_AUTO_PUSH_ENABLED", false),
 		TranslatorAccounts:  os.Getenv("TRANSLATOR_ACCOUNTS"),
 		JWTSecret:           getEnv("JWT_SECRET", "snowy-translate-secret"),
@@ -58,32 +59,12 @@ func resolveTranslationPath() string {
 	return candidates[0]
 }
 
-func resolveGitRepoPath() string {
-	if v := os.Getenv("GIT_REPO_PATH"); v != "" {
-		return v
-	}
-
-	candidates := []string{".", "/repo"}
-	for _, candidate := range candidates {
-		if pathExists(filepath.Join(candidate, ".git")) {
-			return candidate
-		}
-	}
-
-	return "."
-}
-
 func isDir(path string) bool {
 	info, err := os.Stat(path)
 	if err != nil {
 		return false
 	}
 	return info.IsDir()
-}
-
-func pathExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
 }
 
 func getEnv(key, defaultValue string) string {

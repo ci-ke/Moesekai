@@ -10,9 +10,10 @@ services:
     environment:
       - PORT=8080
       - TRANSLATION_PATH=/app/web/public/data/translations
-      - GIT_REPO_PATH=/app
-      - TRANSLATION_REL_DIR=web/public/data/translations
-      - GIT_PUSH_BRANCH=main
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GITHUB_REPO=${GITHUB_REPO:-}
+      - GITHUB_WORKFLOW_FILE=${GITHUB_WORKFLOW_FILE:-sync-translations-from-deploy.yml}
+      - GITHUB_WORKFLOW_REF=${GITHUB_WORKFLOW_REF:-main}
       - TRANSLATOR_ACCOUNTS=${TRANSLATOR_ACCOUNTS:-}
       - JWT_SECRET=${JWT_SECRET:-dev-translate-secret}
       - REDIS_URL=${REDIS_URL:-localhost:6379}

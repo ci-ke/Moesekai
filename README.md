@@ -53,10 +53,11 @@ AGPL-3.0
 - **TRANSLATION_PATH**: 翻译文件目录。
   - 本地开发建议：`./web/public/data/translations`
   - Docker 生产镜像建议：`/app/nextjs/web/public/data/translations`
-- **GIT_REPO_PATH**: Git 仓库根目录（仅“自动推送 GitHub”需要）。
-- **TRANSLATION_REL_DIR**: 仓库内翻译目录相对路径（默认 `web/public/data/translations`）。
-- **GIT_PUSH_BRANCH**: 自动推送目标分支（默认 `main`）。
-- **TRANSLATION_AUTO_PUSH_ENABLED**: 是否开启容器内定时自动推送（默认 `false`，建议生产保持关闭）。
+- **GITHUB_TOKEN**: 用于触发 GitHub Actions 的 Token（需要 Actions write 权限）。
+- **GITHUB_REPO**: 目标仓库，格式 `owner/repo`（例如 `yourname/Snowy_Viewer`）。
+- **GITHUB_WORKFLOW_FILE**: 要触发的 workflow 文件名（默认 `sync-translations-from-deploy.yml`）。
+- **GITHUB_WORKFLOW_REF**: 触发 workflow 使用的分支或 tag（默认 `main`）。
+- **TRANSLATION_AUTO_PUSH_ENABLED**: 是否开启容器内定时触发 workflow（默认 `false`，建议生产保持关闭）。
 
 ### 前端转发相关
 
@@ -92,9 +93,8 @@ docker run -e BILIBILI_SESSDATA=xxxxxx ...
 
 如果启用“自动推送 GitHub”，还需要：
 
-- 挂载一个**完整 git 工作区**（包含 `.git`）到 `GIT_REPO_PATH`
-- 确保 `GIT_REPO_PATH/TRANSLATION_REL_DIR` 与实际翻译写入目录是同一份数据
-- 容器内可执行 `git`，并配置可推送到目标仓库的凭据（建议使用细粒度 Token 或 GitHub App）
+- 在运行环境配置 `GITHUB_TOKEN`、`GITHUB_REPO`、`GITHUB_WORKFLOW_FILE`、`GITHUB_WORKFLOW_REF`
+- 确保目标 workflow 支持 `workflow_dispatch`
 
 ## Docker 热更新开发 / Hot Reload (Dev)
 

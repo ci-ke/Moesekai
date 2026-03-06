@@ -43,7 +43,12 @@ func main() {
 	if cfg.TranslatorAccounts != "" {
 		translateStore := translate.NewStore(cfg.TranslationPath)
 		translateAuth := translate.NewAuth(cfg.TranslatorAccounts, cfg.JWTSecret)
-		translatePusher := translate.NewGitHubPusher(cfg.GitRepoPath, cfg.TranslationRelDir, cfg.GitPushBranch)
+		translatePusher := translate.NewGitHubPusher(
+			cfg.GitHubToken,
+			cfg.GitHubRepo,
+			cfg.GitHubWorkflowFile,
+			cfg.GitHubWorkflowRef,
+		)
 
 		translateHandler := translate.NewHandler(translateStore, translateAuth, translatePusher)
 		translateHandler.RegisterRoutes(mux)

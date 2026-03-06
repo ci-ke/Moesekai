@@ -1,24 +1,29 @@
 package translate
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
+	"io"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
 )
 
-// GitHubPusher handles pushing translation changes to GitHub
+const githubAPIVersion = "2022-11-28"
+
+// GitHubPusher handles triggering translation sync workflow on GitHub Actions.
 type GitHubPusher struct {
-	mu             sync.Mutex
-	repoPath       string // path to the git repo root
-	translationDir string // relative path within repo (web/public/data/translations)
-	pushBranch     string
-	lastPush       time.Time
-	lastError      string
-	pushing        bool
+	mu           sync.Mutex
+	token        string
+	repo         string // owner/repo
+	workflowFile string // workflow filename, e.g. sync-translations-from-deploy.yml
+	workflowRef  string // branch or tag to dispatch on
+	lastPush     time.Time
+	lastError    string
+	pushing      bool
+	httpClient   *http.Client
 }
 
 // PushStatus represents the current push status
@@ -28,20 +33,28 @@ type PushStatus struct {
 	Pushing   bool   `json:"pushing"`
 }
 
-// NewGitHubPusher creates a new GitHub pusher
-func NewGitHubPusher(repoPath, translationDir, pushBranch string) *GitHubPusher {
-	if strings.TrimSpace(pushBranch) == "" {
-		pushBranch = "main"
+// NewGitHubPusher creates a new GitHub workflow dispatcher.
+func NewGitHubPusher(token, repo, workflowFile, workflowRef string) *GitHubPusher {
+	if strings.TrimSpace(workflowRef) == "" {
+		workflowRef = "main"
 	}
 
 	return &GitHubPusher{
-		repoPath:       repoPath,
-		translationDir: filepath.FromSlash(translationDir),
-		pushBranch:     pushBranch,
+		token:        strings.TrimSpace(token),
+		repo:         strings.TrimSpace(repo),
+		workflowFile: strings.TrimSpace(workflowFile),
+		workflowRef:  strings.TrimSpace(workflowRef),
+		httpClient: &http.Client{
+			Timeout: 15 * time.Second,
+		},
 	}
 }
 
-// Push commits and pushes translation changes to GitHub
+type workflowDispatchRequest struct {
+	Ref string `json:"ref"`
+}
+
+// Push dispatches a GitHub Actions workflow run.
 func (g *GitHubPusher) Push(username string) error {
 	g.mu.Lock()
 	if g.pushing {
@@ -57,50 +70,50 @@ func (g *GitHubPusher) Push(username string) error {
 		g.mu.Unlock()
 	}()
 
-	if err := g.ensureReady(); err != nil {
+	if err := g.validateConfig(); err != nil {
 		g.mu.Lock()
 		g.lastError = err.Error()
 		g.mu.Unlock()
 		return err
 	}
 
-	// Check if there are any changes
-	hasChanges, err := g.hasGitChanges()
+	body, err := json.Marshal(workflowDispatchRequest{Ref: g.workflowRef})
 	if err != nil {
 		g.mu.Lock()
-		g.lastError = fmt.Sprintf("git status failed: %v", err)
+		g.lastError = fmt.Sprintf("marshal dispatch request failed: %v", err)
 		g.mu.Unlock()
-		return fmt.Errorf("git status: %w", err)
+		return fmt.Errorf("marshal dispatch request: %w", err)
 	}
 
-	if !hasChanges {
-		fmt.Println("[translate] No translation changes to push")
-		return nil
-	}
-
-	// Stage translation files
-	if err := g.runGit("add", "--", g.translationDir); err != nil {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/actions/workflows/%s/dispatches", g.repo, g.workflowFile)
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
 		g.mu.Lock()
-		g.lastError = fmt.Sprintf("git add failed: %v", err)
+		g.lastError = fmt.Sprintf("build dispatch request failed: %v", err)
 		g.mu.Unlock()
-		return fmt.Errorf("git add: %w", err)
+		return fmt.Errorf("build dispatch request: %w", err)
 	}
+	req.Header.Set("Authorization", "Bearer "+g.token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", githubAPIVersion)
+	req.Header.Set("Content-Type", "application/json")
 
-	// Commit
-	msg := fmt.Sprintf("chore: update translations (by %s)", username)
-	if err := g.runGit("commit", "-m", msg); err != nil {
+	resp, err := g.httpClient.Do(req)
+	if err != nil {
 		g.mu.Lock()
-		g.lastError = fmt.Sprintf("git commit failed: %v", err)
+		g.lastError = fmt.Sprintf("dispatch request failed: %v", err)
 		g.mu.Unlock()
-		return fmt.Errorf("git commit: %w", err)
+		return fmt.Errorf("dispatch request: %w", err)
 	}
+	defer resp.Body.Close()
 
-	// Push
-	if err := g.runGit("push", "origin", g.pushBranch); err != nil {
+	if resp.StatusCode != http.StatusNoContent {
+		responseBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		errMsg := fmt.Sprintf("dispatch failed: status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(responseBody)))
 		g.mu.Lock()
-		g.lastError = fmt.Sprintf("git push failed: %v", err)
+		g.lastError = errMsg
 		g.mu.Unlock()
-		return fmt.Errorf("git push: %w", err)
+		return fmt.Errorf(errMsg)
 	}
 
 	g.mu.Lock()
@@ -108,7 +121,7 @@ func (g *GitHubPusher) Push(username string) error {
 	g.lastError = ""
 	g.mu.Unlock()
 
-	fmt.Printf("[translate] Successfully pushed translation changes (by %s)\n", username)
+	fmt.Printf("[translate] Successfully dispatched workflow %s (ref=%s, by %s)\n", g.workflowFile, g.workflowRef, username)
 	return nil
 }
 
@@ -129,7 +142,7 @@ func (g *GitHubPusher) GetStatus() PushStatus {
 
 // StartScheduledPush starts a goroutine that pushes every interval
 func (g *GitHubPusher) StartScheduledPush(interval time.Duration) {
-	if err := g.ensureReady(); err != nil {
+	if err := g.validateConfig(); err != nil {
 		g.mu.Lock()
 		g.lastError = "scheduled push disabled: " + err.Error()
 		g.mu.Unlock()
@@ -151,56 +164,21 @@ func (g *GitHubPusher) StartScheduledPush(interval time.Duration) {
 	fmt.Printf("[translate] Scheduled push started (every %v)\n", interval)
 }
 
-// hasGitChanges checks if there are uncommitted changes in the translation directory
-func (g *GitHubPusher) hasGitChanges() (bool, error) {
-	cmd := exec.Command("git", "status", "--porcelain", "--", g.translationDir)
-	cmd.Dir = g.repoPath
-	output, err := cmd.Output()
-	if err != nil {
-		return false, err
+func (g *GitHubPusher) validateConfig() error {
+	if strings.TrimSpace(g.token) == "" {
+		return fmt.Errorf("GITHUB_TOKEN is empty")
 	}
-	return strings.TrimSpace(string(output)) != "", nil
-}
-
-// runGit executes a git command in the repo directory
-func (g *GitHubPusher) runGit(args ...string) error {
-	cmd := exec.Command("git", args...)
-	cmd.Dir = g.repoPath
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("%s: %s", err, string(output))
+	if strings.TrimSpace(g.repo) == "" {
+		return fmt.Errorf("GITHUB_REPO is empty (expected owner/repo)")
 	}
-	return nil
-}
-
-func (g *GitHubPusher) ensureReady() error {
-	if _, err := exec.LookPath("git"); err != nil {
-		return fmt.Errorf("git executable not found in PATH")
+	if !strings.Contains(g.repo, "/") {
+		return fmt.Errorf("GITHUB_REPO must be owner/repo")
 	}
-
-	if strings.TrimSpace(g.repoPath) == "" {
-		return fmt.Errorf("GIT_REPO_PATH is empty")
+	if strings.TrimSpace(g.workflowFile) == "" {
+		return fmt.Errorf("GITHUB_WORKFLOW_FILE is empty")
 	}
-
-	repoInfo, err := os.Stat(g.repoPath)
-	if err != nil || !repoInfo.IsDir() {
-		return fmt.Errorf("git repo path is invalid: %s", g.repoPath)
+	if strings.TrimSpace(g.workflowRef) == "" {
+		return fmt.Errorf("GITHUB_WORKFLOW_REF is empty")
 	}
-
-	gitPath := filepath.Join(g.repoPath, ".git")
-	if _, err := os.Stat(gitPath); err != nil {
-		return fmt.Errorf("no .git found under repo path: %s", g.repoPath)
-	}
-
-	if strings.TrimSpace(g.translationDir) == "" {
-		return fmt.Errorf("TRANSLATION_REL_DIR is empty")
-	}
-
-	translationPath := filepath.Join(g.repoPath, g.translationDir)
-	info, err := os.Stat(translationPath)
-	if err != nil || !info.IsDir() {
-		return fmt.Errorf("translation directory not found in repo: %s", translationPath)
-	}
-
 	return nil
 }
