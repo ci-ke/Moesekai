@@ -6,11 +6,82 @@ import MainLayout from "@/components/MainLayout";
 import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
 import Modal from "@/components/common/Modal";
 import ImagePreviewModal from "@/components/common/ImagePreviewModal";
+import BaseFilters, { FilterSection, FilterButton, FilterToggle } from "@/components/common/BaseFilters";
+import { useQuickFilter } from "@/contexts/QuickFilterContext";
 
 export default function DesignSystemPage() {
     const [modalSize, setModalSize] = useState<"sm" | "md" | "lg" | "xl">("md");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+
+    // ===== Quick Filter demo state =====
+    const [demoSearch, setDemoSearch] = useState("");
+    const [demoSortBy, setDemoSortBy] = useState("name");
+    const [demoSortOrder, setDemoSortOrder] = useState<"asc" | "desc">("desc");
+    const [demoCategory, setDemoCategory] = useState("all");
+    const [demoToggle, setDemoToggle] = useState(false);
+
+    const demoTotalCount = 128;
+    const demoFilteredCount = demoSearch || demoCategory !== "all" || demoToggle ? 42 : 128;
+
+    const demoSortOptions = [
+        { id: "name", label: "名称" },
+        { id: "date", label: "日期" },
+        { id: "level", label: "等级" },
+    ];
+
+    const hasActiveFilters = demoSearch !== "" || demoCategory !== "all" || demoToggle || demoSortBy !== "name";
+
+    const resetDemoFilters = () => {
+        setDemoSearch("");
+        setDemoSortBy("name");
+        setDemoSortOrder("desc");
+        setDemoCategory("all");
+        setDemoToggle(false);
+    };
+
+    // Register quick filter content for this page
+    const quickFilterContent = (
+        <BaseFilters
+            title="快捷筛选器演示"
+            filteredCount={demoFilteredCount}
+            totalCount={demoTotalCount}
+            countUnit="项"
+            searchQuery={demoSearch}
+            onSearchChange={setDemoSearch}
+            searchPlaceholder="搜索示例..."
+            sortOptions={demoSortOptions}
+            sortBy={demoSortBy}
+            sortOrder={demoSortOrder}
+            onSortChange={(sortBy, sortOrder) => { setDemoSortBy(sortBy); setDemoSortOrder(sortOrder); }}
+            hasActiveFilters={hasActiveFilters}
+            onReset={resetDemoFilters}
+        >
+            <FilterSection label="分类">
+                <div className="grid grid-cols-3 gap-2">
+                    {["all", "typeA", "typeB"].map(cat => (
+                        <FilterButton
+                            key={cat}
+                            selected={demoCategory === cat}
+                            onClick={() => setDemoCategory(cat)}
+                        >
+                            {cat === "all" ? "全部" : cat === "typeA" ? "类型 A" : "类型 B"}
+                        </FilterButton>
+                    ))}
+                </div>
+            </FilterSection>
+            <FilterToggle
+                selected={demoToggle}
+                onClick={() => setDemoToggle(prev => !prev)}
+                label="仅显示已完成"
+            />
+        </BaseFilters>
+    );
+
+    useQuickFilter("快捷筛选器演示", quickFilterContent, [
+        demoSearch, demoSortBy, demoSortOrder, demoCategory, demoToggle,
+    ]);
+
 
     const openModal = (size: "sm" | "md" | "lg" | "xl") => {
         setModalSize(size);
@@ -644,6 +715,77 @@ export default function DesignSystemPage() {
                         alt="Image Preview Demo"
                         fileName="design_system_image_preview.png"
                     />
+                </section>
+
+                {/* Quick Filter Section */}
+                <section className="mb-16">
+                    <h2 className="text-2xl font-bold text-primary-text mb-6 flex items-center gap-2">
+                        <span className="w-1.5 h-8 bg-emerald-400 rounded-full"></span>
+                        Quick Filter (快捷筛选器)
+                    </h2>
+
+                    <div className="glass-card p-8 rounded-2xl">
+                        <p className="text-slate-500 mb-6">
+                            全局通用的快捷筛选器组件。页面通过{" "}
+                            <code className="px-1.5 py-0.5 bg-slate-100 rounded text-xs font-mono text-slate-600">useQuickFilter()</code>{" "}
+                            注册筛选内容后，页面右下角会出现一个漏斗图标的浮动按钮（位于"回到顶部"按钮上方），
+                            点击后弹出 Modal 展示筛选面板。
+                        </p>
+
+                        <div className="flex flex-wrap gap-4 items-center mb-6">
+                            <div className="flex items-center gap-3 px-4 py-2 bg-miku/5 border border-miku/20 rounded-xl">
+                                <svg className="w-5 h-5 text-miku" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                </svg>
+                                <span className="text-sm font-bold text-miku">← 请查看右下角的浮动筛选按钮</span>
+                            </div>
+
+                            {hasActiveFilters && (
+                                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-400 text-white animate-pulse">
+                                    筛选器已激活
+                                </span>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Inline preview */}
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-500 mb-3 uppercase tracking-wider">内嵌预览</h4>
+                                <div className="max-w-sm">
+                                    {quickFilterContent}
+                                </div>
+                            </div>
+
+                            {/* Usage guide */}
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-500 mb-3 uppercase tracking-wider">使用方式</h4>
+                                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                    <ul className="text-sm text-slate-500 space-y-2 list-disc list-inside">
+                                        <li>页面组件中调用 <code className="px-1 py-0.5 bg-white rounded text-xs font-mono">useQuickFilter(title, content, deps)</code></li>
+                                        <li>筛选器内容自动注册到全局 Context</li>
+                                        <li>右下角浮动按钮仅在有注册内容时显示</li>
+                                        <li>组件卸载时自动取消注册</li>
+                                        <li>BaseFilters 的所有功能均可在弹窗内使用</li>
+                                    </ul>
+                                </div>
+
+                                <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                                    <h5 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">当前筛选状态</h5>
+                                    <div className="text-xs text-slate-500 font-mono space-y-1">
+                                        <div>search: &quot;{demoSearch || "(空)"}&quot;</div>
+                                        <div>sortBy: &quot;{demoSortBy}&quot; / order: &quot;{demoSortOrder}&quot;</div>
+                                        <div>category: &quot;{demoCategory}&quot;</div>
+                                        <div>toggle: {demoToggle ? "true" : "false"}</div>
+                                        <div>filtered: {demoFilteredCount} / {demoTotalCount}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 text-xs text-slate-400 font-mono">
+                            {`useQuickFilter("筛选标题", <BaseFilters ...>{children}</BaseFilters>, [deps])`}
+                        </div>
+                    </div>
                 </section>
             </div >
         </MainLayout >

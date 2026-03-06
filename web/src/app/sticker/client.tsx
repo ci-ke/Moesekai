@@ -11,6 +11,7 @@ import { fetchMasterData } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import ImagePreviewModal from "@/components/common/ImagePreviewModal";
+import { useQuickFilter } from "@/contexts/QuickFilterContext";
 
 interface IStampInfo {
     id: number;
@@ -140,6 +141,141 @@ function StickerContent() {
         return Array.from(types);
     }, [stamps]);
 
+    const quickFilterContent = (
+        <BaseFilters
+            filteredCount={filteredStamps.length}
+            totalCount={stamps.length}
+            countUnit="个"
+            showSearch={false}
+            sortOptions={[{ id: "id", label: "ID" }]}
+            sortBy="id"
+            sortOrder={sortOrder}
+            onSortChange={(_: string, order: "asc" | "desc") => setSortOrder(order)}
+        >
+            <FilterSection label="角色 1">
+                <div className="grid grid-cols-5 gap-2">
+                    <button
+                        key="all1"
+                        onClick={() => setSelectedChar1(null)}
+                        className={`aspect-square rounded-full flex items-center justify-center text-xs font-bold transition-all ${selectedChar1 === null
+                            ? "bg-miku text-white shadow-lg ring-2 ring-miku"
+                            : "bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-200"
+                            }`}
+                        title="不限"
+                    >
+                        ALL
+                    </button>
+                    {characters.map(id => {
+                        const hasName = !!CHARACTER_NAMES[id];
+                        return (
+                            <button
+                                key={`char1-${id}`}
+                                onClick={() => setSelectedChar1(selectedChar1 === id ? null : id)}
+                                className={`relative aspect-square rounded-full overflow-hidden transition-all flex items-center justify-center ${selectedChar1 === id
+                                    ? "ring-2 ring-miku shadow-lg"
+                                    : "ring-1 ring-slate-200 hover:ring-miku/50"
+                                    } ${!hasName ? "bg-slate-50" : ""}`}
+                                title={CHARACTER_NAMES[id] || `角色 ${id}`}
+                            >
+                                {hasName ? (
+                                    <Image
+                                        src={`https://assets.exmeaning.com/character_icons/chr_ts_${id}.png`}
+                                        alt={CHARACTER_NAMES[id]}
+                                        fill
+                                        className="object-cover"
+                                        unoptimized
+                                    />
+                                ) : (
+                                    <span className="text-xs text-slate-500 font-bold">其他</span>
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+            </FilterSection>
+
+            <FilterSection label="角色 2">
+                <div className="grid grid-cols-5 gap-2">
+                    <button
+                        key="all2"
+                        onClick={() => setSelectedChar2(null)}
+                        className={`aspect-square rounded-full flex items-center justify-center text-xs font-bold transition-all ${selectedChar2 === null
+                            ? "bg-miku text-white shadow-lg ring-2 ring-miku"
+                            : "bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-200"
+                            }`}
+                        title="不限"
+                    >
+                        ALL
+                    </button>
+                    {characters.map(id => {
+                        const hasName = !!CHARACTER_NAMES[id];
+                        return (
+                            <button
+                                key={`char2-${id}`}
+                                onClick={() => setSelectedChar2(selectedChar2 === id ? null : id)}
+                                className={`relative aspect-square rounded-full overflow-hidden transition-all flex items-center justify-center ${selectedChar2 === id
+                                    ? "ring-2 ring-miku shadow-lg"
+                                    : "ring-1 ring-slate-200 hover:ring-miku/50"
+                                    } ${!hasName ? "bg-slate-50" : ""}`}
+                                title={CHARACTER_NAMES[id] || `角色 ${id}`}
+                            >
+                                {hasName ? (
+                                    <Image
+                                        src={`https://assets.exmeaning.com/character_icons/chr_ts_${id}.png`}
+                                        alt={CHARACTER_NAMES[id]}
+                                        fill
+                                        className="object-cover"
+                                        unoptimized
+                                    />
+                                ) : (
+                                    <span className="text-xs text-slate-500 font-bold">其他</span>
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+            </FilterSection>
+
+            <FilterSection label="贴纸类型">
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        key="type-all"
+                        onClick={() => setStampType("")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${stampType === ""
+                            ? "bg-miku text-white shadow-md"
+                            : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
+                            }`}
+                    >
+                        全部
+                    </button>
+                    {stampTypes.map(type => (
+                        <button
+                            key={`type-${type}`}
+                            onClick={() => setStampType(stampType === type ? "" : type)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${stampType === type
+                                ? "bg-miku text-white shadow-md"
+                                : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
+                                }`}
+                        >
+                            {type === "text" ? "文字" : type === "illustration" ? "插图" : type}
+                        </button>
+                    ))}
+                </div>
+            </FilterSection>
+        </BaseFilters>
+    );
+
+    useQuickFilter("贴纸筛选", quickFilterContent, [
+        selectedChar1,
+        selectedChar2,
+        stampType,
+        sortOrder,
+        filteredStamps.length,
+        stamps.length,
+        characters,
+        stampTypes,
+    ]);
+
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8">
             <ImagePreviewModal
@@ -177,130 +313,7 @@ function StickerContent() {
                 {/* Filters - Side Panel on Large Screens */}
                 <div className="w-full lg:w-80 lg:shrink-0">
                     <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar">
-                        <BaseFilters
-                            filteredCount={filteredStamps.length}
-                            totalCount={stamps.length}
-                            countUnit="个"
-                            showSearch={false}
-                            sortOptions={[{ id: "id", label: "ID" }]}
-                            sortBy="id"
-                            sortOrder={sortOrder}
-                            onSortChange={(_: string, order: "asc" | "desc") => setSortOrder(order)}
-                        >
-                            {/* Character Filter 1 */}
-                            <FilterSection label="角色 1">
-                                <div className="grid grid-cols-5 gap-2">
-                                    <button
-                                        key="all1"
-                                        onClick={() => setSelectedChar1(null)}
-                                        className={`aspect-square rounded-full flex items-center justify-center text-xs font-bold transition-all ${selectedChar1 === null
-                                            ? "bg-miku text-white shadow-lg ring-2 ring-miku"
-                                            : "bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-200"
-                                            }`}
-                                        title="不限"
-                                    >
-                                        ALL
-                                    </button>
-                                    {characters.map(id => {
-                                        const hasName = !!CHARACTER_NAMES[id];
-                                        return (
-                                            <button
-                                                key={`char1-${id}`}
-                                                onClick={() => setSelectedChar1(selectedChar1 === id ? null : id)}
-                                                className={`relative aspect-square rounded-full overflow-hidden transition-all flex items-center justify-center ${selectedChar1 === id
-                                                    ? "ring-2 ring-miku shadow-lg"
-                                                    : "ring-1 ring-slate-200 hover:ring-miku/50"
-                                                    } ${!hasName ? "bg-slate-50" : ""}`}
-                                                title={CHARACTER_NAMES[id] || `角色 ${id}`}
-                                            >
-                                                {hasName ? (
-                                                    <Image
-                                                        src={`https://assets.exmeaning.com/character_icons/chr_ts_${id}.png`}
-                                                        alt={CHARACTER_NAMES[id]}
-                                                        fill
-                                                        className="object-cover"
-                                                        unoptimized
-                                                    />
-                                                ) : (
-                                                    <span className="text-xs text-slate-500 font-bold">其他</span>
-                                                )}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </FilterSection>
-
-                            {/* Character Filter 2 */}
-                            <FilterSection label="角色 2">
-                                <div className="grid grid-cols-5 gap-2">
-                                    <button
-                                        key="all2"
-                                        onClick={() => setSelectedChar2(null)}
-                                        className={`aspect-square rounded-full flex items-center justify-center text-xs font-bold transition-all ${selectedChar2 === null
-                                            ? "bg-miku text-white shadow-lg ring-2 ring-miku"
-                                            : "bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-200"
-                                            }`}
-                                        title="不限"
-                                    >
-                                        ALL
-                                    </button>
-                                    {characters.map(id => {
-                                        const hasName = !!CHARACTER_NAMES[id];
-                                        return (
-                                            <button
-                                                key={`char2-${id}`}
-                                                onClick={() => setSelectedChar2(selectedChar2 === id ? null : id)}
-                                                className={`relative aspect-square rounded-full overflow-hidden transition-all flex items-center justify-center ${selectedChar2 === id
-                                                    ? "ring-2 ring-miku shadow-lg"
-                                                    : "ring-1 ring-slate-200 hover:ring-miku/50"
-                                                    } ${!hasName ? "bg-slate-50" : ""}`}
-                                                title={CHARACTER_NAMES[id] || `角色 ${id}`}
-                                            >
-                                                {hasName ? (
-                                                    <Image
-                                                        src={`https://assets.exmeaning.com/character_icons/chr_ts_${id}.png`}
-                                                        alt={CHARACTER_NAMES[id]}
-                                                        fill
-                                                        className="object-cover"
-                                                        unoptimized
-                                                    />
-                                                ) : (
-                                                    <span className="text-xs text-slate-500 font-bold">其他</span>
-                                                )}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </FilterSection>
-
-                            {/* Type Filter */}
-                            <FilterSection label="贴纸类型">
-                                <div className="flex flex-wrap gap-2">
-                                    <button
-                                        key="type-all"
-                                        onClick={() => setStampType("")}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${stampType === ""
-                                            ? "bg-miku text-white shadow-md"
-                                            : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
-                                            }`}
-                                    >
-                                        全部
-                                    </button>
-                                    {stampTypes.map(type => (
-                                        <button
-                                            key={`type-${type}`}
-                                            onClick={() => setStampType(stampType === type ? "" : type)}
-                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${stampType === type
-                                                ? "bg-miku text-white shadow-md"
-                                                : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
-                                                }`}
-                                        >
-                                            {type === "text" ? "文字" : type === "illustration" ? "插图" : type}
-                                        </button>
-                                    ))}
-                                </div>
-                            </FilterSection>
-                        </BaseFilters>
+                        {quickFilterContent}
                     </div>
                 </div>
 

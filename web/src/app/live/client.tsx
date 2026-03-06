@@ -9,6 +9,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { fetchMasterData } from "@/lib/fetch";
 import { loadTranslations, TranslationData } from "@/lib/translations";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
+import { useQuickFilter } from "@/contexts/QuickFilterContext";
 
 function VirtualLiveContent() {
     const router = useRouter();
@@ -192,6 +193,30 @@ function VirtualLiveContent() {
         resetDisplayCount();
     }, [resetDisplayCount]);
 
+    const quickFilterContent = (
+        <VirtualLiveFilters
+            selectedTypes={selectedTypes}
+            onTypeChange={setSelectedTypes}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={handleSortChange}
+            onReset={resetFilters}
+            totalItems={virtualLives.length}
+            filteredItems={filteredVirtualLives.length}
+        />
+    );
+
+    useQuickFilter("演唱会筛选", quickFilterContent, [
+        selectedTypes,
+        searchQuery,
+        sortBy,
+        sortOrder,
+        virtualLives.length,
+        filteredVirtualLives.length,
+    ]);
+
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8">
             {/* Page Header */}
@@ -226,18 +251,7 @@ function VirtualLiveContent() {
                 {/* Filters - Side Panel on Large Screens */}
                 <div className="w-full lg:w-80 lg:shrink-0">
                     <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar">
-                        <VirtualLiveFilters
-                            selectedTypes={selectedTypes}
-                            onTypeChange={setSelectedTypes}
-                            searchQuery={searchQuery}
-                            onSearchChange={setSearchQuery}
-                            sortBy={sortBy}
-                            sortOrder={sortOrder}
-                            onSortChange={handleSortChange}
-                            onReset={resetFilters}
-                            totalItems={virtualLives.length}
-                            filteredItems={filteredVirtualLives.length}
-                        />
+                        {quickFilterContent}
                     </div>
                 </div>
 

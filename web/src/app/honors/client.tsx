@@ -17,6 +17,7 @@ import {
 } from "@/types/honor";
 import { CHARACTER_NAMES } from "@/types/types";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
+import { useQuickFilter } from "@/contexts/QuickFilterContext";
 
 type HonorTab = "normal" | "bonds";
 
@@ -357,6 +358,156 @@ function HonorsContent() {
 
     const bondsHasActiveFilters = bondsChar1 !== null || bondsChar2 !== null || bondsGroupOnce || bondsSearchQuery.length > 0;
 
+    const normalQuickFilterContent = (
+        <HonorFilters
+            selectedTypes={selectedTypes}
+            onTypeChange={setSelectedTypes}
+            availableTypes={availableTypes}
+            selectedRarities={selectedRarities}
+            onRarityChange={setSelectedRarities}
+            groupOnce={groupOnce}
+            onGroupOnceChange={setGroupOnce}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={(field, order) => {
+                setSortBy(field);
+                setSortOrder(order);
+            }}
+            onReset={handleReset}
+            totalCount={honors.length}
+            filteredCount={filteredHonors.length}
+        />
+    );
+
+    const bondsQuickFilterContent = (
+        <BaseFilters
+            filteredCount={filteredBondsHonors.length}
+            totalCount={bondsHonors.length}
+            countUnit="个"
+            searchQuery={bondsSearchQuery}
+            onSearchChange={setBondsSearchQuery}
+            searchPlaceholder="搜索羁绊称号名称..."
+            sortOptions={[{ id: "id", label: "ID" }]}
+            sortBy="id"
+            sortOrder={bondsSortOrder}
+            onSortChange={(_: string, order: "asc" | "desc") => setBondsSortOrder(order)}
+            hasActiveFilters={bondsHasActiveFilters}
+            onReset={handleBondsReset}
+        >
+            <FilterSection label="角色 1">
+                <div className="grid grid-cols-5 gap-2">
+                    <button
+                        onClick={() => setBondsChar1(null)}
+                        className={`aspect-square rounded-full flex items-center justify-center text-xs font-bold transition-all ${bondsChar1 === null
+                            ? "bg-miku text-white shadow-lg ring-2 ring-miku"
+                            : "bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-200"
+                            }`}
+                        title="不限"
+                    >
+                        ALL
+                    </button>
+                    {bondsCharacters.map(id => {
+                        const hasName = !!CHARACTER_NAMES[id];
+                        return (
+                            <button
+                                key={`bc1-${id}`}
+                                onClick={() => setBondsChar1(bondsChar1 === id ? null : id)}
+                                className={`relative aspect-square rounded-full overflow-hidden transition-all flex items-center justify-center ${bondsChar1 === id
+                                    ? "ring-2 ring-miku shadow-lg"
+                                    : "ring-1 ring-slate-200 hover:ring-miku/50"
+                                    } ${!hasName ? "bg-slate-50" : ""}`}
+                                title={CHARACTER_NAMES[id] || `角色 ${id}`}
+                            >
+                                {hasName ? (
+                                    <Image
+                                        src={`https://assets.exmeaning.com/character_icons/chr_ts_${id}.png`}
+                                        alt={CHARACTER_NAMES[id]}
+                                        fill
+                                        className="object-cover"
+                                        unoptimized
+                                    />
+                                ) : (
+                                    <span className="text-xs text-slate-500 font-bold">{id}</span>
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+            </FilterSection>
+
+            <FilterSection label="角色 2">
+                <div className="grid grid-cols-5 gap-2">
+                    <button
+                        onClick={() => setBondsChar2(null)}
+                        className={`aspect-square rounded-full flex items-center justify-center text-xs font-bold transition-all ${bondsChar2 === null
+                            ? "bg-miku text-white shadow-lg ring-2 ring-miku"
+                            : "bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-200"
+                            }`}
+                        title="不限"
+                    >
+                        ALL
+                    </button>
+                    {bondsCharacters.map(id => {
+                        const hasName = !!CHARACTER_NAMES[id];
+                        return (
+                            <button
+                                key={`bc2-${id}`}
+                                onClick={() => setBondsChar2(bondsChar2 === id ? null : id)}
+                                className={`relative aspect-square rounded-full overflow-hidden transition-all flex items-center justify-center ${bondsChar2 === id
+                                    ? "ring-2 ring-miku shadow-lg"
+                                    : "ring-1 ring-slate-200 hover:ring-miku/50"
+                                    } ${!hasName ? "bg-slate-50" : ""}`}
+                                title={CHARACTER_NAMES[id] || `角色 ${id}`}
+                            >
+                                {hasName ? (
+                                    <Image
+                                        src={`https://assets.exmeaning.com/character_icons/chr_ts_${id}.png`}
+                                        alt={CHARACTER_NAMES[id]}
+                                        fill
+                                        className="object-cover"
+                                        unoptimized
+                                    />
+                                ) : (
+                                    <span className="text-xs text-slate-500 font-bold">{id}</span>
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+            </FilterSection>
+
+            <FilterToggle
+                selected={bondsGroupOnce}
+                onClick={() => setBondsGroupOnce(!bondsGroupOnce)}
+                label="每组仅显示一个"
+            />
+        </BaseFilters>
+    );
+
+    const quickFilterTitle = activeTab === "bonds" ? "羁绊称号筛选" : "称号筛选";
+    const quickFilterContent = activeTab === "bonds" ? bondsQuickFilterContent : normalQuickFilterContent;
+
+    useQuickFilter(quickFilterTitle, quickFilterContent, [
+        activeTab,
+        selectedTypes,
+        selectedRarities,
+        groupOnce,
+        searchQuery,
+        sortBy,
+        sortOrder,
+        bondsSearchQuery,
+        bondsChar1,
+        bondsChar2,
+        bondsGroupOnce,
+        bondsSortOrder,
+        honors.length,
+        filteredHonors.length,
+        bondsHonors.length,
+        filteredBondsHonors.length,
+    ]);
+
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8">
             {/* Page Header */}
@@ -411,26 +562,7 @@ function HonorsContent() {
                 <div className="flex flex-col lg:flex-row gap-6">
                     <div className="w-full lg:w-80 lg:shrink-0">
                         <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar">
-                            <HonorFilters
-                                selectedTypes={selectedTypes}
-                                onTypeChange={setSelectedTypes}
-                                availableTypes={availableTypes}
-                                selectedRarities={selectedRarities}
-                                onRarityChange={setSelectedRarities}
-                                groupOnce={groupOnce}
-                                onGroupOnceChange={setGroupOnce}
-                                searchQuery={searchQuery}
-                                onSearchChange={setSearchQuery}
-                                sortBy={sortBy}
-                                sortOrder={sortOrder}
-                                onSortChange={(field, order) => {
-                                    setSortBy(field);
-                                    setSortOrder(order);
-                                }}
-                                onReset={handleReset}
-                                totalCount={honors.length}
-                                filteredCount={filteredHonors.length}
-                            />
+                            {normalQuickFilterContent}
                         </div>
                     </div>
 
@@ -522,111 +654,7 @@ function HonorsContent() {
                     {/* Bonds Filters */}
                     <div className="w-full lg:w-80 lg:shrink-0">
                         <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar">
-                            <BaseFilters
-                                filteredCount={filteredBondsHonors.length}
-                                totalCount={bondsHonors.length}
-                                countUnit="个"
-                                searchQuery={bondsSearchQuery}
-                                onSearchChange={setBondsSearchQuery}
-                                searchPlaceholder="搜索羁绊称号名称..."
-                                sortOptions={[{ id: "id", label: "ID" }]}
-                                sortBy="id"
-                                sortOrder={bondsSortOrder}
-                                onSortChange={(_: string, order: "asc" | "desc") => setBondsSortOrder(order)}
-                                hasActiveFilters={bondsHasActiveFilters}
-                                onReset={handleBondsReset}
-                            >
-                                {/* Character 1 Filter */}
-                                <FilterSection label="角色 1">
-                                    <div className="grid grid-cols-5 gap-2">
-                                        <button
-                                            onClick={() => setBondsChar1(null)}
-                                            className={`aspect-square rounded-full flex items-center justify-center text-xs font-bold transition-all ${bondsChar1 === null
-                                                ? "bg-miku text-white shadow-lg ring-2 ring-miku"
-                                                : "bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-200"
-                                            }`}
-                                            title="不限"
-                                        >
-                                            ALL
-                                        </button>
-                                        {bondsCharacters.map(id => {
-                                            const hasName = !!CHARACTER_NAMES[id];
-                                            return (
-                                                <button
-                                                    key={`bc1-${id}`}
-                                                    onClick={() => setBondsChar1(bondsChar1 === id ? null : id)}
-                                                    className={`relative aspect-square rounded-full overflow-hidden transition-all flex items-center justify-center ${bondsChar1 === id
-                                                        ? "ring-2 ring-miku shadow-lg"
-                                                        : "ring-1 ring-slate-200 hover:ring-miku/50"
-                                                    } ${!hasName ? "bg-slate-50" : ""}`}
-                                                    title={CHARACTER_NAMES[id] || `角色 ${id}`}
-                                                >
-                                                    {hasName ? (
-                                                        <Image
-                                                            src={`https://assets.exmeaning.com/character_icons/chr_ts_${id}.png`}
-                                                            alt={CHARACTER_NAMES[id]}
-                                                            fill
-                                                            className="object-cover"
-                                                            unoptimized
-                                                        />
-                                                    ) : (
-                                                        <span className="text-xs text-slate-500 font-bold">{id}</span>
-                                                    )}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </FilterSection>
-
-                                {/* Character 2 Filter */}
-                                <FilterSection label="角色 2">
-                                    <div className="grid grid-cols-5 gap-2">
-                                        <button
-                                            onClick={() => setBondsChar2(null)}
-                                            className={`aspect-square rounded-full flex items-center justify-center text-xs font-bold transition-all ${bondsChar2 === null
-                                                ? "bg-miku text-white shadow-lg ring-2 ring-miku"
-                                                : "bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-200"
-                                            }`}
-                                            title="不限"
-                                        >
-                                            ALL
-                                        </button>
-                                        {bondsCharacters.map(id => {
-                                            const hasName = !!CHARACTER_NAMES[id];
-                                            return (
-                                                <button
-                                                    key={`bc2-${id}`}
-                                                    onClick={() => setBondsChar2(bondsChar2 === id ? null : id)}
-                                                    className={`relative aspect-square rounded-full overflow-hidden transition-all flex items-center justify-center ${bondsChar2 === id
-                                                        ? "ring-2 ring-miku shadow-lg"
-                                                        : "ring-1 ring-slate-200 hover:ring-miku/50"
-                                                    } ${!hasName ? "bg-slate-50" : ""}`}
-                                                    title={CHARACTER_NAMES[id] || `角色 ${id}`}
-                                                >
-                                                    {hasName ? (
-                                                        <Image
-                                                            src={`https://assets.exmeaning.com/character_icons/chr_ts_${id}.png`}
-                                                            alt={CHARACTER_NAMES[id]}
-                                                            fill
-                                                            className="object-cover"
-                                                            unoptimized
-                                                        />
-                                                    ) : (
-                                                        <span className="text-xs text-slate-500 font-bold">{id}</span>
-                                                    )}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </FilterSection>
-
-                                {/* Group Once Toggle */}
-                                <FilterToggle
-                                    selected={bondsGroupOnce}
-                                    onClick={() => setBondsGroupOnce(!bondsGroupOnce)}
-                                    label="每组仅显示一个"
-                                />
-                            </BaseFilters>
+                            {bondsQuickFilterContent}
                         </div>
                     </div>
 

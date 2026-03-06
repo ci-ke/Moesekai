@@ -9,6 +9,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { fetchMasterData } from "@/lib/fetch";
 import { loadTranslations, TranslationData } from "@/lib/translations";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
+import { useQuickFilter } from "@/contexts/QuickFilterContext";
 
 interface ICardSupply {
     id: number;
@@ -297,6 +298,45 @@ function CardsContent() {
         resetDisplayCount();
     }, [resetDisplayCount]);
 
+    const quickFilterContent = (
+        <CardFilters
+            selectedCharacters={selectedCharacters}
+            onCharacterChange={setSelectedCharacters}
+            selectedUnitIds={selectedUnitIds}
+            onUnitIdsChange={setSelectedUnitIds}
+            selectedAttrs={selectedAttrs}
+            onAttrChange={setSelectedAttrs}
+            selectedRarities={selectedRarities}
+            onRarityChange={setSelectedRarities}
+            selectedSupplyTypes={selectedSupplyTypes}
+            onSupplyTypeChange={setSelectedSupplyTypes}
+            selectedSupportUnits={selectedSupportUnits}
+            onSupportUnitChange={setSelectedSupportUnits}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={handleSortChange}
+            onReset={resetFilters}
+            totalCards={cards.length}
+            filteredCards={filteredCards.length}
+        />
+    );
+
+    useQuickFilter("卡牌筛选", quickFilterContent, [
+        selectedCharacters,
+        selectedUnitIds,
+        selectedAttrs,
+        selectedRarities,
+        selectedSupplyTypes,
+        selectedSupportUnits,
+        searchQuery,
+        sortBy,
+        sortOrder,
+        cards.length,
+        filteredCards.length,
+    ]);
+
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8">
             {/* Page Header */}
@@ -331,28 +371,7 @@ function CardsContent() {
                 {/* Filters - Side Panel on Large Screens */}
                 <div className="w-full lg:w-80 lg:shrink-0">
                     <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar">
-                        <CardFilters
-                            selectedCharacters={selectedCharacters}
-                            onCharacterChange={setSelectedCharacters}
-                            selectedUnitIds={selectedUnitIds}
-                            onUnitIdsChange={setSelectedUnitIds}
-                            selectedAttrs={selectedAttrs}
-                            onAttrChange={setSelectedAttrs}
-                            selectedRarities={selectedRarities}
-                            onRarityChange={setSelectedRarities}
-                            selectedSupplyTypes={selectedSupplyTypes}
-                            onSupplyTypeChange={setSelectedSupplyTypes}
-                            selectedSupportUnits={selectedSupportUnits}
-                            onSupportUnitChange={setSelectedSupportUnits}
-                            searchQuery={searchQuery}
-                            onSearchChange={setSearchQuery}
-                            sortBy={sortBy}
-                            sortOrder={sortOrder}
-                            onSortChange={handleSortChange}
-                            onReset={resetFilters}
-                            totalCards={cards.length}
-                            filteredCards={filteredCards.length}
-                        />
+                        {quickFilterContent}
                     </div>
                 </div>
 

@@ -45,7 +45,7 @@ LLM_CONFIGS = {
     "gemini": {
         # URL is constructed dynamically using the model name in call_gemini_api()
         "url_base": "https://generativelanguage.googleapis.com/v1beta/models",
-        "model": "gemini-3-flash-preview",
+        "model": "gemini-flash-latest",
         "env_key": "GEMINI_API_KEY",
     }
 }

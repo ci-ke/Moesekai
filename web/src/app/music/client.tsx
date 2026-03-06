@@ -24,6 +24,7 @@ import { fetchMasterData } from "@/lib/fetch";
 import { loadTranslations, TranslationData } from "@/lib/translations";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { fetchSongConstants, buildSongConstantsMap } from "@/lib/songConstants";
+import { useQuickFilter } from "@/contexts/QuickFilterContext";
 
 // Level Separator Card Component
 function LevelSeparatorCard({ level, difficulty }: { level: number; difficulty: string }) {
@@ -356,6 +357,47 @@ function MusicContent() {
         [resetDisplayCount]
     );
 
+    const quickFilterContent = (
+        <MusicFilters
+            selectedTag={selectedTag}
+            onTagChange={(tag) => {
+                setSelectedTag(tag);
+            }}
+            selectedCategories={selectedCategories}
+            onCategoryChange={(cats) => {
+                setSelectedCategories(cats);
+            }}
+            hasEventOnly={hasEventOnly}
+            onHasEventOnlyChange={(checked) => {
+                setHasEventOnly(checked);
+            }}
+            searchQuery={searchQuery}
+            onSearchChange={(q) => {
+                setSearchQuery(q);
+            }}
+            selectedDifficulty={selectedDifficulty}
+            onDifficultyChange={setSelectedDifficulty}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={handleSortChange}
+            onReset={resetFilters}
+            totalMusics={musics.length}
+            filteredMusics={filteredMusics.length}
+        />
+    );
+
+    useQuickFilter("音乐筛选", quickFilterContent, [
+        selectedTag,
+        selectedCategories,
+        hasEventOnly,
+        searchQuery,
+        selectedDifficulty,
+        sortBy,
+        sortOrder,
+        musics.length,
+        filteredMusics.length,
+    ]);
+
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8">
             {/* Page Header */}
@@ -392,32 +434,7 @@ function MusicContent() {
                 {/* Filters - Side Panel on Large Screens */}
                 <div className="w-full lg:w-80 lg:shrink-0">
                     <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar">
-                        <MusicFilters
-                            selectedTag={selectedTag}
-                            onTagChange={(tag) => {
-                                setSelectedTag(tag);
-                            }}
-                            selectedCategories={selectedCategories}
-                            onCategoryChange={(cats) => {
-                                setSelectedCategories(cats);
-                            }}
-                            hasEventOnly={hasEventOnly}
-                            onHasEventOnlyChange={(checked) => {
-                                setHasEventOnly(checked);
-                            }}
-                            searchQuery={searchQuery}
-                            onSearchChange={(q) => {
-                                setSearchQuery(q);
-                            }}
-                            selectedDifficulty={selectedDifficulty}
-                            onDifficultyChange={setSelectedDifficulty}
-                            sortBy={sortBy}
-                            sortOrder={sortOrder}
-                            onSortChange={handleSortChange}
-                            onReset={resetFilters}
-                            totalMusics={musics.length}
-                            filteredMusics={filteredMusics.length}
-                        />
+                        {quickFilterContent}
                     </div>
                 </div>
 

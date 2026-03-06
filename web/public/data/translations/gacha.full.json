@@ -2208,78 +2208,6 @@
       "text": "[终章] Night's Treasure 招募",
       "source": "unknown"
     },
-    "[フィナーレチャプター]Another sparkle Starsガチャ": {
-      "text": "is fine.",
-      "source": "unknown"
-    },
-    "[フィナーレチャプター]Empty Teatimeガチャ": {
-      "text": "*Wait, \"フィナーレチャプター\":*",
-      "source": "unknown"
-    },
-    "[フィナーレチャプター]Velvet Afternoonガチャ": {
-      "text": "[终章] is good.",
-      "source": "unknown"
-    },
-    "[フィナーレチャプター]ワールドリンクイベントサポートガチャ": {
-      "text": "*Wait, \"ワールドリンクイベントサポート\":*",
-      "source": "unknown"
-    },
-    "【5周年前夜祭】[バーチャル・シンガー]スペシャルプライズガチャ": {
-      "text": "世界连接活动支援.",
-      "source": "unknown"
-    },
-    "【5周年前夜祭】[Leo/need]スペシャルプライズガチャ": {
-      "text": "*Wait, \"Another sparkle Stars\":*",
-      "source": "unknown"
-    },
-    "【5周年前夜祭】[MORE MORE JUMP！]スペシャルプライズガチャ": {
-      "text": "I'll keep it English.",
-      "source": "unknown"
-    },
-    "【5周年前夜祭】[Vivid BAD SQUAD]スペシャルプライズガチャ": {
-      "text": "*Wait, \"Empty Teatime\":*",
-      "source": "unknown"
-    },
-    "【5周年前夜祭】[ワンダーランズ×ショウタイム]スペシャルプライズガチャ": {
-      "text": "Keep English.",
-      "source": "unknown"
-    },
-    "【5周年前夜祭】[25時、ナイトコードで。]スペシャルプライズガチャ": {
-      "text": "*Wait, \"Velvet Afternoon\":*",
-      "source": "unknown"
-    },
-    "[5周年記念]ブルームフェスティバルガチャ ドリームピック": {
-      "text": "Keep English.",
-      "source": "unknown"
-    },
-    "[5周年記念][バーチャル・シンガー]プレミアムプレゼントガチャ": {
-      "text": "*Wait, \"LIMITED EDITION\":*",
-      "source": "unknown"
-    },
-    "[5周年記念][Leo/need]プレミアムプレゼントガチャ": {
-      "text": "Keep English or \"限定版\". Usually kept in English in these titles.",
-      "source": "unknown"
-    },
-    "[5周年記念][MORE MORE JUMP！]プレミアムプレゼントガチャ": {
-      "text": "*Wait, \"Memorial Select\":*",
-      "source": "unknown"
-    },
-    "[5周年記念][Vivid BAD SQUAD]プレミアムプレゼントガチャ": {
-      "text": "纪念自选.",
-      "source": "unknown"
-    },
-    "[5周年記念][ワンダーランズ×ショウタイム]プレミアムプレゼントガチャ": {
-      "text": "*Wait, \"Free Gacha\":*",
-      "source": "unknown"
-    },
-    "[5周年記念][25時、ナイトコードで。]プレミアムプレゼントガチャ": {
-      "text": "免费招募.",
-      "source": "unknown"
-    },
-    "[5周年記念]1/3セレクトリストガチャ LIMITED EDITION": {
-      "text": "*Final check",
-      "source": "unknown"
-    },
     "[桐谷遥]HAPPY BIRTHDAY2025ガチャ": {
       "text": "[桐谷遥] HAPPY BIRTHDAY 2025 招募",
       "source": "unknown"
@@ -2578,6 +2506,78 @@
     },
     "Lunatic doll in the boxガチャ": {
       "text": "Lunatic doll in the box招募",
+      "source": "llm"
+    },
+    "[フィナーレチャプター]Another sparkle Starsガチャ": {
+      "text": "[终章]Another sparkle Stars招募",
+      "source": "llm"
+    },
+    "[フィナーレチャプター]Empty Teatimeガチャ": {
+      "text": "[终章]Empty Teatime招募",
+      "source": "llm"
+    },
+    "[フィナーレチャプター]Velvet Afternoonガチャ": {
+      "text": "[终章]Velvet Afternoon招募",
+      "source": "llm"
+    },
+    "[フィナーレチャプター]ワールドリンクイベントサポートガチャ": {
+      "text": "[终章]世界连接活动支援招募",
+      "source": "llm"
+    },
+    "【5周年前夜祭】[バーチャル・シンガー]スペシャルプライズガチャ": {
+      "text": "【5周年庆前夜祭】[虚拟歌手]特别奖品招募",
+      "source": "llm"
+    },
+    "【5周年前夜祭】[Leo/need]スペシャルプライズガチャ": {
+      "text": "【5周年庆前夜祭】[Leo/need]特别奖品招募",
+      "source": "llm"
+    },
+    "【5周年前夜祭】[MORE MORE JUMP！]スペシャルプライズガチャ": {
+      "text": "【5周年庆前夜祭】[MORE MORE JUMP！]特别奖品招募",
+      "source": "llm"
+    },
+    "【5周年前夜祭】[Vivid BAD SQUAD]スペシャルプライズガチャ": {
+      "text": "【5周年庆前夜祭】[Vivid BAD SQUAD]特别奖品招募",
+      "source": "llm"
+    },
+    "【5周年前夜祭】[ワンダーランズ×ショウタイム]スペシャルプライズガチャ": {
+      "text": "【5周年庆前夜祭】[Wonderlands×Showtime]特别奖品招募",
+      "source": "llm"
+    },
+    "【5周年前夜祭】[25時、ナイトコードで。]スペシャルプライズガチャ": {
+      "text": "【5周年庆前夜祭】[25点，在Nightcord。]特别奖品招募",
+      "source": "llm"
+    },
+    "[5周年記念]ブルームフェスティバルガチャ ドリームピック": {
+      "text": "[5周年纪念]Bloom Festival招募 Dream Pick",
+      "source": "llm"
+    },
+    "[5周年記念][バーチャル・シンガー]プレミアムプレゼントガチャ": {
+      "text": "[5周年纪念][虚拟歌手]高级礼物招募",
+      "source": "llm"
+    },
+    "[5周年記念][Leo/need]プレミアムプレゼントガチャ": {
+      "text": "[5周年纪念][Leo/need]高级礼物招募",
+      "source": "llm"
+    },
+    "[5周年記念][MORE MORE JUMP！]プレミアムプレゼントガチャ": {
+      "text": "[5周年纪念][MORE MORE JUMP！]高级礼物招募",
+      "source": "llm"
+    },
+    "[5周年記念][Vivid BAD SQUAD]プレミアムプレゼントガチャ": {
+      "text": "[5周年纪念][Vivid BAD SQUAD]高级礼物招募",
+      "source": "llm"
+    },
+    "[5周年記念][ワンダーランズ×ショウタイム]プレミアムプレゼントガチャ": {
+      "text": "[5周年纪念][Wonderlands×Showtime]高级礼物招募",
+      "source": "llm"
+    },
+    "[5周年記念][25時、ナイトコードで。]プレミアムプレゼントガチャ": {
+      "text": "[5周年纪念][25点，在Nightcord。]高级礼物招募",
+      "source": "llm"
+    },
+    "[5周年記念]1/3セレクトリストガチャ LIMITED EDITION": {
+      "text": "[5周年纪念]1/3自选名单招募 LIMITED EDITION",
       "source": "llm"
     }
   }

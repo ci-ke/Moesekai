@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { MasterDataProvider } from "@/contexts/MasterDataContext";
 import { TranslationProvider } from "@/contexts/TranslationContext";
+import { QuickFilterProvider } from "@/contexts/QuickFilterContext";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 
 
@@ -72,7 +73,9 @@ export default function RootLayout({
         <ThemeProvider>
           <MasterDataProvider>
             <TranslationProvider>
-              {children}
+              <QuickFilterProvider>
+                {children}
+              </QuickFilterProvider>
             </TranslationProvider>
           </MasterDataProvider>
         </ThemeProvider>

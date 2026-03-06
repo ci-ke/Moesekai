@@ -19,6 +19,7 @@ import { ICardInfo } from "@/types/types"; // Import ICardInfo
 import { fetchMasterData } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
+import { useQuickFilter } from "@/contexts/QuickFilterContext";
 
 // ... imports remain the same
 
@@ -276,6 +277,51 @@ function CostumesContent() {
         resetDisplayCount();
     };
 
+    const quickFilterContent = (
+        <CostumeFilters
+            selectedCharacters={selectedCharacters}
+            onCharacterChange={setSelectedCharacters}
+            selectedUnitIds={selectedUnitIds}
+            onUnitIdsChange={setSelectedUnitIds}
+            selectedPartTypes={selectedPartTypes}
+            onPartTypeChange={setSelectedPartTypes}
+            selectedSources={selectedSources}
+            onSourceChange={setSelectedSources}
+            selectedRarities={selectedRarities}
+            onRarityChange={setSelectedRarities}
+            selectedGenders={selectedGenders}
+            onGenderChange={setSelectedGenders}
+            onlyRelatedCardCostumes={onlyRelatedCardCostumes}
+            onOnlyRelatedCardCostumesChange={setOnlyRelatedCardCostumes}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={(field, order) => {
+                setSortBy(field);
+                setSortOrder(order);
+            }}
+            onReset={handleReset}
+            totalCount={costumes.length}
+            filteredCount={filteredCostumes.length}
+        />
+    );
+
+    useQuickFilter("服装筛选", quickFilterContent, [
+        selectedCharacters,
+        selectedUnitIds,
+        selectedPartTypes,
+        selectedSources,
+        selectedRarities,
+        selectedGenders,
+        onlyRelatedCardCostumes,
+        searchQuery,
+        sortBy,
+        sortOrder,
+        costumes.length,
+        filteredCostumes.length,
+    ]);
+
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8">
             {/* Page Header */}
@@ -303,33 +349,7 @@ function CostumesContent() {
                 {/* Filters - Side Panel */}
                 <div className="w-full lg:w-80 lg:shrink-0">
                     <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar">
-                        <CostumeFilters
-                            selectedCharacters={selectedCharacters}
-                            onCharacterChange={setSelectedCharacters}
-                            selectedUnitIds={selectedUnitIds}
-                            onUnitIdsChange={setSelectedUnitIds}
-                            selectedPartTypes={selectedPartTypes}
-                            onPartTypeChange={setSelectedPartTypes}
-                            selectedSources={selectedSources}
-                            onSourceChange={setSelectedSources}
-                            selectedRarities={selectedRarities}
-                            onRarityChange={setSelectedRarities}
-                            selectedGenders={selectedGenders}
-                            onGenderChange={setSelectedGenders}
-                            onlyRelatedCardCostumes={onlyRelatedCardCostumes}
-                            onOnlyRelatedCardCostumesChange={setOnlyRelatedCardCostumes}
-                            searchQuery={searchQuery}
-                            onSearchChange={setSearchQuery}
-                            sortBy={sortBy}
-                            sortOrder={sortOrder}
-                            onSortChange={(field, order) => {
-                                setSortBy(field);
-                                setSortOrder(order);
-                            }}
-                            onReset={handleReset}
-                            totalCount={costumes.length}
-                            filteredCount={filteredCostumes.length}
-                        />
+                        {quickFilterContent}
                     </div>
                 </div>
 

@@ -9,6 +9,7 @@ import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { IMangaItem, IMangaData } from "@/types/manga";
 import { getMangaImageUrl } from "@/lib/assets";
 import { fetchMangaData } from "@/lib/fetch";
+import { useQuickFilter } from "@/contexts/QuickFilterContext";
 
 // ==================== Constants ====================
 
@@ -89,6 +90,28 @@ function MangaContent() {
         return filteredMangas.slice(0, displayCount);
     }, [filteredMangas, displayCount]);
 
+    const quickFilterContent = (
+        <BaseFilters
+            filteredCount={filteredMangas.length}
+            totalCount={mangas.length}
+            countUnit="话"
+            searchQuery={searchQuery}
+            onSearchChange={(q) => { setSearchQuery(q); resetDisplayCount(); }}
+            searchPlaceholder="输入标题或话数（如 123）..."
+            sortOptions={[{ id: "id", label: "话数" }]}
+            sortBy="id"
+            sortOrder={sortOrder}
+            onSortChange={(_: string, order: "asc" | "desc") => setSortOrder(order)}
+        />
+    );
+
+    useQuickFilter("官方四格筛选", quickFilterContent, [
+        searchQuery,
+        sortOrder,
+        filteredMangas.length,
+        mangas.length,
+    ]);
+
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8">
             {/* Page Header */}
@@ -117,18 +140,7 @@ function MangaContent() {
                 {/* Filters */}
                 <div className="w-full lg:w-80 lg:shrink-0">
                     <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar">
-                        <BaseFilters
-                            filteredCount={filteredMangas.length}
-                            totalCount={mangas.length}
-                            countUnit="话"
-                            searchQuery={searchQuery}
-                            onSearchChange={(q) => { setSearchQuery(q); resetDisplayCount(); }}
-                            searchPlaceholder="输入标题或话数（如 123）..."
-                            sortOptions={[{ id: "id", label: "话数" }]}
-                            sortBy="id"
-                            sortOrder={sortOrder}
-                            onSortChange={(_: string, order: "asc" | "desc") => setSortOrder(order)}
-                        />
+                        {quickFilterContent}
                     </div>
                 </div>
 

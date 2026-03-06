@@ -18,6 +18,7 @@ import { fetchMasterData } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
 import { loadTranslations, TranslationData } from "@/lib/translations";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
+import { useQuickFilter } from "@/contexts/QuickFilterContext";
 
 // Genre name translation map (Japanese -> Chinese)
 const GENRE_NAME_MAP: Record<string, string> = {
@@ -494,6 +495,155 @@ function MysekaiContent() {
         ? UNIT_DATA.filter(u => selectedUnitIds.includes(u.id))
         : [];
 
+    const quickFilterContent = (
+        <BaseFilters
+            title="筛选家具"
+            filteredCount={filteredFixtures.length}
+            totalCount={fixtures.length}
+            countUnit="个"
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            sortOptions={[{ id: "id", label: "ID" }]}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={(field, order) => {
+                setSortBy(field);
+                setSortOrder(order);
+            }}
+            hasActiveFilters={hasActiveFilters}
+            onReset={handleReset}
+        >
+            <FilterSection label="团体">
+                <div className="flex flex-wrap gap-2">
+                    {UNIT_DATA.map(unit => {
+                        const iconName = UNIT_ICONS[unit.id] || "";
+                        return (
+                            <button
+                                key={unit.id}
+                                onClick={() => handleUnitClick(unit.id)}
+                                className={`p-1.5 rounded-xl transition-all ${selectedUnitIds.includes(unit.id)
+                                    ? "ring-2 ring-miku shadow-lg bg-white"
+                                    : "hover:bg-slate-100 border border-transparent bg-slate-50"
+                                    }`}
+                                title={unit.name}
+                            >
+                                <div className="w-8 h-8 relative">
+                                    <Image
+                                        src={`/data/icon/${iconName}`}
+                                        alt={unit.name}
+                                        fill
+                                        className="object-contain"
+                                        unoptimized
+                                    />
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+            </FilterSection>
+
+            {(currentUnits.length > 0 || selectedCharacters.length > 0) && (
+                <FilterSection label="角色">
+                    <div className="flex flex-wrap gap-2">
+                        {(currentUnits.length > 0
+                            ? currentUnits.flatMap(u => u.charIds)
+                            : [...new Set(selectedCharacters)]
+                        ).map(charId => (
+                            <button
+                                key={charId}
+                                onClick={() => toggleCharacter(charId)}
+                                className={`relative transition-all ${selectedCharacters.includes(charId)
+                                    ? "ring-2 ring-miku scale-110 z-10 rounded-full"
+                                    : "ring-2 ring-transparent hover:ring-slate-200 rounded-full opacity-80 hover:opacity-100"
+                                    }`}
+                                title={CHARACTER_NAMES[charId]}
+                            >
+                                <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100">
+                                    <Image
+                                        src={getCharacterIconUrl(charId)}
+                                        alt={CHARACTER_NAMES[charId]}
+                                        width={40}
+                                        height={40}
+                                        className="w-full h-full object-cover"
+                                        unoptimized
+                                    />
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </FilterSection>
+            )}
+
+            <FilterSection label="主类别">
+                <select
+                    className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-miku/50"
+                    value={selectedGenre || ""}
+                    onChange={(e) => {
+                        const val = e.target.value ? Number(e.target.value) : null;
+                        setSelectedGenre(val);
+                        if (val !== selectedSubGenre) setSelectedSubGenre(null);
+                    }}
+                >
+                    <option value="">全部</option>
+                    {availableGenres.map(g => (
+                        <option key={g.id} value={g.id}>{getTranslatedGenreName(g.name)}</option>
+                    ))}
+                </select>
+            </FilterSection>
+
+            {selectedGenre && (
+                <FilterSection label="子类别">
+                    <select
+                        className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-miku/50"
+                        value={selectedSubGenre || ""}
+                        onChange={(e) => setSelectedSubGenre(e.target.value ? Number(e.target.value) : null)}
+                    >
+                        <option value="">全部</option>
+                        {subGenres
+                            .filter(sg => sg.mysekaiFixtureMainGenreId === selectedGenre)
+                            .map(sg => (
+                                <option key={sg.id} value={sg.id}>{sg.name}</option>
+                            ))
+                        }
+                    </select>
+                </FilterSection>
+            )}
+
+            <FilterSection label="标签">
+                <select
+                    className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-miku/50"
+                    value={selectedTag || ""}
+                    onChange={(e) => setSelectedTag(e.target.value ? Number(e.target.value) : null)}
+                >
+                    <option value="">全部</option>
+                    {generalTags.map(t => (
+                        <option key={t.id} value={t.id}>
+                            {getTranslatedTagName(t.name)} {getTranslatedTagName(t.name) !== t.name ? `(${t.name})` : ''}
+                        </option>
+                    ))}
+                </select>
+            </FilterSection>
+
+            <div className="mt-4 text-[10px] text-slate-400 text-center px-2">
+                * 类别和标签使用LLM进行翻译 可能存在不准确现象
+            </div>
+
+        </BaseFilters>
+    );
+
+    useQuickFilter("家具筛选", quickFilterContent, [
+        searchQuery,
+        selectedGenre,
+        selectedSubGenre,
+        selectedTag,
+        selectedCharacters,
+        selectedUnitIds,
+        sortBy,
+        sortOrder,
+        filteredFixtures.length,
+        fixtures.length,
+    ]);
+
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8">
             {/* Page Header */}
@@ -521,146 +671,7 @@ function MysekaiContent() {
                 {/* Filters - Side Panel */}
                 <div className="w-full lg:w-80 lg:shrink-0">
                     <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar">
-                        <BaseFilters
-                            title="筛选家具"
-                            filteredCount={filteredFixtures.length}
-                            totalCount={fixtures.length}
-                            countUnit="个"
-                            searchQuery={searchQuery}
-                            onSearchChange={setSearchQuery}
-                            sortOptions={[{ id: "id", label: "ID" }]}
-                            sortBy={sortBy}
-                            sortOrder={sortOrder}
-                            onSortChange={(field, order) => {
-                                setSortBy(field);
-                                setSortOrder(order);
-                            }}
-                            hasActiveFilters={hasActiveFilters}
-                            onReset={handleReset}
-                        >
-                            {/* Unit Selection */}
-                            <FilterSection label="团体">
-                                <div className="flex flex-wrap gap-2">
-                                    {UNIT_DATA.map(unit => {
-                                        const iconName = UNIT_ICONS[unit.id] || "";
-                                        return (
-                                            <button
-                                                key={unit.id}
-                                                onClick={() => handleUnitClick(unit.id)}
-                                                className={`p-1.5 rounded-xl transition-all ${selectedUnitIds.includes(unit.id)
-                                                    ? "ring-2 ring-miku shadow-lg bg-white"
-                                                    : "hover:bg-slate-100 border border-transparent bg-slate-50"
-                                                    }`}
-                                                title={unit.name}
-                                            >
-                                                <div className="w-8 h-8 relative">
-                                                    <Image
-                                                        src={`/data/icon/${iconName}`}
-                                                        alt={unit.name}
-                                                        fill
-                                                        className="object-contain"
-                                                        unoptimized
-                                                    />
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </FilterSection>
-
-                            {/* Character Selection - Show when units are selected or characters are selected */}
-                            {(currentUnits.length > 0 || selectedCharacters.length > 0) && (
-                                <FilterSection label="角色">
-                                    <div className="flex flex-wrap gap-2">
-                                        {(currentUnits.length > 0
-                                            ? currentUnits.flatMap(u => u.charIds)
-                                            : [...new Set(selectedCharacters)]
-                                        ).map(charId => (
-                                            <button
-                                                key={charId}
-                                                onClick={() => toggleCharacter(charId)}
-                                                className={`relative transition-all ${selectedCharacters.includes(charId)
-                                                    ? "ring-2 ring-miku scale-110 z-10 rounded-full"
-                                                    : "ring-2 ring-transparent hover:ring-slate-200 rounded-full opacity-80 hover:opacity-100"
-                                                    }`}
-                                                title={CHARACTER_NAMES[charId]}
-                                            >
-                                                <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100">
-                                                    <Image
-                                                        src={getCharacterIconUrl(charId)}
-                                                        alt={CHARACTER_NAMES[charId]}
-                                                        width={40}
-                                                        height={40}
-                                                        className="w-full h-full object-cover"
-                                                        unoptimized
-                                                    />
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </FilterSection>
-                            )}
-
-                            {/* Genre Filter */}
-                            <FilterSection label="主类别">
-                                <select
-                                    className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-miku/50"
-                                    value={selectedGenre || ""}
-                                    onChange={(e) => {
-                                        const val = e.target.value ? Number(e.target.value) : null;
-                                        setSelectedGenre(val);
-                                        // Reset subgenre if main genre changes
-                                        if (val !== selectedSubGenre) setSelectedSubGenre(null);
-                                    }}
-                                >
-                                    <option value="">全部</option>
-                                    {availableGenres.map(g => (
-                                        <option key={g.id} value={g.id}>{getTranslatedGenreName(g.name)}</option>
-                                    ))}
-                                </select>
-                            </FilterSection>
-
-                            {/* SubGenre Filter */}
-                            {selectedGenre && (
-                                <FilterSection label="子类别">
-                                    <select
-                                        className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-miku/50"
-                                        value={selectedSubGenre || ""}
-                                        onChange={(e) => setSelectedSubGenre(e.target.value ? Number(e.target.value) : null)}
-                                    >
-                                        <option value="">全部</option>
-                                        {subGenres
-                                            .filter(sg => sg.mysekaiFixtureMainGenreId === selectedGenre)
-                                            .map(sg => (
-                                                <option key={sg.id} value={sg.id}>{sg.name}</option>
-                                            ))
-                                        }
-                                    </select>
-                                </FilterSection>
-                            )}
-
-                            {/* General Tag Filter (excluding character and unit tags) */}
-                            <FilterSection label="标签">
-                                <select
-                                    className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-miku/50"
-                                    value={selectedTag || ""}
-                                    onChange={(e) => setSelectedTag(e.target.value ? Number(e.target.value) : null)}
-                                >
-                                    <option value="">全部</option>
-                                    {generalTags.map(t => (
-                                        <option key={t.id} value={t.id}>
-                                            {getTranslatedTagName(t.name)} {getTranslatedTagName(t.name) !== t.name ? `(${t.name})` : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                            </FilterSection>
-
-                            {/* Disclaimer */}
-                            <div className="mt-4 text-[10px] text-slate-400 text-center px-2">
-                                * 类别和标签使用LLM进行翻译 可能存在不准确现象
-                            </div>
-
-                        </BaseFilters>
+                        {quickFilterContent}
                     </div>
                 </div>
 

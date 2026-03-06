@@ -33,6 +33,7 @@ import {
 import Image from "next/image";
 import ExternalLink from "@/components/ExternalLink";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
+import { useQuickFilter } from "@/contexts/QuickFilterContext";
 
 const SERVER_OPTIONS: { value: ServerType; label: string }[] = [
     { value: "cn", label: "简中服" },
@@ -482,6 +483,48 @@ function MyCardsContent() {
         { id: "level", label: "等级" },
     ], []);
 
+    const quickFilterContent = (
+        <CardFilters
+            selectedCharacters={selectedCharacters}
+            onCharacterChange={setSelectedCharacters}
+            selectedUnitIds={selectedUnitIds}
+            onUnitIdsChange={setSelectedUnitIds}
+            selectedAttrs={selectedAttrs}
+            onAttrChange={setSelectedAttrs}
+            selectedRarities={selectedRarities}
+            onRarityChange={setSelectedRarities}
+            selectedSupplyTypes={selectedSupplyTypes}
+            onSupplyTypeChange={setSelectedSupplyTypes}
+            selectedSupportUnits={selectedSupportUnits}
+            onSupportUnitChange={setSelectedSupportUnits}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={handleSortChange}
+            extraSortOptions={extraSortOptions}
+            onReset={resetFilters}
+            totalCards={allCards.filter((c) => (c.releaseAt || c.archivePublishedAt || 0) <= Date.now()).length}
+            filteredCards={filteredCards.length}
+        />
+    );
+
+    useQuickFilter("卡牌进度筛选", quickFilterContent, [
+        selectedCharacters,
+        selectedUnitIds,
+        selectedAttrs,
+        selectedRarities,
+        selectedSupplyTypes,
+        selectedSupportUnits,
+        searchQuery,
+        sortBy,
+        sortOrder,
+        ownershipFilter,
+        allCards.length,
+        filteredCards.length,
+        userCards.size,
+    ]);
+
     const handleAccountSelect = useCallback((acc: MoesekaiAccount) => {
         setActiveAccount(acc.id);
         setActiveAcc(acc);
@@ -604,29 +647,7 @@ function MyCardsContent() {
                 {/* Filters */}
                 <div className="w-full lg:w-80 lg:shrink-0">
                     <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar">
-                        <CardFilters
-                            selectedCharacters={selectedCharacters}
-                            onCharacterChange={setSelectedCharacters}
-                            selectedUnitIds={selectedUnitIds}
-                            onUnitIdsChange={setSelectedUnitIds}
-                            selectedAttrs={selectedAttrs}
-                            onAttrChange={setSelectedAttrs}
-                            selectedRarities={selectedRarities}
-                            onRarityChange={setSelectedRarities}
-                            selectedSupplyTypes={selectedSupplyTypes}
-                            onSupplyTypeChange={setSelectedSupplyTypes}
-                            selectedSupportUnits={selectedSupportUnits}
-                            onSupportUnitChange={setSelectedSupportUnits}
-                            searchQuery={searchQuery}
-                            onSearchChange={setSearchQuery}
-                            sortBy={sortBy}
-                            sortOrder={sortOrder}
-                            onSortChange={handleSortChange}
-                            extraSortOptions={extraSortOptions}
-                            onReset={resetFilters}
-                            totalCards={allCards.filter((c) => (c.releaseAt || c.archivePublishedAt || 0) <= Date.now()).length}
-                            filteredCards={filteredCards.length}
-                        />
+                        {quickFilterContent}
                     </div>
                 </div>
 

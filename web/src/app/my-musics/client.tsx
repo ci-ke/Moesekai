@@ -34,6 +34,7 @@ import {
 } from "@/types/music";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { fetchSongConstants, buildSongConstantsMap } from "@/lib/songConstants";
+import { useQuickFilter } from "@/contexts/QuickFilterContext";
 
 const SERVER_OPTIONS: { value: ServerType; label: string }[] = [
     { value: "cn", label: "简中服" },
@@ -815,6 +816,44 @@ function MyMusicsContent() {
         return getMusicJacketUrl(music.assetbundleName, finalAssetSource);
     }, [assetSource, activeAccount]);
 
+    const quickFilterContent = (
+        <MyMusicFilters
+            selectedTag={selectedTag}
+            onTagChange={setSelectedTag}
+            selectedCategories={selectedCategories}
+            onCategoryChange={setSelectedCategories}
+            selectedDifficulty={selectedDifficulty}
+            onDifficultyChange={setSelectedDifficulty}
+            completionFilter={completionFilter}
+            onCompletionFilterChange={setCompletionFilter}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={(newSortBy, newSortOrder) => {
+                setSortBy(newSortBy);
+                setSortOrder(newSortOrder);
+            }}
+            onReset={resetFilters}
+            totalMusics={allMusics.length}
+            filteredMusics={filteredMusics.length}
+            hasUserData={userMusicResults.size > 0}
+        />
+    );
+
+    useQuickFilter("歌曲进度筛选", quickFilterContent, [
+        selectedTag,
+        selectedCategories,
+        selectedDifficulty,
+        completionFilter,
+        searchQuery,
+        sortBy,
+        sortOrder,
+        allMusics.length,
+        filteredMusics.length,
+        userMusicResults.size,
+    ]);
+
     // No account state
     if (accounts.length === 0) {
         return (
@@ -1015,28 +1054,9 @@ function MyMusicsContent() {
             <div className="flex flex-col lg:flex-row gap-6">
                 {/* Sidebar Filters */}
                 <aside className="lg:w-80 flex-shrink-0">
-                    <MyMusicFilters
-                        selectedTag={selectedTag}
-                        onTagChange={setSelectedTag}
-                        selectedCategories={selectedCategories}
-                        onCategoryChange={setSelectedCategories}
-                        selectedDifficulty={selectedDifficulty}
-                        onDifficultyChange={setSelectedDifficulty}
-                        completionFilter={completionFilter}
-                        onCompletionFilterChange={setCompletionFilter}
-                        searchQuery={searchQuery}
-                        onSearchChange={setSearchQuery}
-                        sortBy={sortBy}
-                        sortOrder={sortOrder}
-                        onSortChange={(newSortBy, newSortOrder) => {
-                            setSortBy(newSortBy);
-                            setSortOrder(newSortOrder);
-                        }}
-                        onReset={resetFilters}
-                        totalMusics={allMusics.length}
-                        filteredMusics={filteredMusics.length}
-                        hasUserData={userMusicResults.size > 0}
-                    />
+                    <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar">
+                        {quickFilterContent}
+                    </div>
                 </aside>
 
                 {/* Main Content */}

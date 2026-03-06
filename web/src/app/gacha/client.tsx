@@ -9,6 +9,7 @@ import { IGachaInfo } from "@/types/types";
 import { fetchMasterData } from "@/lib/fetch";
 import { loadTranslations, TranslationData } from "@/lib/translations";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
+import { useQuickFilter } from "@/contexts/QuickFilterContext";
 
 function GachaContent() {
     const router = useRouter();
@@ -171,6 +172,26 @@ function GachaContent() {
         resetDisplayCount();
     }, [resetDisplayCount]);
 
+    const quickFilterContent = (
+        <GachaFilters
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={handleSortChange}
+            totalGachas={allGachas.length}
+            filteredGachas={filteredGachas.length}
+        />
+    );
+
+    useQuickFilter("扭蛋筛选", quickFilterContent, [
+        searchQuery,
+        sortBy,
+        sortOrder,
+        allGachas.length,
+        filteredGachas.length,
+    ]);
+
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8">
             {/* Page Header */}
@@ -205,15 +226,7 @@ function GachaContent() {
                 {/* Filters - Side Panel on Large Screens */}
                 <div className="w-full lg:w-80 lg:shrink-0">
                     <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar">
-                        <GachaFilters
-                            searchQuery={searchQuery}
-                            onSearchChange={setSearchQuery}
-                            sortBy={sortBy}
-                            sortOrder={sortOrder}
-                            onSortChange={handleSortChange}
-                            totalGachas={allGachas.length}
-                            filteredGachas={filteredGachas.length}
-                        />
+                        {quickFilterContent}
                     </div>
                 </div>
 

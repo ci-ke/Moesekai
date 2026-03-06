@@ -131,3 +131,7 @@ button[data-shortcut-load-more="true"]::after {
   line-height: 1;
   vertical-align: middle;
 }
+
+.quick-filter-modal-content [data-shortcut-filters="true"] > div:first-child {
+  display: none;
+}

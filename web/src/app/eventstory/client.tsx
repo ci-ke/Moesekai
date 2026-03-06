@@ -9,6 +9,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { fetchMasterData } from "@/lib/fetch";
 import { loadTranslations, TranslationData } from "@/lib/translations";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
+import { useQuickFilter } from "@/contexts/QuickFilterContext";
 
 /** Convert gameCharacterUnitId to base character ID (1-26) */
 function getBaseCharacterId(id: number): number {
@@ -242,6 +243,36 @@ function StoryListContent() {
         resetDisplayCount();
     }, [resetDisplayCount]);
 
+    const quickFilterContent = (
+        <EventFilters
+            selectedTypes={selectedTypes}
+            onTypeChange={setSelectedTypes}
+            selectedCharacters={selectedCharacters}
+            onCharacterChange={setSelectedCharacters}
+            selectedUnitIds={selectedUnitIds}
+            onUnitIdsChange={setSelectedUnitIds}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={handleSortChange}
+            onReset={resetFilters}
+            totalEvents={events.length}
+            filteredEvents={filteredEvents.length}
+        />
+    );
+
+    useQuickFilter("活动剧情筛选", quickFilterContent, [
+        selectedTypes,
+        selectedCharacters,
+        selectedUnitIds,
+        searchQuery,
+        sortBy,
+        sortOrder,
+        events.length,
+        filteredEvents.length,
+    ]);
+
     return (
         <div className="container mx-auto px-4 sm:px-6 py-8">
             {/* Page Header */}
@@ -276,22 +307,7 @@ function StoryListContent() {
                 {/* Filters - Side Panel on Large Screens */}
                 <div className="w-full lg:w-80 lg:shrink-0">
                     <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar">
-                        <EventFilters
-                            selectedTypes={selectedTypes}
-                            onTypeChange={setSelectedTypes}
-                            selectedCharacters={selectedCharacters}
-                            onCharacterChange={setSelectedCharacters}
-                            selectedUnitIds={selectedUnitIds}
-                            onUnitIdsChange={setSelectedUnitIds}
-                            searchQuery={searchQuery}
-                            onSearchChange={setSearchQuery}
-                            sortBy={sortBy}
-                            sortOrder={sortOrder}
-                            onSortChange={handleSortChange}
-                            onReset={resetFilters}
-                            totalEvents={events.length}
-                            filteredEvents={filteredEvents.length}
-                        />
+                        {quickFilterContent}
                     </div>
                 </div>
 

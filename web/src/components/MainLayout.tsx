@@ -5,6 +5,7 @@ import MainNavbar from "./MainNavbar";
 import Sidebar from "./Sidebar";
 import MainFooter from "./MainFooter";
 import ScrollToTop from "./ScrollToTop";
+import QuickFilterButton from "./QuickFilterButton";
 import SekaiLoader from "./SekaiLoader";
 import BackgroundPattern from "./BackgroundPattern";
 import KeyboardShortcutsHelp from "./KeyboardShortcutsHelp";
@@ -169,6 +170,9 @@ export default function MainLayout({
 
             {/* Scroll To Top */}
             <ScrollToTop />
+
+            {/* Quick Filter floating button + modal */}
+            <QuickFilterButton />
 
             {/* Keyboard Shortcuts Help */}
             <KeyboardShortcutsHelp isOpen={isShortcutsHelpOpen} onClose={() => setIsShortcutsHelpOpen(false)} />

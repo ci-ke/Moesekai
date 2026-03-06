@@ -10,6 +10,7 @@ import { fetchMasterData } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import ImagePreviewModal from "@/components/common/ImagePreviewModal";
+import { useQuickFilter } from "@/contexts/QuickFilterContext";
 
 interface ITipInfo {
     id: number;
@@ -85,6 +86,28 @@ function ComicContent() {
         return filteredComics.slice(0, displayCount);
     }, [filteredComics, displayCount]);
 
+    const quickFilterContent = (
+        <BaseFilters
+            filteredCount={filteredComics.length}
+            totalCount={comics.length}
+            countUnit="篇"
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="输入漫画标题..."
+            sortOptions={[{ id: "id", label: "ID" }]}
+            sortBy="id"
+            sortOrder={sortOrder}
+            onSortChange={(_: string, order: "asc" | "desc") => setSortOrder(order)}
+        />
+    );
+
+    useQuickFilter("漫画筛选", quickFilterContent, [
+        searchQuery,
+        sortOrder,
+        filteredComics.length,
+        comics.length,
+    ]);
+
 
 
     return (
@@ -124,18 +147,7 @@ function ComicContent() {
                 {/* Filters - Side Panel on Large Screens */}
                 <div className="w-full lg:w-80 lg:shrink-0">
                     <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto custom-scrollbar">
-                        <BaseFilters
-                            filteredCount={filteredComics.length}
-                            totalCount={comics.length}
-                            countUnit="篇"
-                            searchQuery={searchQuery}
-                            onSearchChange={setSearchQuery}
-                            searchPlaceholder="输入漫画标题..."
-                            sortOptions={[{ id: "id", label: "ID" }]}
-                            sortBy="id"
-                            sortOrder={sortOrder}
-                            onSortChange={(_: string, order: "asc" | "desc") => setSortOrder(order)}
-                        />
+                        {quickFilterContent}
                     </div>
                 </div>
 
