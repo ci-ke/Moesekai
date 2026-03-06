@@ -15,36 +15,30 @@ export const SERVERS: ServerConfig[] = [
         id: 'tokyo-1',
         name: '东京1区',
         region: '🇯🇵 日本',
-        url: 'https://feyxctqbrpsuwnswtqei.supabase.co',
-        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZleXhjdHFicnBzdXduc3d0cWVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NzU3OTksImV4cCI6MjA4NjU1MTc5OX0.iFaBKW4AU6XxJau_nWrWxWxchAMGOXWNqIVYJIPYfOw',
+        url: 'https://kcjsalozlbxxuupboslq.supabase.co',
+        anonKey: 'sb_publishable_zHj3Vsj7mJbmwvPKzl-FJA_gmBipKUR',
     },
     {
         id: 'tokyo-2',
         name: '东京2区',
         region: '🇯🇵 日本',
-        url: 'https://kcjsalozlbxxuupboslq.supabase.co',
-        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjanNhbG96bGJ4eHV1cGJvc2xxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODk0NjgsImV4cCI6MjA4NjU2NTQ2OH0.kkII5UDg6nKOsKUBl6MVLuIWRKopVwsDrFM5BcHnEtA',
-    },
-    {
-        id: 'tokyo-3',
-        name: '东京3区',
-        region: '🇯🇵 日本',
         url: 'https://oxnpfchskxvgwnwzhlwf.supabase.co',
-        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94bnBmY2hza3h2Z3dud3pobHdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODk3MDksImV4cCI6MjA4NjU2NTcwOX0.AXfW_xdHDm-JL7EptqLJ93cfpIVtZQhWtwCVqWgLEjU',
+        anonKey: 'sb_publishable_SNA37JWC_3gjnTsLHUKy7Q_mmKY37Ov',
     },
+
     {
         id: 'seoul-1',
         name: '首尔1区',
         region: '🇰🇷 韩国',
         url: 'https://xembzvtfhohpzzipbmmv.supabase.co',
-        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlbWJ6dnRmaG9ocHp6aXBibW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkyNzIsImV4cCI6MjA4NjU2NTI3Mn0.yLKthTekdi4ImozVyYoMXiRkvez0t1taVepoinoNVbg',
+        anonKey: 'sb_publishable_r_bqjcOiQ-K3EWfcMCsJkA_2M74AQRS',
     },
     {
         id: 'singapore-1',
         name: '新加坡1区',
         region: '🇸🇬 新加坡',
         url: 'https://ivrqjbzftiatuotaclwg.supabase.co',
-        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2cnFqYnpmdGlhdHVvdGFjbHdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwMDAzODAsImV4cCI6MjA4NjU3NjM4MH0.HiRq8IlZGLRjFEDl5IHLsiUijQKX0QWK1k76HDJBEQM',
+        anonKey: 'sb_publishable_2VtZNp9dwNEVDUeuG1GhvA_XUwAMvIU',
     },
 ];
 
@@ -98,7 +92,6 @@ export async function measureLatency(serverId: string): Promise<number> {
             method: 'HEAD',
             headers: {
                 'apikey': server.anonKey,
-                'Authorization': `Bearer ${server.anonKey}`,
             },
         });
         return Math.round(performance.now() - start);

@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -777,8 +778,8 @@ function GuessWhoClientPlayingAndSetup({
                 <div className="min-h-screen">
                     <div className="container mx-auto px-4 py-4 flex flex-col min-h-screen relative">
                         {/* Feedback Overlay */}
-                        {showFeedback && feedbackResult && currentCanvasImage && (
-                            <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 cursor-pointer animate-in fade-in duration-200" onClick={handleNextRound}>
+                        {showFeedback && feedbackResult && currentCanvasImage && typeof document !== "undefined" && createPortal(
+                            <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/90 cursor-pointer animate-in fade-in duration-200" onClick={handleNextRound}>
                                 <div className="relative w-full max-w-lg aspect-[4/3] sm:aspect-auto sm:h-[70vh]">
                                     <CanvasImage image={currentCanvasImage} objectFit="contain" />
                                 </div>
@@ -790,7 +791,8 @@ function GuessWhoClientPlayingAndSetup({
                                     <div className="text-slate-300">{feedbackResult.card.prefix}</div>
                                 </div>
                                 <div className="mt-8 text-slate-400 text-sm animate-pulse">点击屏幕继续 ({FEEDBACK_DURATION / 1000}s 后自动跳转)</div>
-                            </div>
+                            </div>,
+                            document.body
                         )}
 
                         <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 shadow-sm mb-6">
@@ -880,6 +882,13 @@ function GuessWhoClientPlayingAndSetup({
                         </div>
                         <h1 className="text-4xl font-black text-slate-800 mb-2 drop-shadow-sm">我是谁 <span className="text-miku">?</span></h1>
                         <p className="text-slate-500 font-medium">通过随机裁剪的卡面猜测角色</p>
+                        <a
+                            href="/guess-who/multiplayer/"
+                            className="inline-flex items-center gap-2 mt-4 px-6 py-2.5 bg-miku text-white rounded-full font-bold text-sm shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 hover:bg-miku-dark"
+                        >
+                            <span>联机对战模式beta</span>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                        </a>
                     </div>
 
                     <div className="bg-white/90 backdrop-blur-md rounded-3xl p-4 sm:p-8 shadow-sm border border-slate-100 space-y-6 sm:space-y-8">
@@ -978,6 +987,10 @@ function GuessWhoClientPlayingAndSetup({
                     <button onClick={startGame} disabled={isLoading || !!loadError} className={`w-full py-4 bg-gradient-to-r from-miku to-miku-dark text-white rounded-2xl font-black text-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all ${(isLoading || loadError) ? 'opacity-50 cursor-not-allowed' : ''}`}>
                         {isLoading ? "加载中..." : "开始挑战"}
                     </button>
+
+                    <Link href="/guess-jacket" className="mt-3 block text-center text-sm text-slate-500 hover:text-miku transition-colors">
+                        想猜曲绘? 去「猜曲绘」
+                    </Link>
                 </div>
             </div>
         </MainLayout >

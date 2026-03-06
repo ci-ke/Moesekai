@@ -176,7 +176,7 @@ function CharacterListContent() {
                                             <Link
                                                 key={chara.id}
                                                 href={`/character/${chara.id}`}
-                                                className="group relative h-[320px] rounded-xl overflow-hidden bg-white ring-1 ring-slate-100 hover:ring-2 hover:ring-miku transition-all hover:scale-105 hover:shadow-lg flex items-center justify-center p-2"
+                                                className="group relative h-[160px] sm:h-[220px] md:h-[280px] lg:h-[320px] rounded-xl overflow-hidden bg-white ring-1 ring-slate-100 hover:ring-2 hover:ring-miku transition-all hover:scale-105 hover:shadow-lg flex items-center justify-center p-1 sm:p-2"
                                             >
                                                 <div className="relative w-full h-full">
                                                     <Image

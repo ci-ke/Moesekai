@@ -27,6 +27,10 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'assets.unipjsk.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.qrserver.com',
       }
     ],
   },

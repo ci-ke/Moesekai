@@ -34,6 +34,7 @@ export const searchableNavItems: SearchableNavItem[] = [
     { name: "表情包制作", href: "/sticker-maker", group: "工具", keywords: ["sticker maker", "meme"] },
     { name: "谷子盲抽", href: "/goods-gacha", group: "工具", keywords: ["goods gacha", "goods", "blind box"] },
     { name: "猜角色", href: "/guess-who", group: "工具", keywords: ["guess who", "quiz", "game"] },
+    { name: "猜曲绘", href: "/guess-jacket", group: "工具", keywords: ["guess jacket", "guess music", "music quiz"] },
 
     // 个人
     { name: "个人主页", href: "/profile", group: "个人", keywords: ["profile", "user", "account"] },
