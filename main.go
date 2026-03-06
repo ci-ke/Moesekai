@@ -6,7 +6,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
-	"time"
 
 	"snowy_viewer/internal/bilibili"
 	"snowy_viewer/internal/cache"
@@ -14,7 +13,6 @@ import (
 	"snowy_viewer/internal/handlers"
 	"snowy_viewer/internal/masterdata"
 	"snowy_viewer/internal/middleware"
-	"snowy_viewer/internal/translate"
 )
 
 func main() {
@@ -38,32 +36,6 @@ func main() {
 	mux := http.NewServeMux()
 	handler := handlers.New(store, biliClient)
 	handler.RegisterRoutes(mux)
-
-	// Initialize translation proofreading system
-	if cfg.TranslatorAccounts != "" {
-		translateStore := translate.NewStore(cfg.TranslationPath)
-		translateAuth := translate.NewAuth(cfg.TranslatorAccounts, cfg.JWTSecret)
-		translatePusher := translate.NewGitHubPusher(
-			cfg.GitHubToken,
-			cfg.GitHubRepo,
-			cfg.GitHubWorkflowFile,
-			cfg.GitHubWorkflowRef,
-		)
-
-		translateHandler := translate.NewHandler(translateStore, translateAuth, translatePusher)
-		translateHandler.RegisterRoutes(mux)
-
-		if cfg.TranslationAutoPush {
-			// Start scheduled push (every 1 hour)
-			translatePusher.StartScheduledPush(1 * time.Hour)
-		} else {
-			fmt.Println("Translation auto push disabled (TRANSLATION_AUTO_PUSH_ENABLED=false)")
-		}
-
-		fmt.Println("Translation proofreading system initialized")
-	} else {
-		fmt.Println("Translation proofreading system disabled (no TRANSLATOR_ACCOUNTS set)")
-	}
 
 	// Reverse proxy to Next.js standalone server for frontend
 	nextjsURL, _ := url.Parse("http://localhost:3000")

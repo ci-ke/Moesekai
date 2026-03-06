@@ -126,10 +126,11 @@ function isTranslationCacheStale(): boolean {
 }
 
 /**
- * Fetch all translation files from network
+ * Fetch all translation files from network.
+ * Translation data is served from the MoeSekai-Hub static deployment.
  */
 async function fetchAllTranslations(): Promise<TranslationData> {
-    const baseUrl = "/data/translations";
+    const baseUrl = "https://moe.exmeaning.com/translation";
     const version = getTranslationDataVersion();
     const query = version ? `?v=${encodeURIComponent(version)}` : "";
 
