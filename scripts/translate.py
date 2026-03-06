@@ -926,15 +926,20 @@ def translate_category_enhanced(
             if jp_text not in existing_field:
                 existing_field[jp_text] = {"text": cn_text, "source": "cn"}
                 stats["cn_new"] += 1
+            elif existing_field[jp_text].get("source") == "pinned":
+                pass  # Never overwrite pinned entries
             elif existing_field[jp_text].get("source") != "cn" or existing_field[jp_text].get("text") != cn_text:
-                # Update: CN overwrites LLM, or CN text changed
+                # CN overwrites everything except pinned (including human, llm, unknown)
                 existing_field[jp_text] = {"text": cn_text, "source": "cn"}
                 stats["cn_updated"] += 1
         
         print(f"  {field}: CN new={stats['cn_new']}, CN updated={stats['cn_updated']}")
         
         # Filter JP texts that still need LLM translation
-        need_llm = [t for t in jp_field if t and t not in existing_field]
+        # LLM only translates entries that don't exist or are 'unknown'
+        need_llm = [t for t in jp_field if t and (
+            t not in existing_field or existing_field[t].get("source") == "unknown"
+        )]
         
         if not need_llm:
             pass  # All covered

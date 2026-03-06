@@ -1,0 +1,109 @@
+name: Update Translations Via Script
+
+on:
+  schedule:
+    - cron: "20 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Translation mode"
+        required: false
+        default: "llm-gemini"
+        type: choice
+        options:
+          - cn-only
+          - llm-qwen
+          - llm-gemini
+      force:
+        description: "Force overwrite existing translation files"
+        required: false
+        default: false
+        type: boolean
+      category:
+        description: "Optional single category (blank means full run)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-translations-via-script
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      SILICONFLOW_API_KEY: ${{ secrets.SILICONFLOW_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run translate.py
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mode="${{ github.event.inputs.mode || 'llm-gemini' }}"
+          force_flag="${{ github.event.inputs.force }}"
+          category="${{ github.event.inputs.category }}"
+          args=()
+
+          if [[ "$force_flag" == "true" ]]; then
+            args+=("--force")
+          fi
+
+          if [[ -n "$category" ]]; then
+            args+=("--category" "$category")
+          fi
+
+          case "$mode" in
+            cn-only)
+              args+=("--cn-only")
+              ;;
+            llm-qwen)
+              if [[ -z "${SILICONFLOW_API_KEY:-}" ]]; then
+                echo "SILICONFLOW_API_KEY is required for llm-qwen mode"
+                exit 1
+              fi
+              args+=("--llm" "qwen")
+              ;;
+            llm-gemini)
+              if [[ -z "${GEMINI_API_KEY:-}" ]]; then
+                echo "GEMINI_API_KEY is required for llm-gemini mode"
+                exit 1
+              fi
+              args+=("--llm" "gemini")
+              ;;
+            *)
+              echo "Unsupported mode: $mode"
+              exit 1
+              ;;
+          esac
+
+          echo "Running: python scripts/translate.py ${args[*]}"
+          python scripts/translate.py "${args[@]}"
+
+      - name: Commit and push changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- scripts/translate.py web/public/data/translations web/public/data/search-index.json; then
+            echo "No script/translation changes detected"
+            exit 0
+          fi
+
+          git config user.name "Snowy Bot"
+          git config user.email "bot@snowy.viewer"
+
+          git add -A scripts/translate.py web/public/data/translations web/public/data/search-index.json
+          git commit -m "chore: update translations via translate.py workflow"
+          git push

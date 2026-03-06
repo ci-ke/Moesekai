@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    working_dir: /app
+    command: ["air", "-c", ".air.toml"]
+    environment:
+      - PORT=8080
+      - TRANSLATION_PATH=/app/web/public/data/translations
+      - GIT_REPO_PATH=/app
+      - TRANSLATION_REL_DIR=web/public/data/translations
+      - GIT_PUSH_BRANCH=main
+      - TRANSLATOR_ACCOUNTS=${TRANSLATOR_ACCOUNTS:-}
+      - JWT_SECRET=${JWT_SECRET:-dev-translate-secret}
+      - REDIS_URL=${REDIS_URL:-localhost:6379}
+    volumes:
+      - ./:/app
+    ports:
+      - "8080:8080"
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile.dev
+    working_dir: /app
+    environment:
+      - NEXT_PUBLIC_API_URL=
+      - INTERNAL_API_BASE_URL=http://backend:8080
+      - WATCHPACK_POLLING=true
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend

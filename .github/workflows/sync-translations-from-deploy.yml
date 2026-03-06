@@ -1,0 +1,111 @@
+name: Sync Translations From Deploy
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      max_event_id:
+        description: "Max event ID to probe for eventStory files"
+        required: false
+        default: "300"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-translations-from-deploy
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_BASE_URL: https://snowyviewer.exmeaning.com
+      DEFAULT_MAX_EVENT_ID: "300"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync translation json files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          target_dir="web/public/data/translations"
+          mkdir -p "$target_dir/eventStory"
+
+          files=(
+            cards.json cards.full.json
+            events.json events.full.json
+            music.json music.full.json
+            virtualLive.json virtualLive.full.json
+            mysekai.json mysekai.full.json
+            gacha.json gacha.full.json
+            sticker.json sticker.full.json
+            comic.json comic.full.json
+            characters.json characters.full.json
+            units.json units.full.json
+            costumes.json costumes.full.json
+          )
+
+          for file in "${files[@]}"; do
+            url="$SOURCE_BASE_URL/data/translations/$file"
+            echo "Downloading $url"
+            curl -fsS --retry 5 --retry-delay 2 --retry-all-errors "$url" -o "$target_dir/$file"
+          done
+
+          if curl -fsS --retry 3 --retry-delay 2 --retry-all-errors "$SOURCE_BASE_URL/data/search-index.json" -o "web/public/data/search-index.json"; then
+            echo "Synced search-index.json"
+          else
+            echo "Warning: failed to sync search-index.json, keeping local file"
+          fi
+
+      - name: Sync event story translation files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          max_id="${{ github.event.inputs.max_event_id || env.DEFAULT_MAX_EVENT_ID }}"
+          if [[ ! "$max_id" =~ ^[0-9]+$ ]]; then
+            echo "Invalid max_event_id: $max_id"
+            exit 1
+          fi
+
+          tmp_dir="$(mktemp -d)"
+          mkdir -p "$tmp_dir/eventStory"
+          hit_count=0
+
+          for ((id=1; id<=max_id; id++)); do
+            file="event_${id}.json"
+            url="$SOURCE_BASE_URL/data/translations/eventStory/$file"
+            if curl -fsS --retry 2 --retry-delay 1 --retry-all-errors "$url" -o "$tmp_dir/eventStory/$file"; then
+              hit_count=$((hit_count + 1))
+            fi
+          done
+
+          if [[ "$hit_count" -eq 0 ]]; then
+            echo "No eventStory files downloaded; aborting to avoid accidental deletions"
+            exit 1
+          fi
+
+          mkdir -p web/public/data/translations/eventStory
+          rsync -a --delete "$tmp_dir/eventStory/" web/public/data/translations/eventStory/
+          echo "Synced $hit_count eventStory files"
+
+      - name: Commit and push changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- web/public/data/translations web/public/data/search-index.json; then
+            echo "No translation changes detected"
+            exit 0
+          fi
+
+          git config user.name "Snowy Bot"
+          git config user.email "bot@snowy.viewer"
+
+          git add -A web/public/data/translations web/public/data/search-index.json
+          git commit -m "chore: sync translations from snowyviewer.exmeaning.com"
+          git push

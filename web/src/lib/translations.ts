@@ -89,11 +89,14 @@ let loadingPromise: Promise<TranslationData> | null = null;
 // IndexedDB cache key for the combined translation bundle
 const TRANSLATION_IDB_KEY = "translations-bundle";
 
-// Translation cache TTL: 6 hours (translations may update independently of masterdata)
-const TRANSLATION_CACHE_TTL = 6 * 60 * 60 * 1000;
+// Translation cache TTL: 30 minutes (faster propagation for proofreading updates)
+const TRANSLATION_CACHE_TTL = 30 * 60 * 1000;
 
 // Key for storing translation cache timestamp in localStorage
 const TRANSLATION_CACHE_TIME_KEY = "translation-cache-time";
+
+// Key for forcing translation cache-bust when proofreading updates occur
+const TRANSLATION_DATA_VERSION_KEY = "translation-data-version";
 
 /**
  * Get the current translation version hash.
@@ -102,7 +105,14 @@ const TRANSLATION_CACHE_TIME_KEY = "translation-cache-time";
  */
 function getTranslationVersionHash(): string {
     if (typeof window === "undefined") return "build";
-    return localStorage.getItem("masterdata-version") || "unknown";
+    const masterVersion = localStorage.getItem("masterdata-version") || "unknown";
+    const translationVersion = localStorage.getItem(TRANSLATION_DATA_VERSION_KEY) || "0";
+    return `${masterVersion}:${translationVersion}`;
+}
+
+function getTranslationDataVersion(): string {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem(TRANSLATION_DATA_VERSION_KEY) || "";
 }
 
 /**
@@ -120,19 +130,21 @@ function isTranslationCacheStale(): boolean {
  */
 async function fetchAllTranslations(): Promise<TranslationData> {
     const baseUrl = "/data/translations";
+    const version = getTranslationDataVersion();
+    const query = version ? `?v=${encodeURIComponent(version)}` : "";
 
     const [cards, events, music, virtualLive, mysekai, gacha, sticker, comic, characters, units, costumes] = await Promise.all([
-        fetchTranslationFile<TranslationData["cards"]>(`${baseUrl}/cards.json`),
-        fetchTranslationFile<TranslationData["events"]>(`${baseUrl}/events.json`),
-        fetchTranslationFile<TranslationData["music"]>(`${baseUrl}/music.json`),
-        fetchTranslationFile<TranslationData["virtualLive"]>(`${baseUrl}/virtualLive.json`),
-        fetchTranslationFile<TranslationData["mysekai"]>(`${baseUrl}/mysekai.json`),
-        fetchTranslationFile<TranslationData["gacha"]>(`${baseUrl}/gacha.json`),
-        fetchTranslationFile<TranslationData["sticker"]>(`${baseUrl}/sticker.json`),
-        fetchTranslationFile<TranslationData["comic"]>(`${baseUrl}/comic.json`),
-        fetchTranslationFile<TranslationData["characters"]>(`${baseUrl}/characters.json`),
-        fetchTranslationFile<TranslationData["units"]>(`${baseUrl}/units.json`),
-        fetchTranslationFile<TranslationData["costumes"]>(`${baseUrl}/costumes.json`),
+        fetchTranslationFile<TranslationData["cards"]>(`${baseUrl}/cards.json${query}`),
+        fetchTranslationFile<TranslationData["events"]>(`${baseUrl}/events.json${query}`),
+        fetchTranslationFile<TranslationData["music"]>(`${baseUrl}/music.json${query}`),
+        fetchTranslationFile<TranslationData["virtualLive"]>(`${baseUrl}/virtualLive.json${query}`),
+        fetchTranslationFile<TranslationData["mysekai"]>(`${baseUrl}/mysekai.json${query}`),
+        fetchTranslationFile<TranslationData["gacha"]>(`${baseUrl}/gacha.json${query}`),
+        fetchTranslationFile<TranslationData["sticker"]>(`${baseUrl}/sticker.json${query}`),
+        fetchTranslationFile<TranslationData["comic"]>(`${baseUrl}/comic.json${query}`),
+        fetchTranslationFile<TranslationData["characters"]>(`${baseUrl}/characters.json${query}`),
+        fetchTranslationFile<TranslationData["units"]>(`${baseUrl}/units.json${query}`),
+        fetchTranslationFile<TranslationData["costumes"]>(`${baseUrl}/costumes.json${query}`),
     ]);
 
     return {
@@ -285,4 +297,16 @@ export function clearTranslationCache(): void {
     if (isIndexedDBAvailable()) {
         import("./masterdata-cache").then(m => m.clearTranslationCache()).catch(() => {});
     }
+}
+
+/**
+ * Mark translations as updated by proofreading actions.
+ * This bumps a local version key to force cache-busting query params
+ * and clears current caches so subsequent page loads fetch fresh files.
+ */
+export function markTranslationsUpdated(): void {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(TRANSLATION_DATA_VERSION_KEY, Date.now().toString());
+    localStorage.removeItem(TRANSLATION_CACHE_TIME_KEY);
+    clearTranslationCache();
 }

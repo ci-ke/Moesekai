@@ -38,7 +38,11 @@ COPY --from=builder-web /app/web/public ./nextjs/web/public
 COPY data/ ./data/
 
 # Install certs for external API calls from backend
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates git
+
+# Translation files are served from Next.js public directory.
+ENV TRANSLATION_PATH=/app/nextjs/web/public/data/translations
+ENV TRANSLATION_AUTO_PUSH_ENABLED=false
 
 # Create startup script that runs both servers
 RUN printf '#!/bin/sh\n\
