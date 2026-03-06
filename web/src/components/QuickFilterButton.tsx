@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Modal from "@/components/common/Modal";
 import { useQuickFilterContext } from "@/contexts/QuickFilterContext";
 
@@ -14,6 +14,47 @@ import { useQuickFilterContext } from "@/contexts/QuickFilterContext";
 export default function QuickFilterButton() {
     const { filterContent, filterTitle, isOpen, open, close } = useQuickFilterContext();
     const [isVisible, setIsVisible] = useState(false);
+    const [isTapAnimating, setIsTapAnimating] = useState(false);
+    const [isInteracting, setIsInteracting] = useState(false);
+
+    // Ref to manage the release-delay timer so we can cancel it on re-press
+    const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const clearReleaseTimer = useCallback(() => {
+        if (releaseTimerRef.current !== null) {
+            clearTimeout(releaseTimerRef.current);
+            releaseTimerRef.current = null;
+        }
+    }, []);
+
+    const handleOpen = () => {
+        // Keep interaction active through the action
+        clearReleaseTimer();
+        setIsInteracting(true);
+
+        setIsTapAnimating(true);
+        window.setTimeout(() => setIsTapAnimating(false), 280);
+
+        window.setTimeout(() => open(), 120);
+
+        // Delayed deactivation after action animation completes
+        releaseTimerRef.current = setTimeout(() => {
+            setIsInteracting(false);
+        }, 400);
+    };
+
+    const handlePressStart = () => {
+        clearReleaseTimer();
+        setIsInteracting(true);
+    };
+
+    const handlePressEnd = () => {
+        // Delay the release so the visual state persists briefly (matches PC hover feel)
+        clearReleaseTimer();
+        releaseTimerRef.current = setTimeout(() => {
+            setIsInteracting(false);
+        }, 400);
+    };
 
     useEffect(() => {
         const toggleVisibility = () => {
@@ -26,6 +67,11 @@ export default function QuickFilterButton() {
         return () => window.removeEventListener("scroll", toggleVisibility);
     }, []);
 
+    // Clean up timer on unmount
+    useEffect(() => {
+        return () => clearReleaseTimer();
+    }, [clearReleaseTimer]);
+
     // Don't render anything if no page has registered filters
     if (!filterContent) return null;
 
@@ -33,15 +79,22 @@ export default function QuickFilterButton() {
         <>
             {/* Floating button */}
             <button
-                onClick={open}
-                className={`fixed bottom-[6.5rem] right-8 p-3 rounded-2xl bg-white/80 backdrop-blur-md border border-miku/20 text-miku shadow-lg shadow-miku/10 transition-all duration-500 z-[100] hover:bg-miku hover:text-white hover:shadow-miku/30 hover:-translate-y-1 hover:scale-110 active:scale-95 transform group md:hidden ${isVisible
-                    ? "opacity-100 translate-y-0 scale-100"
-                    : "opacity-0 translate-y-10 scale-90 pointer-events-none"
+                onClick={handleOpen}
+                onPointerDown={handlePressStart}
+                onPointerUp={handlePressEnd}
+                onPointerLeave={handlePressEnd}
+                onPointerCancel={handlePressEnd}
+                className={`fixed bottom-[6.5rem] right-8 p-3 rounded-2xl backdrop-blur-md border border-miku/20 shadow-lg transition-all duration-500 z-[100] active:scale-95 transform group md:hidden ${isInteracting
+                    ? "bg-miku text-white shadow-miku/30 -translate-y-1 scale-110"
+                    : "bg-white/80 text-miku shadow-miku/10 hover:bg-miku hover:text-white hover:shadow-miku/30 hover:-translate-y-1 hover:scale-110"
+                    } ${isVisible
+                        ? "opacity-100 translate-y-0 scale-100"
+                        : "opacity-0 translate-y-10 scale-90 pointer-events-none"
                     }`}
                 aria-label="打开快捷筛选"
             >
                 <svg
-                    className="w-6 h-6 transition-transform duration-500 group-hover:rotate-12"
+                    className={`w-6 h-6 transition-transform duration-500 group-hover:rotate-12 ${isInteracting ? "rotate-12" : ""} ${isTapAnimating ? "quick-filter-icon-tap" : ""}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
