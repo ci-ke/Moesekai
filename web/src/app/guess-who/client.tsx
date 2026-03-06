@@ -880,13 +880,6 @@ function GuessWhoClientPlayingAndSetup({
                         </div>
                         <h1 className="text-4xl font-black text-slate-800 mb-2 drop-shadow-sm">我是谁 <span className="text-miku">?</span></h1>
                         <p className="text-slate-500 font-medium">通过随机裁剪的卡面猜测角色</p>
-                        <a
-                            href="/guess-who/multiplayer/"
-                            className="inline-flex items-center gap-2 mt-4 px-6 py-2.5 bg-miku text-white rounded-full font-bold text-sm shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 hover:bg-miku-dark"
-                        >
-                            <span>联机对战模式beta</span>
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
-                        </a>
                     </div>
 
                     <div className="bg-white/90 backdrop-blur-md rounded-3xl p-4 sm:p-8 shadow-sm border border-slate-100 space-y-6 sm:space-y-8">

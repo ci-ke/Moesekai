@@ -11,6 +11,7 @@ import { TranslatedText } from "@/components/common/TranslatedText";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import ImagePreviewModal from "@/components/common/ImagePreviewModal";
 import { useQuickFilter } from "@/contexts/QuickFilterContext";
+import { oldComicTips } from "@/lib/oldComicTips";
 
 interface ITipInfo {
     id: number;
@@ -53,7 +54,13 @@ function ComicContent() {
                 const data = await fetchMasterData<ITipInfo[]>("tips.json");
                 // Filter only comics (those with assetbundleName)
                 const comicsOnly = data.filter(t => t.assetbundleName);
-                setComics(comicsOnly);
+
+                // Add manual old comic tips
+                const comicIds = new Set(comicsOnly.map(c => c.id));
+                const missingOldComics = oldComicTips.filter(c => !comicIds.has(c.id));
+                const allComics = [...comicsOnly, ...missingOldComics];
+
+                setComics(allComics);
                 setError(null);
             } catch (err) {
                 console.error("Error fetching comics:", err);
