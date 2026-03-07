@@ -130,7 +130,7 @@ function isTranslationCacheStale(): boolean {
  * Translation data is served from the MoeSekai-Hub static deployment.
  */
 async function fetchAllTranslations(): Promise<TranslationData> {
-    const baseUrl = "https://moe.exmeaning.com/translation";
+    const baseUrl = "https://translation.exmeaning.com/translation";
     const version = getTranslationDataVersion();
     const query = version ? `?v=${encodeURIComponent(version)}` : "";
 
@@ -174,7 +174,7 @@ function backgroundRevalidateTranslations(versionHash: string): void {
             translationCache = fresh;
             // Update IndexedDB cache
             if (isIndexedDBAvailable()) {
-                setTranslationCache(TRANSLATION_IDB_KEY, fresh, versionHash).catch(() => {});
+                setTranslationCache(TRANSLATION_IDB_KEY, fresh, versionHash).catch(() => { });
             }
             // Update timestamp
             localStorage.setItem(TRANSLATION_CACHE_TIME_KEY, Date.now().toString());
@@ -232,7 +232,7 @@ export async function loadTranslations(): Promise<TranslationData> {
 
             // 4. Write to IndexedDB (async, non-blocking)
             if (isIndexedDBAvailable()) {
-                setTranslationCache(TRANSLATION_IDB_KEY, result, versionHash).catch(() => {});
+                setTranslationCache(TRANSLATION_IDB_KEY, result, versionHash).catch(() => { });
             }
             // Update timestamp
             if (typeof window !== "undefined") {
@@ -296,7 +296,7 @@ export function clearTranslationCache(): void {
     loadingPromise = null;
     // Also clear IndexedDB translation cache
     if (isIndexedDBAvailable()) {
-        import("./masterdata-cache").then(m => m.clearTranslationCache()).catch(() => {});
+        import("./masterdata-cache").then(m => m.clearTranslationCache()).catch(() => { });
     }
 }
 
