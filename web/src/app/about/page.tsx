@@ -147,7 +147,7 @@ export default function AboutPage() {
                             <p className="text-md font-bold text-primary-text">赞助者致谢 （不分先后）</p>
                         </div>
                         <p className="text-sm text-slate-600 leading-7 text-justify">
-                            cike 一位不愿意透露具体ID的支持者 Hakuchumu 性价比 luoxia
+                            cike 一位不愿意透露具体ID的支持者 Hakuchumu 性价比 luoxia 雪莹ちゃん
                         </p>
                     </div>
 
@@ -160,6 +160,28 @@ export default function AboutPage() {
                             深海 Luna茶 cike Kazuhira 灵潜 咖啡不甜 郁郁葱葱 TONY_ALL# M氏 大梦 Hakuchumu 葡萄柚 Amia 不解 旭光 阳子 弥佑瑶 サクラかぜ luoxia 陈睿ガチ恋势 猫尾草 笨牛奶 霞綾 世说心羽 木口 沧溟 Aya Belos 兔兔 明日天気に シラ
                             偶像大师希罗酱 性价比……（以上为部分名单 感谢所有默默支持Moesekai的人）
                         </p>
+                    </div>
+
+                    {/* Card 7: Teams & Community */}
+                    <div className="md:col-span-3 p-6 rounded-xl shadow-md border border-slate-100 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow">
+                        <div className="flex items-center gap-2 mb-4">
+                            <p className="text-md font-bold text-primary-text">团队名单</p>
+                        </div>
+                        <div className="text-sm text-slate-600 leading-7 space-y-4">
+                            <div>
+                                <span className="font-bold text-primary-text">moesekai 攻略部：</span>
+                                @惜花 @郁郁葱葱 @明日天気に @Aya @樱风 @荇荼 @性价比 @芒果冰沙拌玻璃渣 @luoxia @東雪
+                            </div>
+                            <div>
+                                <span className="font-bold text-primary-text">moesekai 汉化部：</span>
+                                翻译/校对 @雪莹ちゃん
+                            </div>
+                            <div className="mt-4 pt-4 border-t border-slate-100">
+                                <p className="font-medium text-miku">
+                                    如果你想帮助我们 可以加入 <span className="font-bold text-primary-text">1075068454</span> 咨询：<span className="font-bold text-primary-text">Moesekai 文艺部</span>！
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
                 </div>
