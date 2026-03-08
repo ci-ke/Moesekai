@@ -1,10 +1,20 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { CHAR_COLORS, CHAR_NAMES } from "@/types/types";
+import {
+    COLOR_SCHEME_STORAGE_KEY,
+    DARK_MEDIA_QUERY,
+    THEME_CHAR_STORAGE_KEY,
+    isValidColorSchemePreference,
+    resolveColorSchemePreference,
+    type ColorSchemePreference,
+    type ResolvedColorScheme,
+} from "@/lib/colorScheme";
 
 // Default theme color (Miku)
 const DEFAULT_THEME_CHAR = "21";
 const DEFAULT_COLOR = "#33ccbb";
+const DEFAULT_COLOR_SCHEME_PREFERENCE: ColorSchemePreference = "system";
 
 // Asset source type (5 independent sources: 3 JP + 2 CN)
 export type AssetSourceType = "uni" | "haruki" | "snowyassets" | "snowyassets_cn" | "haruki_cn";
@@ -20,6 +30,9 @@ interface ThemeContextType {
     themeCharId: string;
     themeColor: string;
     setThemeCharacter: (charId: string) => void;
+    colorSchemePreference: ColorSchemePreference;
+    resolvedColorScheme: ResolvedColorScheme;
+    setColorSchemePreference: (preference: ColorSchemePreference) => void;
     isShowSpoiler: boolean;
     setShowSpoiler: (show: boolean) => void;
     isPowerSaving: boolean;
@@ -43,6 +56,9 @@ interface ThemeProviderProps {
 export function ThemeProvider({ children }: ThemeProviderProps) {
     const [themeCharId, setThemeCharId] = useState<string>(DEFAULT_THEME_CHAR);
     const [themeColor, setThemeColor] = useState<string>(DEFAULT_COLOR);
+    const [colorSchemePreference, setColorSchemePreferenceState] = useState<ColorSchemePreference>(DEFAULT_COLOR_SCHEME_PREFERENCE);
+    const [resolvedColorScheme, setResolvedColorScheme] = useState<ResolvedColorScheme>("light");
+    const [hasHydratedThemeSettings, setHasHydratedThemeSettings] = useState(false);
     const [isShowSpoiler, setIsShowSpoiler] = useState(false);
     const [isPowerSaving, setIsPowerSaving] = useState(true);
     const [useTrainedThumbnailState, setUseTrainedThumbnailState] = useState(false);
@@ -53,10 +69,14 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     // Load saved settings from localStorage on mount
     useEffect(() => {
         const raf = requestAnimationFrame(() => {
-            const savedCharId = localStorage.getItem("theme-char-id");
+            const savedCharId = localStorage.getItem(THEME_CHAR_STORAGE_KEY);
             if (savedCharId && CHAR_COLORS[savedCharId]) {
                 setThemeCharId(savedCharId);
                 setThemeColor(CHAR_COLORS[savedCharId]);
+            }
+            const savedColorSchemePreference = localStorage.getItem(COLOR_SCHEME_STORAGE_KEY);
+            if (isValidColorSchemePreference(savedColorSchemePreference)) {
+                setColorSchemePreferenceState(savedColorSchemePreference);
             }
             // Load spoiler setting
             const savedSpoiler = localStorage.getItem("show-spoiler");
@@ -100,13 +120,62 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
                 localStorage.setItem("asset-source", "snowyassets");
             }
             setAssetSourceState(loadedAssetSource);
+            setHasHydratedThemeSettings(true);
         });
 
-        return () => cancelAnimationFrame(raf);
+        return () => {
+            cancelAnimationFrame(raf);
+        };
     }, []);
+
+    useEffect(() => {
+        if (typeof window === "undefined" || !hasHydratedThemeSettings) {
+            return;
+        }
+
+        const mediaQuery = window.matchMedia(DARK_MEDIA_QUERY);
+
+        const applyColorScheme = () => {
+            const nextResolvedColorScheme = resolveColorSchemePreference(
+                colorSchemePreference,
+                mediaQuery.matches
+            );
+
+            setResolvedColorScheme((current) =>
+                current === nextResolvedColorScheme ? current : nextResolvedColorScheme
+            );
+
+            document.documentElement.dataset.theme = nextResolvedColorScheme;
+            document.documentElement.dataset.themePreference = colorSchemePreference;
+            document.documentElement.style.colorScheme = nextResolvedColorScheme;
+            document.documentElement.classList.toggle("dark", nextResolvedColorScheme === "dark");
+        };
+
+        applyColorScheme();
+
+        if (colorSchemePreference !== "system") {
+            return;
+        }
+
+        const handleChange = () => {
+            applyColorScheme();
+        };
+
+        if (typeof mediaQuery.addEventListener === "function") {
+            mediaQuery.addEventListener("change", handleChange);
+            return () => mediaQuery.removeEventListener("change", handleChange);
+        }
+
+        mediaQuery.addListener(handleChange);
+        return () => mediaQuery.removeListener(handleChange);
+    }, [colorSchemePreference, hasHydratedThemeSettings]);
 
     // Apply theme color to CSS variables
     useEffect(() => {
+        if (!hasHydratedThemeSettings) {
+            return;
+        }
+
         document.documentElement.style.setProperty("--color-miku", themeColor);
         // Also update the dark variant (darken by ~15%)
         const darkColor = darkenColor(themeColor, 15);
@@ -121,19 +190,29 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         if (rgb) {
             document.documentElement.style.setProperty("--color-miku-rgb", `${rgb.r}, ${rgb.g}, ${rgb.b}`);
         }
-    }, [themeColor]);
+    }, [themeColor, hasHydratedThemeSettings]);
 
     const setThemeCharacter = (charId: string) => {
         if (CHAR_COLORS[charId]) {
             setThemeCharId(charId);
             setThemeColor(CHAR_COLORS[charId]);
             try {
-                localStorage.setItem("theme-char-id", charId);
+                localStorage.setItem(THEME_CHAR_STORAGE_KEY, charId);
             } catch (e) {
                 console.error("Failed to save theme to localStorage:", e);
             }
         } else {
             console.warn("Invalid character ID for theme:", charId);
+        }
+    };
+
+    const setColorSchemePreference = (preference: ColorSchemePreference) => {
+        setColorSchemePreferenceState(preference);
+
+        try {
+            localStorage.setItem(COLOR_SCHEME_STORAGE_KEY, preference);
+        } catch (e) {
+            console.error("Failed to save color scheme preference to localStorage:", e);
         }
     };
 
@@ -212,7 +291,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     };
 
     return (
-        <ThemeContext.Provider value={{ themeCharId, themeColor, setThemeCharacter, isShowSpoiler, setShowSpoiler, isPowerSaving, setPowerSaving, useTrainedThumbnail: useTrainedThumbnailState, setUseTrainedThumbnail, assetSource: assetSourceState, setAssetSource, useLLMTranslation: useLLMTranslationState, setUseLLMTranslation, serverSource: serverSourceState, setServerSource }}>
+        <ThemeContext.Provider value={{ themeCharId, themeColor, setThemeCharacter, colorSchemePreference, resolvedColorScheme, setColorSchemePreference, isShowSpoiler, setShowSpoiler, isPowerSaving, setPowerSaving, useTrainedThumbnail: useTrainedThumbnailState, setUseTrainedThumbnail, assetSource: assetSourceState, setAssetSource, useLLMTranslation: useLLMTranslationState, setUseLLMTranslation, serverSource: serverSourceState, setServerSource }}>
             {children}
         </ThemeContext.Provider>
     );

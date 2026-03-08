@@ -5,12 +5,43 @@
   --theme-light: #f0fbf9;
   --glass-border: rgba(255, 255, 255, 0.4);
   --glass-bg: rgba(255, 255, 255, 0.35);
+  --page-bg-start: #ffffff;
+  --page-bg-end: var(--theme-light);
+  --surface-base: #ffffff;
+  --surface-soft: #f8fafc;
+  --surface-muted: #f1f5f9;
+  --surface-strong: #e2e8f0;
+  --text-strong: #1e293b;
+  --text-body: #334155;
+  --text-muted: #64748b;
+  --text-soft: #94a3b8;
+  --border-soft: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --ring-soft: rgba(226, 232, 240, 0.9);
 
   /* Brand Colors */
   --color-miku: #33ccbb;
   --color-miku-dark: #2da89b;
   --color-luka: #ff6699;
   --color-primary-text: #334455;
+}
+
+:root[data-theme="dark"] {
+  --glass-border: rgba(148, 163, 184, 0.18);
+  --glass-bg: rgba(15, 23, 42, 0.55);
+  --page-bg-start: #08111b;
+  --page-bg-end: #101b2d;
+  --surface-base: rgba(15, 23, 42, 0.92);
+  --surface-soft: rgba(15, 23, 42, 0.72);
+  --surface-muted: rgba(30, 41, 59, 0.88);
+  --surface-strong: rgba(51, 65, 85, 0.88);
+  --text-strong: #f8fafc;
+  --text-body: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-soft: #64748b;
+  --border-soft: rgba(148, 163, 184, 0.16);
+  --border-strong: rgba(148, 163, 184, 0.28);
+  --ring-soft: rgba(148, 163, 184, 0.28);
 }
 
 @theme {
@@ -26,8 +57,12 @@
 body {
   overflow-x: hidden;
   color: var(--color-primary-text);
-  background: linear-gradient(135deg, white 0%, var(--theme-light) 100%);
+  background: linear-gradient(135deg, var(--page-bg-start) 0%, var(--page-bg-end) 100%);
   min-height: 100vh;
+}
+
+:root[data-theme="dark"] body {
+  color: var(--text-body);
 }
 
 /* Loading spinner with theme color transition */
@@ -69,6 +104,129 @@ body {
     0 8px 32px 0 rgba(31, 38, 135, 0.15),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.6),
     inset 0 -1px 0 0 rgba(255, 255, 255, 0.2);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+:root[data-theme="dark"] .bg-white {
+  background-color: var(--surface-base) !important;
+}
+
+:root[data-theme="dark"] .bg-white\/95,
+:root[data-theme="dark"] .bg-white\/90,
+:root[data-theme="dark"] .bg-white\/80,
+:root[data-theme="dark"] .bg-white\/70,
+:root[data-theme="dark"] .bg-white\/60,
+:root[data-theme="dark"] .bg-white\/50,
+:root[data-theme="dark"] .bg-white\/40 {
+  background-color: color-mix(in srgb, var(--surface-base) 88%, transparent) !important;
+}
+
+:root[data-theme="dark"] .bg-slate-50,
+:root[data-theme="dark"] .bg-slate-50\/70,
+:root[data-theme="dark"] .bg-slate-50\/50,
+:root[data-theme="dark"] .bg-slate-50\/30 {
+  background-color: var(--surface-soft) !important;
+}
+
+:root[data-theme="dark"] .bg-slate-100 {
+  background-color: var(--surface-muted) !important;
+}
+
+:root[data-theme="dark"] .bg-slate-200,
+:root[data-theme="dark"] .bg-slate-300 {
+  background-color: var(--surface-strong) !important;
+}
+
+:root[data-theme="dark"] .text-slate-900,
+:root[data-theme="dark"] .text-slate-800 {
+  color: var(--text-strong) !important;
+}
+
+:root[data-theme="dark"] .text-primary-text {
+  color: var(--text-body) !important;
+}
+
+:root[data-theme="dark"] .text-slate-700,
+:root[data-theme="dark"] .text-slate-600 {
+  color: var(--text-body) !important;
+}
+
+:root[data-theme="dark"] .text-slate-500,
+:root[data-theme="dark"] .text-slate-400,
+:root[data-theme="dark"] .text-slate-300 {
+  color: var(--text-muted) !important;
+}
+
+:root[data-theme="dark"] .border-slate-50,
+:root[data-theme="dark"] .border-slate-100,
+:root[data-theme="dark"] .border-slate-100\/50,
+:root[data-theme="dark"] .border-slate-200,
+:root[data-theme="dark"] .border-slate-200\/60,
+:root[data-theme="dark"] .border-slate-200\/50,
+:root[data-theme="dark"] .border-slate-300 {
+  border-color: var(--border-soft) !important;
+}
+
+:root[data-theme="dark"] .ring-slate-100,
+:root[data-theme="dark"] .ring-slate-200,
+:root[data-theme="dark"] .ring-slate-200\/60,
+:root[data-theme="dark"] .ring-slate-200\/50,
+:root[data-theme="dark"] .ring-slate-300 {
+  --tw-ring-color: var(--ring-soft) !important;
+}
+
+:root[data-theme="dark"] .hover\:bg-white:hover,
+:root[data-theme="dark"] .hover\:bg-white\/80:hover,
+:root[data-theme="dark"] .hover\:bg-white\/70:hover,
+:root[data-theme="dark"] .hover\:bg-white\/20:hover,
+:root[data-theme="dark"] .hover\:bg-slate-50:hover,
+:root[data-theme="dark"] .hover\:bg-slate-50\/50:hover,
+:root[data-theme="dark"] .hover\:bg-slate-100:hover,
+:root[data-theme="dark"] .hover\:bg-slate-200:hover,
+:root[data-theme="dark"] .hover\:bg-slate-300:hover,
+:root[data-theme="dark"] .hover\:bg-slate-700:hover,
+:root[data-theme="dark"] .hover\:bg-slate-700\/50:hover {
+  background-color: color-mix(in srgb, var(--surface-strong) 88%, transparent) !important;
+}
+
+:root[data-theme="dark"] .hover\:text-slate-900:hover,
+:root[data-theme="dark"] .hover\:text-slate-800:hover,
+:root[data-theme="dark"] .hover\:text-slate-700:hover,
+:root[data-theme="dark"] .hover\:text-slate-600:hover {
+  color: var(--text-strong) !important;
+}
+
+:root[data-theme="dark"] .hover\:border-slate-300:hover,
+:root[data-theme="dark"] .hover\:border-slate-200:hover {
+  border-color: var(--border-strong) !important;
+}
+
+:root[data-theme="dark"] .from-slate-50,
+:root[data-theme="dark"] .from-slate-100,
+:root[data-theme="dark"] .from-slate-300,
+:root[data-theme="dark"] .from-slate-400 {
+  --tw-gradient-from: var(--surface-soft) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: color-mix(in srgb, var(--surface-soft) 0%, transparent) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from), var(--tw-gradient-to)) !important;
+}
+
+:root[data-theme="dark"] .to-slate-50,
+:root[data-theme="dark"] .to-slate-100,
+:root[data-theme="dark"] .to-slate-200,
+:root[data-theme="dark"] .to-slate-400,
+:root[data-theme="dark"] .to-slate-500 {
+  --tw-gradient-to: var(--surface-muted) var(--tw-gradient-to-position) !important;
+}
+
+:root[data-theme="dark"] .shadow-2xl,
+:root[data-theme="dark"] .shadow-xl,
+:root[data-theme="dark"] .shadow-lg,
+:root[data-theme="dark"] .shadow-md,
+:root[data-theme="dark"] .shadow-sm {
+  box-shadow: 0 18px 45px rgba(2, 6, 23, 0.42) !important;
 }
 
 /* Loading animation keyframes */

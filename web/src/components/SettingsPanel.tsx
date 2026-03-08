@@ -32,11 +32,38 @@ const CLOSE_OVERLAY_COMBOS = parseShortcutCombos(
     getShortcutById("close-overlay")?.combos ?? []
 );
 
+const appearanceOptions = [
+    { id: "system", label: "自适应", description: "跟随系统" },
+    { id: "light", label: "浅色", description: "始终浅色" },
+    { id: "dark", label: "深色", description: "始终深色" },
+] as const;
+
 export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
-    const { themeCharId, setThemeCharacter, isShowSpoiler, setShowSpoiler, isPowerSaving, setPowerSaving, useTrainedThumbnail, setUseTrainedThumbnail, assetSource, setAssetSource, useLLMTranslation, setUseLLMTranslation, serverSource, setServerSource } = useTheme();
+    const {
+        themeCharId,
+        setThemeCharacter,
+        colorSchemePreference,
+        resolvedColorScheme,
+        setColorSchemePreference,
+        isShowSpoiler,
+        setShowSpoiler,
+        isPowerSaving,
+        setPowerSaving,
+        useTrainedThumbnail,
+        setUseTrainedThumbnail,
+        assetSource,
+        setAssetSource,
+        useLLMTranslation,
+        setUseLLMTranslation,
+        serverSource,
+        setServerSource,
+    } = useTheme();
     const { cloudVersion, localVersion, isLoading, isRefreshing, forceRefreshData } = useMasterData();
     const [expandedDropdown, setExpandedDropdown] = React.useState<string | null>(null);
     const panelRef = useRef<HTMLDivElement>(null);
+    const colorSchemeStatusText = colorSchemePreference === "system"
+        ? `当前跟随系统：${resolvedColorScheme === "dark" ? "深色" : "浅色"}`
+        : `当前模式：${colorSchemePreference === "dark" ? "深色" : "浅色"}`;
 
     // Close on click outside
     useEffect(() => {
@@ -105,6 +132,37 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
             {/* Content */}
             <div className="p-4 max-h-[60vh] overflow-y-auto">
+                <div>
+                    <div className="mb-3">
+                        <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">外观模式</span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                        {appearanceOptions.map((option) => {
+                            const isSelected = colorSchemePreference === option.id;
+
+                            return (
+                                <button
+                                    key={option.id}
+                                    onClick={() => setColorSchemePreference(option.id)}
+                                    className={`px-3 py-2.5 rounded-xl border text-left transition-all ${isSelected
+                                        ? "border-miku/30 bg-miku/10 text-miku shadow-sm"
+                                        : "border-slate-200 bg-slate-50 text-slate-600 hover:border-miku/20 hover:bg-slate-100"
+                                        }`}
+                                >
+                                    <div className="text-xs font-bold leading-none">{option.label}</div>
+                                    <div className="mt-1 text-[10px] leading-none opacity-80">{option.description}</div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
+                        {colorSchemeStatusText}，默认采用自适应，并会自动记住你的选择。
+                    </p>
+                </div>
+
+                <div className="border-t border-slate-100 mt-4 pt-4" />
+
                 <div className="mb-3">
                     <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">主题色</span>
                 </div>

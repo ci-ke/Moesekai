@@ -66,7 +66,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         if (isOpen && !indexLoadedRef.current && !isLoadingIndex) {
             indexLoadedRef.current = true;
             setIsLoadingIndex(true);
-            fetch("/data/search-index.json")
+            fetch("https://translation.exmeaning.com/data/search-index.json")
                 .then((res) => res.json())
                 .then((data: SearchIndexItem[]) => {
                     setSearchIndex(data);

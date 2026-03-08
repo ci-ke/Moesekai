@@ -41,7 +41,7 @@ export default function SekaiLoader() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          background: rgba(255, 255, 255, 0.95);
+          background-color: var(--surface-base, rgba(255, 255, 255, 0.95));
           backdrop-filter: blur(10px);
           transition: opacity 0.4s ease, visibility 0.4s ease;
         }
@@ -78,7 +78,7 @@ export default function SekaiLoader() {
         
         /* Base layer - light cyan (unloaded) */
         .base {
-          background-color: color-mix(in srgb, var(--color-miku) 30%, white);
+          background-color: color-mix(in srgb, var(--color-miku) 30%, var(--surface-base, white));
           opacity: 0.8;
           z-index: 1;
         }
@@ -120,7 +120,7 @@ export default function SekaiLoader() {
         }
         
         .loading-text {
-          color: var(--color-miku-dark);
+          color: var(--text-body, var(--color-miku-dark));
           font-family: sans-serif;
           font-weight: bold;
           font-size: 1rem;

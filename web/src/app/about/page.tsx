@@ -147,7 +147,7 @@ export default function AboutPage() {
                             <p className="text-md font-bold text-primary-text">赞助者致谢 （不分先后）</p>
                         </div>
                         <p className="text-sm text-slate-600 leading-7 text-justify">
-                            cike 一位不愿意透露具体ID的支持者 Hakuchumu 性价比 luoxia 雪莹ちゃん
+                            cike 一位不愿意透露具体ID的支持者 Hakuchumu 性价比 luoxia 雪莹ちゃん 蘸色绘糖/晕星奏 tony_all
                         </p>
                     </div>
 
@@ -169,8 +169,8 @@ export default function AboutPage() {
                         </div>
                         <div className="text-sm text-slate-600 leading-7 space-y-4">
                             <div>
-                                <span className="font-bold text-primary-text">moesekai 攻略部：</span>
-                                @惜花 @郁郁葱葱 @明日天気に @Aya @樱风 @荇荼 @性价比 @芒果冰沙拌玻璃渣 @luoxia @東雪
+                                <span className="font-bold text-primary-text">moesekai 文艺部：</span>
+                                @惜花 @郁郁葱葱 @明日天気に @Aya @樱风 @荇荼 @性价比 @芒果冰沙拌玻璃渣 @luoxia @東雪 @魁灵 @茶椿 @Hakuchumu @瑞希 @幽灵塑料袋 @羽月
                             </div>
                             <div>
                                 <span className="font-bold text-primary-text">moesekai 汉化部：</span>
