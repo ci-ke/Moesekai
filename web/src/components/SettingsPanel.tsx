@@ -43,7 +43,6 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
         themeCharId,
         setThemeCharacter,
         colorSchemePreference,
-        resolvedColorScheme,
         setColorSchemePreference,
         isShowSpoiler,
         setShowSpoiler,
@@ -61,9 +60,6 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     const { cloudVersion, localVersion, isLoading, isRefreshing, forceRefreshData } = useMasterData();
     const [expandedDropdown, setExpandedDropdown] = React.useState<string | null>(null);
     const panelRef = useRef<HTMLDivElement>(null);
-    const colorSchemeStatusText = colorSchemePreference === "system"
-        ? `当前跟随系统：${resolvedColorScheme === "dark" ? "深色" : "浅色"}`
-        : `当前模式：${colorSchemePreference === "dark" ? "深色" : "浅色"}`;
 
     // Close on click outside
     useEffect(() => {
@@ -156,9 +152,7 @@ export default function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                             );
                         })}
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
-                        {colorSchemeStatusText}，默认采用自适应，并会自动记住你的选择。
-                    </p>
+
                 </div>
 
                 <div className="border-t border-slate-100 mt-4 pt-4" />
