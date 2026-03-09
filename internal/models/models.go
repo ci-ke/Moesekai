@@ -69,25 +69,6 @@ type GachaPickup struct {
 	CardID  int `json:"cardId"`
 }
 
-// Costume Structs
-type CardCostume3d struct {
-	CardID      int `json:"cardId"`
-	Costume3dID int `json:"costume3dId"`
-}
-
-type Costume3d struct {
-	ID                 int    `json:"id"`
-	Costume3dGroupId   int    `json:"costume3dGroupId"`
-	Name               string `json:"name"`
-	AssetbundleName    string `json:"assetbundleName"`
-	Costume3dRarity    string `json:"costume3dRarity"`
-	Costume3dType      string `json:"costume3dType"`
-	PartType           string `json:"partType"`
-	CharacterId        int    `json:"characterId"`
-	ColorId            int    `json:"colorId"`
-	ArchivePublishedAt int64  `json:"archivePublishedAt"`
-}
-
 // Response Structs
 type GachaListItem struct {
 	ID              int    `json:"id"`

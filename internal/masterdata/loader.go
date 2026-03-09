@@ -19,8 +19,7 @@ const (
 	EventMusicsURL    = "https://sekaimaster.exmeaning.com/master/eventMusics.json"
 	VirtualLivesURL   = "https://raw.githubusercontent.com/Team-Haruki/haruki-sekai-master/main/master/virtualLives.json"
 	GachasURL         = "https://raw.githubusercontent.com/Team-Haruki/haruki-sekai-master/main/master/gachas.json"
-	CardCostume3dsURL = "https://raw.githubusercontent.com/Team-Haruki/haruki-sekai-master/main/master/cardCostume3ds.json"
-	Costume3dsURL     = "https://raw.githubusercontent.com/Team-Haruki/haruki-sekai-master/main/master/costume3ds.json"
+
 )
 
 // Store holds all master data in memory
@@ -40,11 +39,6 @@ type Store struct {
 	GachaList    []models.Gacha
 	GachaPickups map[int][]int
 
-	// Costume mappings
-	CardCostume3dMap    map[int][]int
-	Costume3dGroupIdMap map[int]int
-	Costume3dGroupMap   map[int][]models.Costume3d
-
 	// Config
 	localDataPath string
 }
@@ -58,9 +52,6 @@ func NewStore(localDataPath string) *Store {
 		EventVirtualLiveMap: make(map[int]models.VirtualLiveInfo),
 		VirtualLiveEventMap: make(map[int]models.EventInfo),
 		GachaPickups:        make(map[int][]int),
-		CardCostume3dMap:    make(map[int][]int),
-		Costume3dGroupIdMap: make(map[int]int),
-		Costume3dGroupMap:   make(map[int][]models.Costume3d),
 		localDataPath:       localDataPath,
 	}
 }
@@ -130,15 +121,6 @@ func (s *Store) Fetch() error {
 		fmt.Printf("Warning: failed to fetch gachas: %v\n", err)
 	}
 
-	var cardCostume3ds []models.CardCostume3d
-	if err := s.loadOrFetch("cardCostume3ds.json", CardCostume3dsURL, &cardCostume3ds); err != nil {
-		fmt.Printf("Warning: failed to fetch cardCostume3ds: %v\n", err)
-	}
-
-	var costume3ds []models.Costume3d
-	if err := s.loadOrFetch("costume3ds.json", Costume3dsURL, &costume3ds); err != nil {
-		fmt.Printf("Warning: failed to fetch costume3ds: %v\n", err)
-	}
 
 	// Build Maps
 	newCardEventMap := make(map[int]models.EventInfo)
@@ -223,20 +205,6 @@ func (s *Store) Fetch() error {
 		}
 	}
 
-	// Build Costume Maps
-	newCardCostume3dMap := make(map[int][]int)
-	newCostume3dGroupIdMap := make(map[int]int)
-	newCostume3dGroupMap := make(map[int][]models.Costume3d)
-
-	for _, cc := range cardCostume3ds {
-		newCardCostume3dMap[cc.CardID] = append(newCardCostume3dMap[cc.CardID], cc.Costume3dID)
-	}
-
-	for _, c := range costume3ds {
-		newCostume3dGroupIdMap[c.ID] = c.Costume3dGroupId
-		newCostume3dGroupMap[c.Costume3dGroupId] = append(newCostume3dGroupMap[c.Costume3dGroupId], c)
-	}
-
 	// Update store atomically
 	s.mutex.Lock()
 	s.CardEventMap = newCardEventMap
@@ -246,13 +214,10 @@ func (s *Store) Fetch() error {
 	s.VirtualLiveEventMap = newVirtualLiveEventMap
 	s.GachaList = gachas
 	s.GachaPickups = newGachaPickups
-	s.CardCostume3dMap = newCardCostume3dMap
-	s.Costume3dGroupIdMap = newCostume3dGroupIdMap
-	s.Costume3dGroupMap = newCostume3dGroupMap
 	s.mutex.Unlock()
 
-	fmt.Printf("Data updated. Mapped %d cards, %d musics, %d event-vl, loaded %d gachas, %d costumes.\n",
-		len(newCardEventMap), len(newMusicEventMap), len(newEventVirtualLiveMap), len(gachas), len(costume3ds))
+	fmt.Printf("Data updated. Mapped %d cards, %d musics, %d event-vl, loaded %d gachas.\n",
+		len(newCardEventMap), len(newMusicEventMap), len(newEventVirtualLiveMap), len(gachas))
 	return nil
 }
 
@@ -312,20 +277,3 @@ func (s *Store) GetGachaPickups() map[int][]int {
 	return s.GachaPickups
 }
 
-func (s *Store) GetCardCostume3dMap() map[int][]int {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.CardCostume3dMap
-}
-
-func (s *Store) GetCostume3dGroupIdMap() map[int]int {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.Costume3dGroupIdMap
-}
-
-func (s *Store) GetCostume3dGroupMap() map[int][]models.Costume3d {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.Costume3dGroupMap
-}

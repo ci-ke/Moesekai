@@ -35,7 +35,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/virtuallive-event-map", h.handleVirtualLiveEventMap)
 	mux.HandleFunc("/api/gachas", h.handleGachaList)
 	mux.HandleFunc("/api/gachas/", h.handleGachaDetail)
-	mux.HandleFunc("/api/cards/", h.handleCardCostumes)
+
 	mux.HandleFunc("/api/bilibili/dynamic/", h.handleBilibiliDynamic)
 	mux.HandleFunc("/api/bilibili/image", h.handleBilibiliImage)
 }
@@ -219,53 +219,6 @@ func (h *Handler) handleGachaDetail(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
-}
-
-func (h *Handler) handleCardCostumes(w http.ResponseWriter, r *http.Request) {
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 5 || parts[4] != "costumes" {
-		http.NotFound(w, r)
-		return
-	}
-	cardIdStr := parts[3]
-	cardId, err := strconv.Atoi(cardIdStr)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-
-	cardCostume3dMap := h.store.GetCardCostume3dMap()
-	costume3dGroupIdMap := h.store.GetCostume3dGroupIdMap()
-	costume3dGroupMap := h.store.GetCostume3dGroupMap()
-
-	costumeIds, ok := cardCostume3dMap[cardId]
-	if !ok || len(costumeIds) == 0 {
-		json.NewEncoder(w).Encode([]models.Costume3d{})
-		return
-	}
-
-	seenGroupIds := make(map[int]bool)
-	var result []models.Costume3d
-
-	for _, cid := range costumeIds {
-		groupId, exists := costume3dGroupIdMap[cid]
-		if exists {
-			if !seenGroupIds[groupId] {
-				seenGroupIds[groupId] = true
-				if groupItems, ok := costume3dGroupMap[groupId]; ok {
-					result = append(result, groupItems...)
-				}
-			}
-		}
-	}
-
-	if result == nil {
-		result = []models.Costume3d{}
-	}
-
-	json.NewEncoder(w).Encode(result)
 }
 
 func (h *Handler) handleBilibiliDynamic(w http.ResponseWriter, r *http.Request) {

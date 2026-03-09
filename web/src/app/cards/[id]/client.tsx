@@ -16,13 +16,14 @@ import {
     CardAttribute,
     SUPPORT_UNIT_NAMES,
 } from "@/types/types";
-import { getCardFullUrl, getCardThumbnailUrl, getEventBannerUrl, getGachaBannerUrl, getGachaLogoUrl, getCardGachaVoiceUrl, getCostumeThumbnailUrl } from "@/lib/assets";
+import { getCardFullUrl, getCardThumbnailUrl, getEventBannerUrl, getGachaLogoUrl, getCardGachaVoiceUrl, getCostumeThumbnailUrl, getCharacterIconUrl } from "@/lib/assets";
 import { useRef } from "react";
 import { formatSkillDescription } from "@/lib/skill";
 import { useTheme, type AssetSourceType } from "@/contexts/ThemeContext";
-import { fetchMasterData, fetchWithCompression } from "@/lib/fetch";
-import { TranslatedText, useTranslatedText } from "@/components/common/TranslatedText";
+import { fetchMasterData } from "@/lib/fetch";
+import { TranslatedText } from "@/components/common/TranslatedText";
 import ImagePreviewModal from "@/components/common/ImagePreviewModal";
+import { ICostumeInfo, IMoeCostumeData, PART_TYPE_NAMES } from "@/types/costume";
 
 // Max levels by rarity
 const MAX_LEVELS: Record<string, { normal: number; trained?: number }> = {
@@ -42,19 +43,6 @@ const SUPPLY_TYPE_NAMES: Record<string, string> = {
     "unit_event_limited": "WorldLink限定",
     "collaboration_limited": "联动限定",
 };
-
-interface Costume3d {
-    id: number;
-    costume3dGroupId: number;
-    name: string;
-    assetbundleName: string;
-    costume3dRarity: string;
-    costume3dType: string;
-    partType: string; // "head", "body", "hair"
-    characterId: number;
-    colorId: number;
-    colorName: string; // e.g. "Original", "Another 1"
-}
 
 interface CardSupplyInfo {
     id: number;
@@ -98,7 +86,7 @@ export default function CardDetailPage() {
     const [imageViewerOpen, setImageViewerOpen] = useState(false);
     const [relatedEvent, setRelatedEvent] = useState<{ id: number; name: string; assetbundleName: string } | null>(null);
     const [relatedGachas, setRelatedGachas] = useState<RelatedGachaInfo[]>([]);
-    const [relatedCostumes, setRelatedCostumes] = useState<Costume3d[]>([]);
+    const [relatedCostumes, setRelatedCostumes] = useState<ICostumeInfo[]>([]);
 
 
     // Set mounted state
@@ -304,10 +292,11 @@ export default function CardDetailPage() {
 
         async function fetchCostumes() {
             try {
-                const res = await fetch(`${API_BASE}/api/cards/${cardId}/costumes`);
-                if (!res.ok) return;
-                const data = await res.json();
-                setRelatedCostumes(data);
+                const data = await fetchMasterData<IMoeCostumeData>("moe_costume.json");
+                const matched = (data.costumes || []).filter(
+                    c => c.cardIds && c.cardIds.includes(cardId)
+                );
+                setRelatedCostumes(matched);
             } catch (e) {
                 console.log("Could not fetch costumes");
             }
@@ -1082,129 +1071,215 @@ function GachaPhraseRow({ phrase, assetbundleName }: { phrase: string; assetbund
     );
 }
 
-// Costume Grid Component
-// Costume Grid Component
-function CostumeGrid({ costumes, assetSource }: { costumes: Costume3d[], assetSource: AssetSourceType }) {
+// Helper to extract base name (remove _XX color suffix)
+function getVariantBaseName(assetName: string): string {
+    return assetName.replace(/_\d+$/, "");
+}
 
-    // Group variants
-    const groups = useMemo(() => {
-        const map = new Map<string, Costume3d[]>();
-        costumes.forEach(c => {
-            // Group by GroupID (and PartType just to be safe, though GroupID should be unique enough)
-            const key = `${c.costume3dGroupId}-${c.partType}`;
-            if (!map.has(key)) map.set(key, []);
-            map.get(key)!.push(c);
-        });
+interface CostumeDisplayItem {
+    id: string;
+    partType: string;
+    baseAssetName: string;
+    strictAsset?: string;
+    characterId?: number;
+}
 
-        const result: { key: string, partType: string, variants: Costume3d[] }[] = [];
-        map.forEach((variants, key) => {
-            variants.sort((a, b) => a.colorId - b.colorId);
-            result.push({ key, partType: variants[0].partType, variants });
-        });
-
-        // Sort groups: Body -> Hair -> Head
-        // For multiple heads, they just appear after Hair.
-        result.sort((a, b) => {
-            const order = { "body": 1, "hair": 2, "head": 3 };
-            const scoreA = order[a.partType as keyof typeof order] || 99;
-            const scoreB = order[b.partType as keyof typeof order] || 99;
-
-            if (scoreA !== scoreB) return scoreA - scoreB;
-            // Secondary sort by GroupID for stability
-            return a.variants[0].costume3dGroupId - b.variants[0].costume3dGroupId;
-        });
-
-        return result;
-    }, [costumes]);
-
-    // Determine available colors (union of all colorIds)
-    const availableColors = useMemo(() => {
-        const colors = new Set<number>();
-        costumes.forEach(c => colors.add(c.colorId));
-        return Array.from(colors).sort((a, b) => a - b);
-    }, [costumes]);
-
-    const [activeColorId, setActiveColorId] = useState(1);
-    const effectiveColorId = useMemo(() => {
-        if (availableColors.length === 0) return activeColorId;
-        if (availableColors.includes(activeColorId)) return activeColorId;
-        if (availableColors.includes(1)) return 1;
-        return availableColors[0];
-    }, [availableColors, activeColorId]);
-
+// Costume Grid Component — shows each costume as an inline detail panel
+function CostumeGrid({ costumes, assetSource }: { costumes: ICostumeInfo[], assetSource: AssetSourceType }) {
     return (
-        <div className="flex flex-col gap-4">
-            {/* Unified Color Switcher */}
-            {availableColors.length > 1 && (
-                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-                    <span className="text-xs font-bold text-slate-500 flex-shrink-0">颜色切换</span>
-                    <div className="flex overflow-x-auto gap-2 pb-2 -mx-1 px-1 custom-scrollbar w-full">
-                        {availableColors.map(colorId => (
-                            <button
-                                key={colorId}
-                                onClick={() => setActiveColorId(colorId)}
-                                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-mono transition-all border whitespace-nowrap
-                                    ${effectiveColorId === colorId
-                                        ? "bg-miku text-white border-miku shadow-sm"
-                                        : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
-                                    }
-                                `}
-                            >
-                                Color {colorId}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            <div className="flex overflow-x-auto sm:grid sm:grid-cols-4 md:grid-cols-5 gap-3 sm:gap-4 pb-4 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0">
-                {groups.map(group => (
-                    <div key={group.key} className="flex-shrink-0 w-24 xs:w-28 sm:w-auto">
-                        <CostumeGroupItem
-                            variants={group.variants}
-                            targetColorId={effectiveColorId}
-                            assetSource={assetSource}
-                        />
-                    </div>
-                ))}
-            </div>
+        <div className="space-y-6">
+            {costumes.map(costume => (
+                <CostumeInlineDetail key={costume.costumeNumber} costume={costume} assetSource={assetSource} />
+            ))}
         </div>
     );
 }
 
-function CostumeGroupItem({ variants, targetColorId, assetSource }: { variants: Costume3d[], targetColorId: number, assetSource: AssetSourceType }) {
-    // Find exact color match, or fallback to first (usually color 1)
-    const displayVariant = variants.find(v => v.colorId === targetColorId) || variants[0];
+function CostumeInlineDetail({ costume, assetSource }: { costume: ICostumeInfo, assetSource: AssetSourceType }) {
+    const [selectedColorId, setSelectedColorId] = useState(1);
 
-    const partTypeName = {
-        "head": "发饰",
-        "hair": "发型",
-        "body": "服装"
-    }[displayVariant.partType] || displayVariant.partType;
+    // Build display items (same logic as /costumes/:ID)
+    const displayItems = useMemo(() => {
+        const items: CostumeDisplayItem[] = [];
+
+        // Shared parts
+        Object.entries(costume.parts).forEach(([partType, partList]) => {
+            const groups = new Map<string, typeof partList>();
+            partList.forEach(part => {
+                const base = getVariantBaseName(part.assetbundleName);
+                const key = `${partType}-${base}`;
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key)!.push(part);
+            });
+
+            groups.forEach((groupItems, key) => {
+                const colorIds = new Set<number>();
+                let hasCollision = false;
+                for (const item of groupItems) {
+                    if (colorIds.has(item.colorId)) { hasCollision = true; break; }
+                    colorIds.add(item.colorId);
+                }
+
+                if (hasCollision) {
+                    groupItems.forEach(item => {
+                        items.push({
+                            id: item.assetbundleName,
+                            partType,
+                            baseAssetName: item.assetbundleName,
+                            strictAsset: item.assetbundleName,
+                        });
+                    });
+                } else {
+                    const base = getVariantBaseName(groupItems[0].assetbundleName);
+                    items.push({ id: key, partType, baseAssetName: base });
+                }
+            });
+        });
+
+        // Extra parts (character-specific)
+        if (costume.extraParts) {
+            costume.extraParts.forEach(ep => {
+                ep.variants.forEach(variant => {
+                    items.push({
+                        id: `extra-${ep.characterId}-${variant.assetbundleName}`,
+                        partType: ep.partType,
+                        baseAssetName: variant.assetbundleName,
+                        strictAsset: variant.assetbundleName,
+                        characterId: ep.characterId,
+                    });
+                });
+            });
+        }
+
+        // Sort: body → hair → head → others, extraParts after shared
+        const getPartScore = (pt: string) => pt === "body" ? 1 : pt === "hair" ? 2 : pt === "head" ? 3 : 4;
+        return items.sort((a, b) => {
+            const scoreA = getPartScore(a.partType) + (a.characterId ? 10 : 0);
+            const scoreB = getPartScore(b.partType) + (b.characterId ? 10 : 0);
+            return scoreA - scoreB;
+        });
+    }, [costume]);
+
+    // Available color variants (from shared parts only)
+    const availableColors = useMemo(() => {
+        const uniqueColors = new Map<number, { colorId: number; colorName: string; assetbundleName: string }>();
+        Object.values(costume.parts).forEach(partList => {
+            partList.forEach(part => {
+                if (!uniqueColors.has(part.colorId)) {
+                    uniqueColors.set(part.colorId, part);
+                }
+            });
+        });
+        return Array.from(uniqueColors.values()).sort((a, b) => a.colorId - b.colorId);
+    }, [costume]);
 
     return (
-        <div className="flex flex-col items-center bg-slate-50 rounded-xl p-2 border border-slate-100 transition-all duration-300">
-            <div className="group relative w-full aspect-square mb-2 bg-white rounded-lg border border-slate-200 overflow-hidden">
-                <Image
-                    key={displayVariant.assetbundleName}
-                    src={getCostumeThumbnailUrl(displayVariant.assetbundleName, assetSource)}
-                    alt={displayVariant.name}
-                    fill
-                    className="object-cover transition-opacity duration-300"
-                    unoptimized
-                />
-                {/* Tooltip */}
-                <div className="absolute bottom-0 left-0 w-full bg-black/60 backdrop-blur-[1px] p-1 translate-y-full group-hover:translate-y-0 transition-transform z-10">
-                    <p className="text-[10px] text-white text-center truncate">{displayVariant.name}</p>
+        <div className="bg-slate-50 rounded-xl border border-slate-100 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
+                <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs font-mono text-slate-400">No.{costume.costumeNumber}</span>
+                    <span className="text-sm font-bold text-slate-700 truncate">{costume.name}</span>
                 </div>
+                <Link
+                    href={`/costumes/${costume.costumeNumber}`}
+                    className="flex-shrink-0 text-xs text-miku hover:text-miku-dark font-medium transition-colors"
+                >
+                    详情 →
+                </Link>
             </div>
 
-            <div className="flex items-center justify-between w-full px-0.5">
-                <span className="text-xs font-bold text-slate-600">{partTypeName}</span>
-                <span className="text-[10px] text-slate-400 font-mono">
-                    {displayVariant.colorId === targetColorId ? `Color ${displayVariant.colorId}` : `(Color ${displayVariant.colorId})`}
-                </span>
+            {/* Parts Grid */}
+            <div className="grid grid-cols-4 gap-0.5 bg-slate-200/50">
+                {displayItems.map((item) => {
+                    let assetName = item.id;
+
+                    if (item.strictAsset) {
+                        assetName = item.strictAsset;
+                    } else {
+                        const partList = costume.parts[item.partType] || [];
+                        const preciseMatch = partList.find(p =>
+                            p.colorId === selectedColorId &&
+                            getVariantBaseName(p.assetbundleName) === item.baseAssetName
+                        );
+                        if (preciseMatch) {
+                            assetName = preciseMatch.assetbundleName;
+                        } else {
+                            const anyMatch = partList.find(p => getVariantBaseName(p.assetbundleName) === item.baseAssetName);
+                            if (anyMatch) assetName = anyMatch.assetbundleName;
+                        }
+                    }
+
+                    return (
+                        <div key={item.id} className="relative aspect-square bg-gradient-to-br from-white to-slate-50 flex items-center justify-center p-1.5 group">
+                            <div className="relative w-full h-full">
+                                <Image
+                                    src={getCostumeThumbnailUrl(assetName, assetSource)}
+                                    alt={item.id}
+                                    fill
+                                    className="object-contain"
+                                    unoptimized
+                                />
+                            </div>
+                            <div className="absolute inset-x-0 bottom-0 p-0.5 pointer-events-none">
+                                <span className="inline-block px-1 py-0.5 bg-white/90 backdrop-blur text-[9px] font-bold text-slate-600 rounded shadow-sm">
+                                    {PART_TYPE_NAMES[item.partType] || item.partType}
+                                </span>
+                            </div>
+                            {item.characterId && (
+                                <div className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full overflow-hidden ring-1 ring-slate-200 bg-white shadow-sm z-10">
+                                    <Image
+                                        src={getCharacterIconUrl(item.characterId)}
+                                        alt={CHARACTER_NAMES[item.characterId] || ""}
+                                        width={20}
+                                        height={20}
+                                        className="w-full h-full object-cover"
+                                        unoptimized
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+                {displayItems.length === 0 && (
+                    <div className="col-span-4 py-4 flex items-center justify-center text-slate-400 text-xs">
+                        暂无部件数据
+                    </div>
+                )}
             </div>
+
+            {/* Color Selector */}
+            {availableColors.length > 1 && (
+                <div className="px-3 py-2.5 border-t border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-500 mb-1.5">配色方案</p>
+                    <div className="flex flex-wrap gap-1.5">
+                        {availableColors.map(variant => {
+                            const isSelected = selectedColorId === variant.colorId;
+                            return (
+                                <button
+                                    key={variant.colorId}
+                                    onClick={() => setSelectedColorId(variant.colorId)}
+                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium transition-all whitespace-nowrap ${isSelected
+                                        ? "bg-miku/10 text-miku border-2 border-miku"
+                                        : "bg-white text-slate-600 border border-slate-200 hover:border-miku/50"
+                                        }`}
+                                >
+                                    <div className="w-6 h-6 rounded overflow-hidden bg-slate-100 relative shrink-0">
+                                        <Image
+                                            src={getCostumeThumbnailUrl(variant.assetbundleName, assetSource)}
+                                            alt={variant.colorName}
+                                            fill
+                                            className="object-contain"
+                                            unoptimized
+                                        />
+                                    </div>
+                                    {variant.colorName}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

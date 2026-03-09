@@ -10,7 +10,7 @@ import { useTranslation } from "@/contexts/TranslationContext";
 import { getCostumeThumbnailUrl } from "@/lib/assets";
 import {
     ICostumeInfo,
-    ISnowyCostumesData,
+    IMoeCostumeData,
     PART_TYPE_NAMES,
     SOURCE_NAMES,
     RARITY_NAMES,
@@ -159,7 +159,7 @@ function CostumesContent() {
                 setIsLoading(true);
                 // Parallel fetch
                 const [costumeData, cardList] = await Promise.all([
-                    fetchMasterData<ISnowyCostumesData>("snowy_costumes.json"),
+                    fetchMasterData<IMoeCostumeData>("moe_costume.json"),
                     fetchMasterData<ICardInfo[]>("cards.json")
                 ]);
 
@@ -186,7 +186,6 @@ function CostumesContent() {
             result = result.filter(c => {
                 const translatedName = t("costumes", "name", c.name);
                 return c.name.toLowerCase().includes(query) ||
-                    c.costumePrefix.toLowerCase().includes(query) ||
                     c.designer.toLowerCase().includes(query) ||
                     (translatedName && translatedName.toLowerCase().includes(query));
             });
@@ -249,10 +248,10 @@ function CostumesContent() {
         // Sort
         result.sort((a, b) => {
             if (sortBy === "id") {
-                return sortOrder === "asc" ? a.id - b.id : b.id - a.id;
+                return sortOrder === "asc" ? a.costumeNumber - b.costumeNumber : b.costumeNumber - a.costumeNumber;
             }
             if (sortBy === "publishedAt") {
-                return sortOrder === "asc" ? a.publishedAt - b.publishedAt : b.publishedAt - a.publishedAt;
+                return sortOrder === "asc" ? (a.publishedAt || 0) - (b.publishedAt || 0) : (b.publishedAt || 0) - (a.publishedAt || 0);
             }
             return 0;
         });
@@ -363,7 +362,7 @@ function CostumesContent() {
                         <>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                                 {displayedGroups.map(costume => {
-                                    let assetName = costume.costumePrefix;
+                                    let assetName = "";
                                     let repPart;
                                     if (costume.parts["body"] && costume.parts["body"].length > 0) {
                                         repPart = costume.parts["body"][0];
@@ -387,8 +386,8 @@ function CostumesContent() {
 
                                     return (
                                         <Link
-                                            href={`/costumes/${costume.costume3dGroupId}`}
-                                            key={costume.id}
+                                            href={`/costumes/${costume.costumeNumber}`}
+                                            key={costume.costumeNumber}
                                             data-shortcut-item="true"
                                             className="bg-white rounded-xl shadow ring-1 ring-slate-200 overflow-hidden hover:ring-miku hover:shadow-lg transition-all p-3 flex flex-col h-full group"
                                         >

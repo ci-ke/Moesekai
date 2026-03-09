@@ -32,6 +32,10 @@ export class CardCustomBonusCalculator {
       if (card.characterId !== rule.characterId) return false
       // 属性匹配
       if (rule.attr !== undefined && rule.attr !== 'any' && rule.attr !== card.attr) return false
+      // 虚拟歌手的 supportUnit 匹配
+      if (rule.supportUnit !== undefined && rule.supportUnit !== 'any') {
+        if (rule.supportUnit !== card.supportUnit) return false
+      }
       return true
     }
 
@@ -53,7 +57,8 @@ export class CardCustomBonusCalculator {
         // 匹配原创角色组合
         if (isVirtualSinger) {
           // 虚拟歌手通过 supportUnit 匹配
-          if (card.supportUnit !== rule.unit) return false
+          // 原版虚拟歌手（supportUnit='none'）视为万金油，匹配任何团体
+          if (card.supportUnit !== rule.unit && card.supportUnit !== 'none') return false
         } else {
           // 原创角色：需要通过 characterId 范围判断组合
           // characterId 1-4: leo_need, 5-8: more_more_jump, 9-12: vivid_bad_squad,

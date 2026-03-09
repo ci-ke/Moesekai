@@ -7,144 +7,56 @@ import MainLayout from "@/components/MainLayout";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useTranslation } from "@/contexts/TranslationContext";
 import { getCostumeThumbnailUrl, getCharacterIconUrl } from "@/lib/assets";
-import { CHARACTER_NAMES, UNIT_DATA, ICardInfo, getRarityNumber } from "@/types/types";
+import { CHARACTER_NAMES, ICardInfo } from "@/types/types";
 import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
 import { TranslatedText } from "@/components/common/TranslatedText";
 import {
     ICostumeInfo,
-    ISnowyCostumesData,
+    IMoeCostumeData,
     PART_TYPE_NAMES,
     SOURCE_NAMES,
     RARITY_NAMES,
 } from "@/types/costume";
 import { fetchMasterData } from "@/lib/fetch";
 
-// Unit icon mapping for Miku sub-filter
-const UNIT_ICONS: Record<string, string> = {
-    "vs": "vs.webp",
-    "ln": "ln.webp",
-    "mmj": "mmj.webp",
-    "vbs": "vbs.webp",
-    "ws": "wxs.webp",
-    "25ji": "n25.webp",
-};
-
-// Local attribute icon mapping
-const LOCAL_ATTR_ICONS: Record<string, string> = {
-    cool: "/data/icon/Cool.webp",
-    cute: "/data/icon/cute.webp",
-    happy: "/data/icon/Happy.webp",
-    mysterious: "/data/icon/Mysterious.webp",
-    pure: "/data/icon/Pure.webp",
-};
-
 // Helper to extract base name (remove _XX color suffix)
 function getVariantBaseName(assetName: string): string {
     return assetName.replace(/_\d+$/, "");
 }
 
-// VS Suffix Logic helpers
-const VS_SUFFIX_MAP: Record<number, number> = {
-    // Miku Variants -> All map to Miku (21)
-    21: 21, 22: 21, 23: 21, 24: 21, 25: 21, 26: 21,
-    // Other VS -> Specific Characters
-    27: 22, // Rin
-    28: 23, // Len
-    29: 24, // Luka
-    30: 25, // MEIKO
-    31: 26  // KAITO
-};
-
-const MIKU_UNIT_MAP: Record<number, string> = {
-    21: "vs",
-    22: "ln",
-    23: "mmj",
-    24: "vbs",
-    25: "ws",
-    26: "25ji"
-};
-
-// Helper to extract character info from asset name
-function getCharacterInfoFromAsset(assetName: string): { characterId: number | null; unit?: string } {
-    // Matches _01, _26 at the end of string
-    const match = assetName.match(/_(\d+)$/);
-    if (match) {
-        const rawId = parseInt(match[1], 10);
-        // Check if it's a special VS suffix
-        if (VS_SUFFIX_MAP[rawId]) {
-            return {
-                characterId: VS_SUFFIX_MAP[rawId],
-                unit: rawId >= 21 && rawId <= 26 ? MIKU_UNIT_MAP[rawId] : undefined
-            };
-        }
-        return { characterId: rawId };
-    }
-    return { characterId: null };
+// Part sort score
+function getPartScore(partType: string): number {
+    if (partType === "body") return 1;
+    if (partType === "hair") return 2;
+    if (partType === "head") return 3;
+    return 4;
 }
 
 interface DisplayItem {
     id: string;
     partType: string;
     baseAssetName: string;
-    costume: ICostumeInfo;
-    // If strictMode is true, this item ONLY displays the specfic asset variant found during splitting
+    // If set, display this exact asset (no color switching)
     strictAsset?: string;
-    // For special groups: associated character ID if found
+    // For extraParts items: associated character ID
     characterId?: number;
-    unit?: string;
 }
-
-// Helper to build entry
-const build_entry = (
-    partType: string,
-    partData: { assetbundleName: string; colorId: number; colorName: string },
-    baseInfo: ICostumeInfo,
-    selectedCharacterId: number | null,
-    selectedMikuUnit: string | null
-): DisplayItem | null => {
-    const { assetbundleName } = partData;
-    const info = getCharacterInfoFromAsset(assetbundleName);
-
-    // Special group filtering logic
-    if (selectedCharacterId !== null) {
-        if (info.characterId && info.characterId !== selectedCharacterId) return null;
-        if (selectedCharacterId === 21 && selectedMikuUnit && info.unit && info.unit !== selectedMikuUnit) return null;
-    }
-
-    return {
-        id: assetbundleName,
-        partType,
-        baseAssetName: getVariantBaseName(assetbundleName),
-        costume: baseInfo, // Base info is the whole group now
-        strictAsset: assetbundleName,
-        characterId: info.characterId || undefined,
-        unit: info.unit
-    };
-};
 
 export default function CostumeDetailClient() {
     const params = useParams();
     const router = useRouter();
-    const groupId = Number(params.id);
+    const costumeNumber = Number(params.id);
     const { assetSource } = useTheme();
     const { t } = useTranslation();
 
-    // Now groupCostumes is a single ICostumeInfo object because the JSON structure is grouped
     const [costumeGroup, setCostumeGroup] = useState<ICostumeInfo | null>(null);
     const [relatedCards, setRelatedCards] = useState<ICardInfo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
 
-    // Single unified color selection for standard groups
+    // Unified color selection for standard parts
     const [selectedColorId, setSelectedColorId] = useState<number>(1);
-    // Character selection for special groups
-    const [selectedCharacterId, setSelectedCharacterId] = useState<number | null>(null);
-    // Miku Unit selection (special sub-filter)
-    const [selectedMikuUnit, setSelectedMikuUnit] = useState<string | null>(null);
-
-    // Check if this is a special group (Default Costumes) that needs per-character breakdown
-    const isSpecialGroup = groupId === 1 || groupId === 201;
 
     useEffect(() => {
         setMounted(true);
@@ -155,13 +67,12 @@ export default function CostumeDetailClient() {
         async function fetchData() {
             try {
                 setIsLoading(true);
-                const data = await fetchMasterData<ISnowyCostumesData>("snowy_costumes.json");
+                const data = await fetchMasterData<IMoeCostumeData>("moe_costume.json");
                 const allCostumes = data.costumes || [];
-                // Find the group directly
-                const group = allCostumes.find(c => c.costume3dGroupId === groupId);
+                const group = allCostumes.find(c => c.costumeNumber === costumeNumber);
 
                 if (!group) {
-                    throw new Error(`Costume group ${groupId} not found`);
+                    throw new Error(`Costume ${costumeNumber} not found`);
                 }
                 setCostumeGroup(group);
 
@@ -188,145 +99,88 @@ export default function CostumeDetailClient() {
                 setIsLoading(false);
             }
         }
-        if (groupId) {
+        if (costumeNumber) {
             fetchData();
         }
-    }, [groupId]);
+    }, [costumeNumber]);
 
-    // Available Characters in this group (for special groups)
-    const availableCharacters = useMemo(() => {
-        if (!isSpecialGroup || !costumeGroup) return [];
-        const chars = new Set<number>();
-
-        // Iterate all parts to find characters
-        Object.values(costumeGroup.parts).forEach(partList => {
-            partList.forEach(part => {
-                const info = getCharacterInfoFromAsset(part.assetbundleName);
-                if (info.characterId) chars.add(info.characterId);
-            });
-        });
-
-        return Array.from(chars).sort((a, b) => a - b);
-    }, [costumeGroup, isSpecialGroup]);
-
-    // Initialize selected character for special groups
-    useEffect(() => {
-        if (isSpecialGroup && availableCharacters.length > 0 && selectedCharacterId === null) {
-            setSelectedCharacterId(availableCharacters[0]);
-        }
-    }, [isSpecialGroup, availableCharacters, selectedCharacterId]);
-
-    // Identification of all display items
+    // Build display items from shared parts + extraParts
     const displayItems = useMemo(() => {
         if (!costumeGroup) return [];
         const items: DisplayItem[] = [];
 
-        if (isSpecialGroup) {
-            // SPECIAL LOGIC: Treat everything as individual items
-            if (selectedCharacterId === null && availableCharacters.length > 0) return []; // Wait for selection
-
-            // Iterate parts
-            Object.entries(costumeGroup.parts).forEach(([partType, partList]) => {
-                partList.forEach(part => {
-                    const item = build_entry(partType, part, costumeGroup, selectedCharacterId, selectedMikuUnit);
-                    if (item) items.push(item);
-                });
-            });
-
-            // Sort: Body -> Hair -> Head -> Others
-            return items.sort((a, b) => {
-                const getPartScore = (p: string) => {
-                    if (p === "body") return 1;
-                    if (p === "hair") return 2;
-                    if (p === "head") return 3;
-                    return 4;
-                };
-                return getPartScore(a.partType) - getPartScore(b.partType);
-            });
-
-        } else {
-            // STANDARD LOGIC
-            // Flatten all parts
-            const allParts: Array<{ partType: string; part: { assetbundleName: string; colorId: number; colorName: string } }> = [];
-            Object.entries(costumeGroup.parts).forEach(([partType, partList]) => {
-                partList.forEach(part => {
-                    allParts.push({ partType, part });
-                });
-            });
-
-            // Group by Part Type + Base Name
-            // Key: `${partType}-${baseName}`
-            const groups = new Map<string, typeof allParts>();
-
-            allParts.forEach(item => {
-                // Deduplication logic: (partType, assetbundleName)
-                // Actually the "Groups" here are for bundling color variants
-                const base = getVariantBaseName(item.part.assetbundleName);
-                const key = `${item.partType}-${base}`;
+        // 1. Shared parts — support color switching
+        Object.entries(costumeGroup.parts).forEach(([partType, partList]) => {
+            // Group by base name to merge color variants
+            const groups = new Map<string, typeof partList>();
+            partList.forEach(part => {
+                const base = getVariantBaseName(part.assetbundleName);
+                const key = `${partType}-${base}`;
                 if (!groups.has(key)) groups.set(key, []);
-                groups.get(key)!.push(item);
+                groups.get(key)!.push(part);
             });
 
-            // Process groups
             groups.forEach((groupItems, key) => {
-                // Check collision
+                // Check for colorId collision
                 const colorIds = new Set<number>();
                 let hasCollision = false;
                 for (const item of groupItems) {
-                    if (colorIds.has(item.part.colorId)) {
-                        hasCollision = true; // Use old logic if collision
-                        break;
-                    }
-                    colorIds.add(item.part.colorId);
+                    if (colorIds.has(item.colorId)) { hasCollision = true; break; }
+                    colorIds.add(item.colorId);
                 }
 
                 if (hasCollision) {
+                    // Collision: show each variant individually
                     groupItems.forEach(item => {
                         items.push({
-                            id: item.part.assetbundleName,
-                            partType: item.partType,
-                            baseAssetName: item.part.assetbundleName,
-                            costume: costumeGroup,
-                            strictAsset: item.part.assetbundleName
+                            id: item.assetbundleName,
+                            partType,
+                            baseAssetName: item.assetbundleName,
+                            strictAsset: item.assetbundleName,
                         });
                     });
                 } else {
-                    // Merge
-                    const representative = groupItems[0];
-                    const baseAssetName = getVariantBaseName(representative.part.assetbundleName);
+                    // Merge color variants
+                    const base = getVariantBaseName(groupItems[0].assetbundleName);
                     items.push({
                         id: key,
-                        partType: representative.partType,
-                        baseAssetName: baseAssetName,
-                        costume: costumeGroup
+                        partType,
+                        baseAssetName: base,
                     });
                 }
             });
+        });
 
-            // Sort
-            return items.sort((a, b) => {
-                const getScore = (item: DisplayItem) => {
-                    const part = item.partType;
-                    if (part === "body") return 1;
-                    if (part === "hair") return 2;
-                    if (part === "head") {
-                        if (item.baseAssetName.includes("unique")) return 4;
-                        return 3;
-                    }
-                    return 5;
-                };
-                return getScore(a) - getScore(b);
+        // 2. Extra parts — character-specific, show individually
+        if (costumeGroup.extraParts) {
+            costumeGroup.extraParts.forEach(ep => {
+                ep.variants.forEach(variant => {
+                    items.push({
+                        id: `extra-${ep.characterId}-${variant.assetbundleName}`,
+                        partType: ep.partType,
+                        baseAssetName: variant.assetbundleName,
+                        strictAsset: variant.assetbundleName,
+                        characterId: ep.characterId,
+                    });
+                });
             });
         }
-    }, [costumeGroup, isSpecialGroup, selectedCharacterId, selectedMikuUnit, availableCharacters]);
 
-    // Deduplicated list of included parts
+        // Sort: body → hair → head → others, extraParts after shared
+        return items.sort((a, b) => {
+            const scoreA = getPartScore(a.partType) + (a.characterId ? 10 : 0);
+            const scoreB = getPartScore(b.partType) + (b.characterId ? 10 : 0);
+            return scoreA - scoreB;
+        });
+    }, [costumeGroup]);
+
+    // Deduplicated list of included part types
     const includedPartTypes = useMemo(() => {
         const types = new Set<string>();
         displayItems.forEach(item => {
             const label = PART_TYPE_NAMES[item.partType] || item.partType;
-            if (item.baseAssetName.includes("unique")) {
-                types.add(`${label} (特殊)`);
+            if (item.characterId) {
+                types.add(`${label} (专属)`);
             } else {
                 types.add(label);
             }
@@ -334,13 +188,11 @@ export default function CostumeDetailClient() {
         return Array.from(types).sort();
     }, [displayItems]);
 
-    // Available color variants (Distinct by colorId) - Only for standard groups
+    // Available color variants (from shared parts only)
     const availableColors = useMemo(() => {
-        if (isSpecialGroup || !costumeGroup) return [];
-
+        if (!costumeGroup) return [];
         const uniqueColors = new Map<number, { colorId: number; colorName: string; assetbundleName: string }>();
 
-        // Iterate parts to find colors
         Object.values(costumeGroup.parts).forEach(partList => {
             partList.forEach(part => {
                 if (!uniqueColors.has(part.colorId)) {
@@ -350,18 +202,14 @@ export default function CostumeDetailClient() {
         });
 
         return Array.from(uniqueColors.values()).sort((a, b) => a.colorId - b.colorId);
-    }, [costumeGroup, isSpecialGroup]);
+    }, [costumeGroup]);
 
-    // Representative is just the group itself now
     const representative = costumeGroup;
 
-    // Override Gender Display
     const displayGender = useMemo(() => {
         if (!representative) return "";
-        if (groupId === 1) return "女性";
-        if (groupId === 201) return "男性";
         return representative.gender === "female" ? "女性" : "男性";
-    }, [groupId, representative]);
+    }, [representative]);
 
     if (isLoading) {
         return (
@@ -386,8 +234,8 @@ export default function CostumeDetailClient() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                         </div>
-                        <h2 className="text-2xl font-bold text-slate-800 mb-2">服装 {groupId} 未找到</h2>
-                        <p className="text-slate-500 mb-6">该服装组可能尚未收录</p>
+                        <h2 className="text-2xl font-bold text-slate-800 mb-2">服装 {costumeNumber} 未找到</h2>
+                        <p className="text-slate-500 mb-6">该服装可能尚未收录</p>
                         <Link
                             href="/costumes"
                             className="inline-flex items-center gap-2 px-6 py-3 bg-miku text-white font-bold rounded-xl hover:bg-miku-dark transition-colors"
@@ -431,7 +279,7 @@ export default function CostumeDetailClient() {
                 <div className="mb-8">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-full text-xs font-mono text-slate-500">
-                            Group ID: {groupId}
+                            No. {costumeNumber}
                         </span>
                         <span className={`px-3 py-1 text-xs font-bold rounded-full ${representative.costume3dRarity === "rare"
                             ? "bg-amber-100 text-amber-700"
@@ -459,39 +307,23 @@ export default function CostumeDetailClient() {
                     {/* LEFT Column: Visuals */}
                     <div>
                         <div className="bg-white rounded-2xl shadow-lg ring-1 ring-slate-200 overflow-hidden lg:sticky lg:top-24">
-                            {/* Grid of Parts - UPDATED TO 4 COLUMNS */}
+                            {/* Grid of Parts */}
                             <div className="grid grid-cols-4 gap-0.5 bg-slate-100">
                                 {displayItems.map((item) => {
-                                    // Determine asset name to display
-                                    // Default to item.id (which is usually assetbundleName in new logic)
                                     let assetName = item.id;
 
-                                    // If strict mode or special group, item.id IS the asset name
                                     if (item.strictAsset) {
                                         assetName = item.strictAsset;
-                                    } else if (!isSpecialGroup) {
-                                        // Combined mode: Need to find the specific variant for selectedColorId
-                                        // The item represents a "Base Group" (e.g. Body part)
-                                        // We need to look into costumeGroup.parts[item.partType] to find the one with selectedColorId
-                                        // matching this base name
-
-                                        const partList = item.costume.parts[item.partType] || [];
-
-                                        // Find match for both BaseName and ColorId
+                                    } else {
+                                        // Combined mode: find the variant matching selectedColorId
+                                        const partList = costumeGroup.parts[item.partType] || [];
                                         const preciseMatch = partList.find(p =>
                                             p.colorId === selectedColorId &&
                                             getVariantBaseName(p.assetbundleName) === item.baseAssetName
                                         );
-
                                         if (preciseMatch) {
                                             assetName = preciseMatch.assetbundleName;
                                         } else {
-                                            // Fallback: Try to find ANY match for this base name (e.g. if color 2 doesn't exist for this part, show color 1)
-                                            // Or maybe we shouldn't fallback to different color? 
-                                            // Use item.id (key) which is usually the FIRST one found in group logic
-                                            // But item.id might be complex key. 
-                                            // Item.baseAssetName is the safe fallback base. 
-                                            // Let's try to find any part with this base
                                             const anyMatch = partList.find(p => getVariantBaseName(p.assetbundleName) === item.baseAssetName);
                                             if (anyMatch) assetName = anyMatch.assetbundleName;
                                         }
@@ -499,7 +331,6 @@ export default function CostumeDetailClient() {
 
                                     return (
                                         <div key={item.id} className="relative aspect-square bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-2 group">
-                                            {/* Container */}
                                             <div className="relative w-full h-full">
                                                 <Image
                                                     src={getCostumeThumbnailUrl(assetName, assetSource)}
@@ -517,12 +348,12 @@ export default function CostumeDetailClient() {
                                                 </span>
                                             </div>
 
-                                            {/* Special Group: Unit Icon Overlay (if Miku) or Character Icon Overlay */}
-                                            {isSpecialGroup && item.unit && (
-                                                <div className="absolute top-1 right-1 w-6 h-6 rounded-full overflow-hidden ring-1 ring-slate-200 bg-white shadow-sm z-10" title={item.unit}>
+                                            {/* Character icon for extraParts items */}
+                                            {item.characterId && (
+                                                <div className="absolute top-1 right-1 w-6 h-6 rounded-full overflow-hidden ring-1 ring-slate-200 bg-white shadow-sm z-10" title={CHARACTER_NAMES[item.characterId] || ""}>
                                                     <Image
-                                                        src={`/data/icon/${UNIT_ICONS[item.unit]}`}
-                                                        alt={item.unit}
+                                                        src={getCharacterIconUrl(item.characterId)}
+                                                        alt={CHARACTER_NAMES[item.characterId] || ""}
                                                         width={24}
                                                         height={24}
                                                         className="w-full h-full object-cover"
@@ -533,106 +364,27 @@ export default function CostumeDetailClient() {
                                         </div>
                                     );
                                 })}
-                                {displayItems.length === 0 && isSpecialGroup && (
+                                {displayItems.length === 0 && (
                                     <div className="col-span-4 aspect-[4/1] flex items-center justify-center text-slate-400 text-sm">
-                                        该角色暂无部件或未选择团体
+                                        暂无部件数据
                                     </div>
                                 )}
                             </div>
 
-                            {/* Character Selector (For Special Groups) */}
-                            {isSpecialGroup && availableCharacters.length > 0 && (
-                                <div className="p-4 bg-slate-50/50 border-t border-slate-100">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <p className="text-xs font-bold text-slate-500">选择角色</p>
-                                        <span className="text-xs font-bold text-miku">
-                                            {CHARACTER_NAMES[selectedCharacterId!] || ""}
-                                        </span>
-                                    </div>
-
-                                    <div className="flex flex-wrap gap-2 mb-4">
-                                        {availableCharacters.map(charId => {
-                                            const isSelected = selectedCharacterId === charId;
-                                            return (
-                                                <button
-                                                    key={charId}
-                                                    onClick={() => {
-                                                        setSelectedCharacterId(charId);
-                                                        setSelectedMikuUnit(null); // Reset unit filter when switching char
-                                                    }}
-                                                    className={`w-10 h-10 rounded-full overflow-hidden transition-all ${isSelected
-                                                        ? "ring-2 ring-miku scale-110"
-                                                        : "ring-1 ring-slate-200 grayscale opacity-70 hover:grayscale-0 hover:opacity-100"
-                                                        }`}
-                                                    title={CHARACTER_NAMES[charId]}
-                                                >
-                                                    <Image
-                                                        src={getCharacterIconUrl(charId)}
-                                                        alt={CHARACTER_NAMES[charId] || "Chara"}
-                                                        width={40}
-                                                        height={40}
-                                                        className="w-full h-full object-cover"
-                                                        unoptimized
-                                                    />
-                                                </button>
-                                            )
-                                        })}
-                                    </div>
-
-                                    {/* Miku Unit Selector (Sub-filter) */}
-                                    {selectedCharacterId === 21 && (
-                                        <div className="mt-3 pt-3 border-t border-slate-200/60">
-                                            <p className="text-xs font-bold text-slate-500 mb-2">选择团体 (Miku)</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                <button
-                                                    onClick={() => setSelectedMikuUnit(null)}
-                                                    className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${selectedMikuUnit === null
-                                                        ? "bg-miku text-white border-miku"
-                                                        : "bg-white text-slate-500 border-slate-200 hover:border-miku"
-                                                        }`}
-                                                >
-                                                    全部
-                                                </button>
-                                                {Object.entries(UNIT_ICONS).map(([unitKey, iconFile]) => (
-                                                    <button
-                                                        key={unitKey}
-                                                        onClick={() => setSelectedMikuUnit(unitKey === selectedMikuUnit ? null : unitKey)}
-                                                        className={`w-8 h-8 rounded-lg overflow-hidden border transition-all ${selectedMikuUnit === unitKey
-                                                            ? "ring-2 ring-miku border-miku"
-                                                            : "border-slate-200 opacity-70 hover:opacity-100"
-                                                            }`}
-                                                        title={unitKey}
-                                                    >
-                                                        <Image
-                                                            src={`/data/icon/${iconFile}`}
-                                                            alt={unitKey}
-                                                            width={32}
-                                                            height={32}
-                                                            className="w-full h-full object-contain"
-                                                            unoptimized
-                                                        />
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Color Selector (For Standard Groups) */}
-                            {!isSpecialGroup && availableColors.length > 0 && (
+                            {/* Color Selector */}
+                            {availableColors.length > 1 && (
                                 <div className="p-4 bg-slate-50/50 border-t border-slate-100">
                                     <p className="text-xs font-bold text-slate-500 mb-2">配色方案</p>
-                                    <div className="flex overflow-x-auto gap-2 pb-2 -mx-1 px-1 custom-scrollbar">
+                                    <div className="flex flex-wrap gap-2">
                                         {availableColors.map(variant => {
                                             const isSelected = selectedColorId === variant.colorId;
                                             return (
                                                 <button
-                                                    key={variant.colorId} // Unique key based on colorId (deduplicated)
+                                                    key={variant.colorId}
                                                     onClick={() => setSelectedColorId(variant.colorId)}
-                                                    className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${isSelected
-                                                        ? "bg-miku/10 text-miku ring-2 ring-miku"
-                                                        : "bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-miku/50"
+                                                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${isSelected
+                                                        ? "bg-miku/10 text-miku border-2 border-miku"
+                                                        : "bg-white text-slate-600 border border-slate-200 hover:border-miku/50"
                                                         }`}
                                                 >
                                                     <div className="w-8 h-8 rounded overflow-hidden bg-slate-100 relative shrink-0">
@@ -667,7 +419,7 @@ export default function CostumeDetailClient() {
                                 </h2>
                             </div>
                             <div className="divide-y divide-slate-100">
-                                <InfoRow label="组 ID" value={`#${groupId}`} />
+                                <InfoRow label="编号" value={`#${costumeNumber}`} />
                                 <InfoRow
                                     label="名称"
                                     value={
@@ -684,8 +436,7 @@ export default function CostumeDetailClient() {
                                 <InfoRow label="来源" value={
                                     <span className={`px-2 py-0.5 rounded text-xs font-bold ${representative.source === "card" ? "bg-blue-100 text-blue-600" :
                                         representative.source === "shop" ? "bg-green-100 text-green-600" :
-                                            representative.source === "default" ? "bg-slate-100 text-slate-500" :
-                                                "bg-amber-100 text-amber-600"
+                                            "bg-amber-100 text-amber-600"
                                         }`}>
                                         {SOURCE_NAMES[representative.source] || representative.source}
                                     </span>
@@ -711,16 +462,10 @@ export default function CostumeDetailClient() {
                                         })
                                         : representative.publishedAt ? "..." : "未知"
                                 } />
-                                <InfoRow
-                                    label="内部资源名称"
-                                    value={<span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded select-all">
-                                        {representative.costumePrefix}
-                                    </span>}
-                                />
                             </div>
                         </div>
 
-                        {/* Parts List Summary (Simplified) */}
+                        {/* Parts List Summary */}
                         <div className="bg-white rounded-2xl shadow-lg ring-1 ring-slate-200 overflow-hidden">
                             <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-purple-500/10 to-transparent">
                                 <h2 className="font-bold text-slate-800 flex items-center gap-2">
@@ -814,11 +559,9 @@ export default function CostumeDetailClient() {
                 </div>
 
                 {/* Back Button */}
-                {/* Back Button */}
                 <div className="mt-12 text-center">
                     <button
                         onClick={() => {
-                            // Strictly mirror mysekai behavior for correct scroll restoration
                             router.back();
                         }}
                         className="inline-flex items-center gap-2 px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"

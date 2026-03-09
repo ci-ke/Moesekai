@@ -6,10 +6,11 @@ import { useSearchParams } from "next/navigation";
 import ExternalLink from "@/components/ExternalLink";
 import Image from "next/image";
 import MainLayout from "@/components/MainLayout";
-import { CHAR_NAMES, type ICardInfo } from "@/types/types";
+import { CHAR_NAMES, UNIT_DATA, CHARACTER_NAMES, type ICardInfo } from "@/types/types";
 import CharacterSelector from "@/components/deck-recommend/CharacterSelector";
 import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
 import { fetchMasterData } from "@/lib/fetch";
+import { getCharacterIconUrl } from "@/lib/assets";
 import { saveToolState, getAccount } from "@/lib/account";
 import AccountSelector from "@/components/AccountSelector";
 import EventSelector from "@/components/deck-recommend/EventSelector";
@@ -64,6 +65,7 @@ interface DeckResult {
     supportDeckBonus?: number;
     power?: DeckPowerInfo;
     cards?: DeckCardResult[];
+    multiLiveScoreUp?: number;
 }
 
 interface ChallengeHighScoreInfo {
@@ -108,11 +110,13 @@ interface DeckRecommendWorkerArgs {
     liveType: string;
     supportCharacterId?: number;
     cardConfig: Record<string, WorkerCardConfig>;
+    // Custom mode: 混活自定义
     customUnit?: string;
+    customCharacterIds?: number[];
+    customCharacterUnits?: Record<number, string>;
     customAttr?: string;
-    customUnitBonus?: number;
+    customCharacterBonus?: number;
     customAttrBonus?: number;
-    customBonusRules?: CustomBonusRuleUI[];
     leaderCharacter?: number;
     strongestTarget?: StrongestTarget;
 }
@@ -121,12 +125,17 @@ type DeckMode = "event" | "challenge" | "mysekai" | "custom" | "strongest";
 type ServerType = "jp" | "cn" | "tw";
 type StrongestTarget = "power" | "skill";
 
-interface CustomBonusRuleUI {
-    id: string;
-    unit: string;
-    attr: string;
-    bonusRate: number;
-}
+const MAX_CUSTOM_CHARACTERS = 5;
+
+// 虚拟歌手 supportUnit 选项（用于自定义加成中选择团体）
+const VS_SUPPORT_UNIT_OPTIONS: { value: string; label: string; icon: string }[] = [
+    { value: "none", label: "原版", icon: "vs.webp" },
+    { value: "leo_need", label: "LN", icon: "ln.webp" },
+    { value: "more_more_jump", label: "MMJ", icon: "mmj.webp" },
+    { value: "vivid_bad_squad", label: "VBS", icon: "vbs.webp" },
+    { value: "wonderlands_showtime", label: "WS", icon: "wxs.webp" },
+    { value: "nightcord_at_25", label: "25ji", icon: "n25.webp" },
+];
 
 const SERVER_OPTIONS: { value: ServerType; label: string }[] = [
     { value: "cn", label: "简中服 (CN)" },
@@ -172,21 +181,12 @@ const RARITY_CONFIG_KEYS = [
 ];
 
 const DEFAULT_CARD_CONFIG: Record<string, CardConfigItem> = {
-    rarity_1: { disable: true, rankMax: true, episodeRead: true, masterMax: false, skillMax: false },
-    rarity_2: { disable: true, rankMax: true, episodeRead: true, masterMax: false, skillMax: false },
+    rarity_1: { disable: false, rankMax: true, episodeRead: true, masterMax: false, skillMax: false },
+    rarity_2: { disable: false, rankMax: true, episodeRead: true, masterMax: false, skillMax: false },
     rarity_3: { disable: false, rankMax: true, episodeRead: true, masterMax: false, skillMax: false },
     rarity_4: { disable: false, rankMax: true, episodeRead: true, masterMax: false, skillMax: false },
     rarity_birthday: { disable: false, rankMax: true, episodeRead: true, masterMax: false, skillMax: false },
 };
-
-const UNIT_OPTIONS = [
-    { value: "light_sound", label: "Leo/need", icon: "ln.webp" },
-    { value: "idol", label: "MORE MORE JUMP!", icon: "mmj.webp" },
-    { value: "street", label: "Vivid BAD SQUAD", icon: "vbs.webp" },
-    { value: "theme_park", label: "WonderShow", icon: "wxs.webp" },
-    { value: "school_refusal", label: "25時", icon: "n25.webp" },
-    { value: "piapro", label: "Virtual Singer", icon: "vs.webp" },
-];
 
 const ATTR_OPTIONS = [
     { value: "cool", label: "Cool", icon: "Cool.webp" },
@@ -195,6 +195,17 @@ const ATTR_OPTIONS = [
     { value: "mysterious", label: "Mysterious", icon: "Mysterious.webp" },
     { value: "pure", label: "Pure", icon: "Pure.webp" },
 ];
+
+const UNIT_OPTIONS = [
+    { value: "leo_need", label: "Leo/need", icon: "ln.webp" },
+    { value: "more_more_jump", label: "MORE MORE JUMP!", icon: "mmj.webp" },
+    { value: "vivid_bad_squad", label: "Vivid BAD SQUAD", icon: "vbs.webp" },
+    { value: "wonderlands_showtime", label: "WonderShow", icon: "wxs.webp" },
+    { value: "nightcord_at_25", label: "25時", icon: "n25.webp" },
+    { value: "piapro", label: "Virtual Singer", icon: "vs.webp" },
+];
+
+type CustomSubMode = "unit" | "character";
 
 function getErrorMessage(error: string): string {
     switch (error) {
@@ -309,14 +320,15 @@ export default function DeckRecommendClient() {
     const [eventId, setEventId] = useState("");
     const [liveType, setLiveType] = useState("multi");
     const [supportCharacterId, setSupportCharacterId] = useState<number | null>(null);
+    const [selectedEventType, setSelectedEventType] = useState<string | null>(null);
     const [musicId, setMusicId] = useState("");
     const [difficulty, setDifficulty] = useState("master");
     const [cardConfig, setCardConfig] = useState<Record<string, CardConfigItem>>(JSON.parse(JSON.stringify(DEFAULT_CARD_CONFIG)));
+    const [customSubMode, setCustomSubMode] = useState<CustomSubMode>("unit");
     const [customUnit, setCustomUnit] = useState("");
+    const [customCharacterIds, setCustomCharacterIds] = useState<number[]>([]);
+    const [customCharacterUnits, setCustomCharacterUnits] = useState<Record<number, string>>({});
     const [customAttr, setCustomAttr] = useState("");
-    const [customUnitBonus, setCustomUnitBonus] = useState(25);
-    const [customAttrBonus, setCustomAttrBonus] = useState(25);
-    const [customBonusRules, setCustomBonusRules] = useState<CustomBonusRuleUI[]>([]);
     const [leaderCharacterId, setLeaderCharacterId] = useState<number | null>(null);
     const [showLeaderSelect, setShowLeaderSelect] = useState(false);
     const [strongestTarget, setStrongestTarget] = useState<StrongestTarget>("power");
@@ -419,24 +431,34 @@ export default function DeckRecommendClient() {
             queuedUpdates.push(() => setLiveType(liveTypeParam));
         }
 
-        const customUnitParam = searchParams.get("customUnit");
-        if (customUnitParam) {
-            queuedUpdates.push(() => setCustomUnit(customUnitParam));
-        }
-
         const customAttrParam = searchParams.get("customAttr");
         if (customAttrParam) {
             queuedUpdates.push(() => setCustomAttr(customAttrParam));
         }
 
-        const customUnitBonusParam = Number.parseFloat(searchParams.get("customUnitBonus") || "");
-        if (Number.isFinite(customUnitBonusParam)) {
-            queuedUpdates.push(() => setCustomUnitBonus(customUnitBonusParam));
+        const customCharsParam = searchParams.get("customCharacterIds");
+        if (customCharsParam) {
+            const ids = customCharsParam.split(",").map(Number).filter(n => Number.isFinite(n) && n > 0);
+            if (ids.length > 0) {
+                queuedUpdates.push(() => setCustomCharacterIds(ids.slice(0, MAX_CUSTOM_CHARACTERS)));
+            }
         }
 
-        const customAttrBonusParam = Number.parseFloat(searchParams.get("customAttrBonus") || "");
-        if (Number.isFinite(customAttrBonusParam)) {
-            queuedUpdates.push(() => setCustomAttrBonus(customAttrBonusParam));
+        const customCharUnitsParam = searchParams.get("customCharacterUnits");
+        if (customCharUnitsParam) {
+            try {
+                const parsed = JSON.parse(customCharUnitsParam);
+                if (parsed && typeof parsed === "object") {
+                    const units: Record<number, string> = {};
+                    for (const [k, v] of Object.entries(parsed)) {
+                        const cid = Number(k);
+                        if (cid >= 21 && cid <= 26 && typeof v === "string") units[cid] = v;
+                    }
+                    if (Object.keys(units).length > 0) {
+                        queuedUpdates.push(() => setCustomCharacterUnits(units));
+                    }
+                }
+            } catch { /* ignore invalid JSON */ }
         }
 
         const leaderCharacterParam = parsePositiveInt(searchParams.get("leaderCharacter"));
@@ -464,6 +486,13 @@ export default function DeckRecommendClient() {
     const updateCardConfig = useCallback((rarity: string, field: keyof CardConfigItem, value: boolean) => {
         setCardConfig(prev => ({ ...prev, [rarity]: { ...prev[rarity], [field]: value } }));
     }, []);
+
+    // Clear supportCharacterId when event type is not world_bloom
+    useEffect(() => {
+        if (selectedEventType !== "world_bloom") {
+            setSupportCharacterId(null);
+        }
+    }, [selectedEventType]);
 
     const needsMusic = mode !== "mysekai";
     const needsEvent = mode === "event" || mode === "mysekai";
@@ -496,13 +525,25 @@ export default function DeckRecommendClient() {
             leaderCharacter: showLeaderSelect && leaderCharacterId ? leaderCharacterId : undefined,
         };
         if (mode === "custom") {
-            workerArgs.customUnit = customUnit || undefined;
-            workerArgs.customAttr = customAttr || undefined;
-            workerArgs.customUnitBonus = customUnitBonus;
-            workerArgs.customAttrBonus = customAttrBonus;
-            if (customBonusRules.length > 0) {
-                workerArgs.customBonusRules = customBonusRules;
+            if (customSubMode === "unit") {
+                // 箱活模式：按团体加成
+                workerArgs.customUnit = customUnit || undefined;
+            } else {
+                // 混活模式：按角色加成
+                if (customCharacterIds.length > 0) {
+                    workerArgs.customCharacterIds = customCharacterIds;
+                    const vsUnits: Record<number, string> = {};
+                    for (const cid of customCharacterIds) {
+                        if (cid >= 21 && cid <= 26 && customCharacterUnits[cid]) {
+                            vsUnits[cid] = customCharacterUnits[cid];
+                        }
+                    }
+                    if (Object.keys(vsUnits).length > 0) {
+                        workerArgs.customCharacterUnits = vsUnits;
+                    }
+                }
             }
+            workerArgs.customAttr = customAttr || undefined;
         }
         if (mode === "strongest") {
             workerArgs.strongestTarget = strongestTarget;
@@ -533,7 +574,7 @@ export default function DeckRecommendClient() {
             worker.terminate(); workerRef.current = null;
         };
         worker.postMessage({ args: workerArgs });
-    }, [userId, server, mode, characterId, eventId, liveType, supportCharacterId, musicId, difficulty, cardConfig, needsMusic, needsEvent, customUnit, customAttr, customUnitBonus, customAttrBonus, customBonusRules, leaderCharacterId, showLeaderSelect, strongestTarget]);
+    }, [userId, server, mode, characterId, eventId, liveType, supportCharacterId, musicId, difficulty, cardConfig, needsMusic, needsEvent, customSubMode, customUnit, customCharacterIds, customCharacterUnits, customAttr, leaderCharacterId, showLeaderSelect, strongestTarget]);
 
     const handleCancel = useCallback(() => {
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null; }
@@ -557,10 +598,11 @@ export default function DeckRecommendClient() {
             supportCharacterId ?? "",
             musicId,
             difficulty,
+            customSubMode,
             customUnit,
+            customCharacterIds.join(","),
+            JSON.stringify(customCharacterUnits),
             customAttr,
-            customUnitBonus,
-            customAttrBonus,
             leaderCharacterId ?? "",
             showLeaderSelect,
             strongestTarget,
@@ -584,10 +626,11 @@ export default function DeckRecommendClient() {
         supportCharacterId,
         musicId,
         difficulty,
+        customSubMode,
         customUnit,
+        customCharacterIds,
+        customCharacterUnits,
         customAttr,
-        customUnitBonus,
-        customAttrBonus,
         leaderCharacterId,
         showLeaderSelect,
         strongestTarget,
@@ -689,11 +732,11 @@ export default function DeckRecommendClient() {
                             <div className="flex gap-2 flex-wrap">
                                 <button onClick={() => setStrongestTarget("power")}
                                     className={`px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-300 ${strongestTarget === "power" ? "bg-gradient-to-r from-miku to-miku-dark text-white shadow-lg shadow-miku/20" : "bg-white/60 text-slate-600 hover:bg-white/80 border border-slate-200/50"}`}>
-                                    💪 综合力最高
+                                    综合力最高
                                 </button>
                                 <button onClick={() => setStrongestTarget("skill")}
                                     className={`px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-300 ${strongestTarget === "skill" ? "bg-gradient-to-r from-miku to-miku-dark text-white shadow-lg shadow-miku/20" : "bg-white/60 text-slate-600 hover:bg-white/80 border border-slate-200/50"}`}>
-                                    ✨ 技能实效最高
+                                    技能实效最高
                                 </button>
                             </div>
                             <p className="text-xs text-slate-400 mt-1.5">
@@ -708,8 +751,8 @@ export default function DeckRecommendClient() {
                             <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/50">
                                 <div className="flex items-center justify-between">
                                     <div className="flex flex-col">
-                                        <span className="text-sm text-slate-700 font-medium">固定队长角色</span>
-                                        <span className="text-slate-400 text-xs text-left">指定某个角色必须作为队长（C位）</span>
+                                        <span className="text-sm text-slate-700 font-medium">固定角色</span>
+                                        <span className="text-slate-400 text-xs text-left">指定必须添加一个角色到编组</span>
                                     </div>
                                     <button onClick={() => { setShowLeaderSelect(!showLeaderSelect); if (showLeaderSelect) setLeaderCharacterId(null); }}
                                         className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${showLeaderSelect ? 'bg-miku' : 'bg-slate-200'}`}>
@@ -728,7 +771,7 @@ export default function DeckRecommendClient() {
                     {/* Event / Mysekai Mode */}
                     {needsEvent && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-                            <div><EventSelector selectedEventId={eventId} onSelect={(id) => setEventId(id)} /></div>
+                            <div><EventSelector selectedEventId={eventId} onSelect={(id) => setEventId(id)} onEventTypeChange={setSelectedEventType} /></div>
                             {mode === "event" && (
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Live类型</label>
@@ -752,60 +795,170 @@ export default function DeckRecommendClient() {
                                     </div>
                                 </div>
                             )}
-                            <div className="sm:col-span-2">
-                                <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/50">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex flex-col">
-                                            <span className="text-sm text-slate-700 font-medium">支援角色</span>
-                                            <span className="text-slate-400 text-xs text-left">World Bloom 活动可选</span>
+                            {selectedEventType === "world_bloom" && (
+                                <div className="sm:col-span-2">
+                                    <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/50">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm text-slate-700 font-medium">支援角色</span>
+                                                <span className="text-slate-400 text-xs text-left">World Bloom 活动可选</span>
+                                            </div>
+                                            <button onClick={() => setSupportCharacterId(supportCharacterId !== null ? null : 0)}
+                                                className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${supportCharacterId !== null ? 'bg-miku' : 'bg-slate-200'}`}>
+                                                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${supportCharacterId !== null ? 'translate-x-5' : 'translate-x-0'}`} />
+                                            </button>
                                         </div>
-                                        <button onClick={() => setSupportCharacterId(supportCharacterId !== null ? null : 0)}
-                                            className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${supportCharacterId !== null ? 'bg-miku' : 'bg-slate-200'}`}>
-                                            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${supportCharacterId !== null ? 'translate-x-5' : 'translate-x-0'}`} />
-                                        </button>
+                                        {supportCharacterId !== null && (
+                                            <div className="mt-4 pt-3 border-t border-slate-200/50">
+                                                <CharacterSelector selectedCharacterId={supportCharacterId} onSelect={setSupportCharacterId} />
+                                            </div>
+                                        )}
                                     </div>
-                                    {supportCharacterId !== null && (
-                                        <div className="mt-4 pt-3 border-t border-slate-200/50">
-                                            <CharacterSelector selectedCharacterId={supportCharacterId} onSelect={setSupportCharacterId} />
-                                        </div>
-                                    )}
                                 </div>
-                            </div>
+                            )}
                         </div>
                     )}
 
-                    {/* Custom Mode */}
+                    {/* Custom Mode: 自定义加成 */}
                     {mode === "custom" && (
                         <div className="mb-5">
                             <div className="border border-indigo-200 rounded-lg p-4 bg-indigo-50/30">
                                 <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
-                                    <span className="w-1 h-4 bg-indigo-400 rounded-full"></span>自定义加成设置
+                                    <span className="w-1 h-4 bg-indigo-400 rounded-full"></span>自定义加成
                                 </h3>
-                                <div className="mb-4">
-                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">团体加成</label>
-                                    <div className="flex flex-wrap gap-2 mb-2">
-                                        {UNIT_OPTIONS.map((u) => (
-                                            <button key={u.value} onClick={() => setCustomUnit(customUnit === u.value ? "" : u.value)}
-                                                className={`p-1.5 rounded-xl transition-all ${customUnit === u.value ? "ring-2 ring-miku shadow-lg bg-white" : "hover:bg-slate-100 border border-transparent bg-slate-50"}`}
-                                                title={u.label}>
-                                                <div className="w-8 h-8 relative">
-                                                    <Image src={`/data/icon/${u.icon}`} alt={u.label} fill className="object-contain" unoptimized />
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                    {customUnit && (
-                                        <div className="flex items-center gap-2 mt-2">
-                                            <span className="text-xs text-slate-500">每卡加成:</span>
-                                            <input type="number" value={customUnitBonus} onChange={(e) => setCustomUnitBonus(Number(e.target.value))}
-                                                className="w-20 px-2 py-1 rounded border border-slate-200 text-xs text-center" min={0} max={100} />
-                                            <span className="text-xs text-slate-400">%</span>
-                                        </div>
-                                    )}
+
+                                {/* 箱活/混活切换 */}
+                                <div className="flex gap-1 p-0.5 bg-slate-100 rounded-lg w-fit mb-4">
+                                    <button onClick={() => setCustomSubMode("unit")}
+                                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${customSubMode === "unit" ? "bg-white text-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}>
+                                        箱活（团体）
+                                    </button>
+                                    <button onClick={() => setCustomSubMode("character")}
+                                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${customSubMode === "character" ? "bg-white text-slate-700 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}>
+                                        混活（角色）
+                                    </button>
                                 </div>
-                                <div className="mb-4">
-                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">属性加成</label>
-                                    <div className="flex flex-wrap gap-2 mb-2">
+
+                                {/* 箱活模式：团体选择 */}
+                                {customSubMode === "unit" && (
+                                    <div className="mb-4">
+                                        <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">加成团体</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {UNIT_OPTIONS.map((u) => (
+                                                <button key={u.value} onClick={() => setCustomUnit(customUnit === u.value ? "" : u.value)}
+                                                    className={`p-1.5 rounded-xl transition-all ${customUnit === u.value ? "ring-2 ring-miku shadow-lg bg-white" : "hover:bg-slate-100 border border-transparent bg-slate-50"}`}
+                                                    title={u.label}>
+                                                    <div className="w-8 h-8 relative">
+                                                        <Image src={`/data/icon/${u.icon}`} alt={u.label} fill className="object-contain" unoptimized />
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                    </div>
+                                )}
+
+                                {/* 混活模式：角色选择 */}
+                                {customSubMode === "character" && (
+                                    <div className="mb-4">
+                                        <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                                            加成角色 ({customCharacterIds.length}/{MAX_CUSTOM_CHARACTERS})
+                                        </label>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {UNIT_DATA.flatMap(u => u.charIds).map(cid => {
+                                                const isSelected = customCharacterIds.includes(cid);
+                                                const isFull = customCharacterIds.length >= MAX_CUSTOM_CHARACTERS && !isSelected;
+                                                const isVS = cid >= 21 && cid <= 26;
+                                                return (
+                                                    <button key={cid}
+                                                        onClick={() => {
+                                                            if (isSelected) {
+                                                                setCustomCharacterIds(prev => prev.filter(c => c !== cid));
+                                                                if (isVS) {
+                                                                    setCustomCharacterUnits(prev => {
+                                                                        const next = { ...prev };
+                                                                        delete next[cid];
+                                                                        return next;
+                                                                    });
+                                                                }
+                                                            } else {
+                                                                setCustomCharacterIds(prev => {
+                                                                    if (prev.length >= MAX_CUSTOM_CHARACTERS) return prev;
+                                                                    return [...prev, cid];
+                                                                });
+                                                            }
+                                                        }}
+                                                        disabled={isFull}
+                                                        className={`relative transition-all ${isSelected
+                                                            ? "ring-2 ring-miku scale-110 z-10 rounded-full"
+                                                            : isFull
+                                                                ? "opacity-30 cursor-not-allowed rounded-full"
+                                                                : "ring-2 ring-transparent hover:ring-slate-200 rounded-full opacity-80 hover:opacity-100"
+                                                        }`}
+                                                        title={CHARACTER_NAMES[cid]}>
+                                                        <div className="w-9 h-9 rounded-full overflow-hidden bg-slate-100">
+                                                            <Image src={getCharacterIconUrl(cid)} alt={CHARACTER_NAMES[cid]} width={36} height={36} className="w-full h-full object-cover" unoptimized />
+                                                        </div>
+                                                        {isSelected && (
+                                                            <div className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-miku rounded-full flex items-center justify-center">
+                                                                <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                                            </div>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {/* 虚拟歌手团体选择 */}
+                                        {customCharacterIds.some(cid => cid >= 21 && cid <= 26) && (
+                                            <div className="mt-3 p-3 bg-teal-50/50 border border-teal-200 rounded-lg">
+                                                <label className="block text-xs font-bold text-slate-600 mb-2">虚拟歌手所属团体</label>
+                                                {customCharacterIds.filter(cid => cid >= 21 && cid <= 26).map(cid => (
+                                                    <div key={cid} className="flex items-center gap-2 mb-2 last:mb-0">
+                                                        <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 flex-shrink-0">
+                                                            <Image src={getCharacterIconUrl(cid)} alt={CHARACTER_NAMES[cid]} width={28} height={28} className="w-full h-full object-cover" unoptimized />
+                                                        </div>
+                                                        <span className="text-xs text-slate-600 w-16 flex-shrink-0">{CHARACTER_NAMES[cid]}</span>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {VS_SUPPORT_UNIT_OPTIONS.map(opt => (
+                                                                <button key={opt.value}
+                                                                    onClick={() => setCustomCharacterUnits(prev => {
+                                                                        if (prev[cid] === opt.value) {
+                                                                            const next = { ...prev };
+                                                                            delete next[cid];
+                                                                            return next;
+                                                                        }
+                                                                        return { ...prev, [cid]: opt.value };
+                                                                    })}
+                                                                    className={`p-1 rounded-lg transition-all ${
+                                                                        customCharacterUnits[cid] === opt.value
+                                                                            ? "ring-2 ring-miku shadow-sm bg-white"
+                                                                            : "hover:bg-slate-100 bg-white border border-slate-200"
+                                                                    }`}
+                                                                    title={opt.label}>
+                                                                    <div className="w-5 h-5 relative">
+                                                                        <Image src={`/data/icon/${opt.icon}`} alt={opt.label} fill className="object-contain" unoptimized />
+                                                                    </div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {customCharacterIds.length > 0 && (
+                                            <div className="mt-2">
+                                                <button onClick={() => { setCustomCharacterIds([]); setCustomCharacterUnits({}); }} className="text-[10px] text-slate-400 hover:text-red-400 transition-colors">清空</button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* 加成属性选择（两种模式共用） */}
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">加成属性</label>
+                                    <div className="flex flex-wrap gap-2">
                                         {ATTR_OPTIONS.map((a) => (
                                             <button key={a.value} onClick={() => setCustomAttr(customAttr === a.value ? "" : a.value)}
                                                 className={`p-1.5 rounded-xl transition-all ${customAttr === a.value ? "ring-2 ring-miku shadow-lg bg-white" : "hover:bg-slate-100 border border-transparent bg-slate-50"}`}
@@ -816,56 +969,10 @@ export default function DeckRecommendClient() {
                                             </button>
                                         ))}
                                     </div>
-                                    {customAttr && (
-                                        <div className="flex items-center gap-2 mt-2">
-                                            <span className="text-xs text-slate-500">每卡加成:</span>
-                                            <input type="number" value={customAttrBonus} onChange={(e) => setCustomAttrBonus(Number(e.target.value))}
-                                                className="w-20 px-2 py-1 rounded border border-slate-200 text-xs text-center" min={0} max={100} />
-                                            <span className="text-xs text-slate-400">%</span>
-                                        </div>
-                                    )}
                                 </div>
 
-                                {/* Advanced: Custom Bonus Rules */}
-                                <div className="mt-3 pt-3 border-t border-indigo-200/50">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">高级加成规则</label>
-                                        <button onClick={() => setCustomBonusRules([...customBonusRules, { id: Date.now().toString(), unit: "any", attr: "any", bonusRate: 25 }])}
-                                            className="text-xs text-miku hover:text-miku-dark font-medium transition-colors flex items-center gap-1">
-                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                                            添加规则
-                                        </button>
-                                    </div>
-                                    {customBonusRules.length > 0 && (
-                                        <div className="space-y-2">
-                                            {customBonusRules.map((rule, idx) => (
-                                                <div key={rule.id} className="flex items-center gap-2 bg-white/60 rounded-lg p-2">
-                                                    <select value={rule.unit} onChange={(e) => { const r = [...customBonusRules]; r[idx] = { ...r[idx], unit: e.target.value }; setCustomBonusRules(r); }}
-                                                        className="text-xs px-2 py-1 rounded border border-slate-200 bg-white">
-                                                        <option value="any">全部团体</option>
-                                                        {UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
-                                                    </select>
-                                                    <select value={rule.attr} onChange={(e) => { const r = [...customBonusRules]; r[idx] = { ...r[idx], attr: e.target.value }; setCustomBonusRules(r); }}
-                                                        className="text-xs px-2 py-1 rounded border border-slate-200 bg-white">
-                                                        <option value="any">全部属性</option>
-                                                        {ATTR_OPTIONS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
-                                                    </select>
-                                                    <input type="number" value={rule.bonusRate} onChange={(e) => { const r = [...customBonusRules]; r[idx] = { ...r[idx], bonusRate: Number(e.target.value) }; setCustomBonusRules(r); }}
-                                                        className="w-16 px-2 py-1 rounded border border-slate-200 text-xs text-center" min={0} max={200} />
-                                                    <span className="text-xs text-slate-400">%</span>
-                                                    <button onClick={() => setCustomBonusRules(customBonusRules.filter((_, i) => i !== idx))}
-                                                        className="text-red-400 hover:text-red-600 transition-colors p-0.5">
-                                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                                    </button>
-                                                </div>
-                                            ))}
-                                            <p className="text-[10px] text-slate-400">高级规则会通过计算库的 CustomBonusConfig 传递，与上方基础加成独立生效</p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {!customUnit && !customAttr && customBonusRules.length === 0 && (
-                                    <p className="text-xs text-slate-400 mt-2">请至少选择一个团体或属性加成，或添加高级规则</p>
+                                {((customSubMode === "unit" && !customUnit) || (customSubMode === "character" && customCharacterIds.length === 0)) && !customAttr && (
+                                    <p className="text-xs text-slate-400 mt-3">请至少选择一个加成{customSubMode === "unit" ? "团体" : "角色"}或属性</p>
                                 )}
                             </div>
                         </div>
@@ -874,7 +981,7 @@ export default function DeckRecommendClient() {
                     {/* Song Selection (not for mysekai) */}
                     {needsMusic && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-                            <div><MusicSelector selectedMusicId={musicId} onSelect={(id) => setMusicId(id)} recommendMode={mode === "custom" ? "event" : mode} liveType={liveType} /></div>
+                            <div><MusicSelector selectedMusicId={musicId} onSelect={(id) => setMusicId(id)} recommendMode={mode === "challenge" ? "challenge" : "event"} liveType={liveType} /></div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">难度</label>
                                 <div className="flex flex-wrap gap-2">
@@ -992,7 +1099,7 @@ export default function DeckRecommendClient() {
                         )}
                         <div className="space-y-4">
                             {results.map((deck, index: number) => (
-                                <DeckResultRow key={index} deck={deck} rank={index + 1} getCardMaster={getCardMaster} mode={mode} userCards={userCards} scoreLabel={scoreLabel} forceExpand={isScreenshotMode} />
+                                <DeckResultRow key={index} deck={deck} rank={index + 1} getCardMaster={getCardMaster} mode={mode} userCards={userCards} scoreLabel={scoreLabel} forceExpand={isScreenshotMode} strongestTarget={strongestTarget} />
                             ))}
                         </div>
                     </div>
@@ -1023,9 +1130,10 @@ interface DeckResultRowProps {
     userCards: UserCardInfo[];
     scoreLabel: string;
     forceExpand?: boolean;
+    strongestTarget?: StrongestTarget;
 }
 
-function DeckResultRow({ deck, rank, getCardMaster, mode, userCards, scoreLabel, forceExpand = false }: DeckResultRowProps) {
+function DeckResultRow({ deck, rank, getCardMaster, mode, userCards, scoreLabel, forceExpand = false, strongestTarget }: DeckResultRowProps) {
     const [showDetails, setShowDetails] = useState(forceExpand);
     const detailsExpanded = forceExpand || showDetails;
     const baseEventBonus = deck.eventBonus !== undefined
@@ -1056,7 +1164,11 @@ function DeckResultRow({ deck, rank, getCardMaster, mode, userCards, scoreLabel,
                         <div className={`dr-rank flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${rank === 1 ? "bg-amber-400 text-white" : rank === 2 ? "bg-slate-400 text-white" : rank === 3 ? "bg-amber-700 text-white" : "bg-slate-100 text-slate-500"}`}>{rank}</div>
                         <div className="flex-shrink-0 min-w-[80px]">
                             <div className="text-xs text-slate-400">{scoreLabel}</div>
-                            <div className="font-bold text-primary-text text-sm">{Math.floor(deck.score).toLocaleString()}</div>
+                            <div className="font-bold text-primary-text text-sm">
+                                {mode === "strongest" && strongestTarget === "skill" && deck.multiLiveScoreUp != null
+                                    ? `${deck.multiLiveScoreUp.toFixed(1)}%`
+                                    : Math.floor(deck.score).toLocaleString()}
+                            </div>
                         </div>
                         {effectiveSkill > 0 && mode !== "challenge" && mode !== "mysekai" && mode !== "strongest" && (
                             <div className="flex-shrink-0 min-w-[60px]">

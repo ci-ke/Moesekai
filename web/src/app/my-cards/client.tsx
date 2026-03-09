@@ -64,18 +64,38 @@ interface CardSupply {
     cardSupplyType: string;
 }
 
-// Format upload time in a way that's consistent between server and client
-function formatUploadTime(uploadTime: string): string {
-    try {
-        const date = new Date(uploadTime);
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hour = String(date.getHours()).padStart(2, '0');
-        const minute = String(date.getMinutes()).padStart(2, '0');
-        return `${month}-${day} ${hour}:${minute}`;
-    } catch {
-        return uploadTime;
+function parseUploadTimeToDate(uploadTime: string | number): Date | null {
+    if (typeof uploadTime === "number") {
+        if (!Number.isFinite(uploadTime)) return null;
+        const normalized = uploadTime < 1_000_000_000_000 ? uploadTime * 1000 : uploadTime;
+        const date = new Date(normalized);
+        return Number.isNaN(date.getTime()) ? null : date;
     }
+
+    const text = String(uploadTime).trim();
+    if (!text) return null;
+
+    const numeric = Number(text);
+    if (Number.isFinite(numeric)) {
+        const normalized = numeric < 1_000_000_000_000 ? numeric * 1000 : numeric;
+        const date = new Date(normalized);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const date = new Date(text);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+// Format upload time in a way that's consistent between server and client
+function formatUploadTime(uploadTime: string | number): string {
+    const date = parseUploadTimeToDate(uploadTime);
+    if (!date) return String(uploadTime);
+
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hour = String(date.getHours()).padStart(2, "0");
+    const minute = String(date.getMinutes()).padStart(2, "0");
+    return `${month}-${day} ${hour}:${minute}`;
 }
 
 // ==================== Main Component ====================
@@ -97,7 +117,7 @@ function MyCardsContent() {
     const [error, setError] = useState<string | null>(null);
     const [userError, setUserError] = useState<string | null>(null);
     const [isTwFallback, setIsTwFallback] = useState(false);
-    const [uploadTime, setUploadTime] = useState<string | null>(null);
+    const [uploadTime, setUploadTime] = useState<string | number | null>(null);
     const [filtersInitialized, setFiltersInitialized] = useState(false);
 
     // Filter states (same as /cards)

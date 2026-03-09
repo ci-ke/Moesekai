@@ -11,6 +11,7 @@ import {
     CachedDataProvider,
     ChallengeLiveDeckRecommend,
     type CustomBonusConfig,
+    type CustomBonusRule,
     DataProvider,
     EventDeckRecommend,
     LiveCalculator,
@@ -110,29 +111,7 @@ interface DeckResultLite {
     [key: string]: unknown;
 }
 
-interface GameCharacterUnitLite {
-    gameCharacterId: number;
-    unit: string;
-}
-
-interface CardMasterLite {
-    id: number;
-    characterId: number;
-    attr: string;
-    cardRarityType: string;
-}
-
-interface EventRarityBonusRateLite {
-    cardRarityType: string;
-    masterRank: number;
-    bonusRate: number;
-}
-
 type UserDataMap = Record<string, unknown>;
-type LiveScoreDeckInput = Parameters<typeof LiveCalculator.getLiveScoreByDeck>[0];
-type LiveScoreMetaInput = Parameters<typeof LiveCalculator.getLiveScoreByDeck>[1] & {
-    event_rate?: number;
-};
 
 /**
  * Transform official cardParameters format to sekai-calculator expected format.
@@ -304,13 +283,13 @@ export interface WorkerInput {
     supportCharacterId?: number;
     // Card config
     cardConfig: Record<string, CardConfig>;
-    // Custom mode
-    customUnitBonus?: number;
-    customAttrBonus?: number;
-    customUnit?: string;
-    customAttr?: string;
-    // Custom bonus rules (used in custom mode with CustomBonusConfig)
-    customBonusRules?: Array<{ unit: string; attr?: string; bonusRate: number; characterId?: number; supportUnit?: string }>;
+    // Custom mode: 自定义加成
+    customUnit?: string;             // 箱活模式：加成团体（如 "leo_need"）
+    customCharacterIds?: number[];   // 混活模式：最多5个加成角色ID
+    customCharacterUnits?: Record<number, string>;  // 虚拟歌手角色选择的团体 supportUnit（如 {21: "leo_need"}）
+    customAttr?: string;             // 加成属性
+    customCharacterBonus?: number;   // 每个角色的加成百分比，默认25
+    customAttrBonus?: number;        // 属性加成百分比，默认25
     // Leader character (all modes)
     leaderCharacter?: number;
     // Strongest mode target
@@ -351,8 +330,7 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
         mode, userId, server, musicId, difficulty,
         characterId, cardConfig,
         eventId, liveType: liveTypeStr, supportCharacterId,
-        customUnitBonus, customAttrBonus, customUnit, customAttr,
-        customBonusRules, leaderCharacter, strongestTarget,
+        leaderCharacter, strongestTarget,
     } = args;
 
     sendProgress("fetching", 5, "正在获取用户数据...");
@@ -550,15 +528,60 @@ async function runMysekaiMode(
 
 // ==================== CUSTOM MODE ====================
 
-/** Map unit internal name to gameCharacterUnit unit field */
-const CUSTOM_UNIT_MAP: Record<string, string> = {
-    light_sound: "light_sound",
-    idol: "idol",
-    street: "street",
-    theme_park: "theme_park",
-    school_refusal: "school_refusal",
-    piapro: "piapro",
-};
+/**
+ * 从混活自定义参数构建 CustomBonusConfig
+ * 每个选中的角色 characterId → 一条 { characterId, bonusRate } 规则
+ * 选中的属性 → 一条 { unit: 'any', attr, bonusRate } 规则
+ */
+function buildCustomBonusConfig(
+    characterIds?: number[],
+    attr?: string,
+    characterBonus: number = 25,
+    attrBonus: number = 25,
+    characterUnits?: Record<number, string>,
+    unit?: string,
+    unitBonus: number = 25,
+): CustomBonusConfig {
+    const rules: CustomBonusRule[] = [];
+
+    // 箱活模式：按团体加成
+    if (unit) {
+        if (unit === "piapro") {
+            rules.push({ unit: "piapro", bonusRate: unitBonus });
+        } else {
+            // 非 piapro 团体：该团体的原创角色 + 该团体的虚拟歌手应援卡 + 原版虚拟歌手
+            rules.push({ unit, bonusRate: unitBonus });
+        }
+    }
+
+    // 混活模式：按角色加成
+    if (characterIds) {
+        for (const cid of characterIds) {
+            const isVirtualSinger = cid >= 21 && cid <= 26;
+            const selectedUnit = characterUnits?.[cid];
+
+            if (isVirtualSinger && selectedUnit) {
+                if (selectedUnit === "none") {
+                    // 选了原版 → 仅原版卡获得加成
+                    rules.push({ unit: "any", characterId: cid, supportUnit: "none", bonusRate: characterBonus });
+                } else {
+                    // 选了具体团体（如 leo_need）→ 该团体卡 + 原版卡都获得加成
+                    rules.push({ unit: "any", characterId: cid, supportUnit: selectedUnit, bonusRate: characterBonus });
+                    rules.push({ unit: "any", characterId: cid, supportUnit: "none", bonusRate: characterBonus });
+                }
+            } else {
+                // 非虚拟歌手 或 未指定团体 → 匹配所有
+                rules.push({ unit: "any", characterId: cid, bonusRate: characterBonus });
+            }
+        }
+    }
+
+    if (attr && attr !== "any") {
+        rules.push({ unit: "any", attr, bonusRate: attrBonus });
+    }
+
+    return { rules };
+}
 
 async function runCustomMode(
     args: WorkerInput,
@@ -568,118 +591,53 @@ async function runCustomMode(
 ): Promise<WorkerOutput> {
     const {
         musicId, difficulty, cardConfig, liveType: liveTypeStr,
-        customUnitBonus = 0, customAttrBonus = 0, customUnit, customAttr,
-        customBonusRules, leaderCharacter,
+        customUnit, customCharacterIds, customAttr,
+        customCharacterBonus = 25, customAttrBonus = 25,
+        customCharacterUnits,
+        leaderCharacter,
     } = args;
 
     sendProgress("calculating", 40, "自定义组卡计算中...");
 
     const liveCalculator = new LiveCalculator(dataProvider);
     const musicMeta = await liveCalculator.getMusicMeta(musicId, difficulty);
-
     const computedLiveType = parseLiveType(liveTypeStr);
-
-    // Build card info lookup: cardId -> { units: string[], attr: string, cardRarityType: string }
-    const masterCards = await dataProvider.getMasterData<CardMasterLite>("cards");
-    const gameCharacterUnits = await dataProvider.getMasterData<GameCharacterUnitLite>("gameCharacterUnits");
-    const eventRarityBonusRates = await dataProvider.getMasterData<EventRarityBonusRateLite>("eventRarityBonusRates");
-
-    // Build characterId -> units[] map
-    const charUnitsMap = new Map<number, string[]>();
-    for (const gcu of gameCharacterUnits) {
-        const charId = gcu.gameCharacterId;
-        if (!charUnitsMap.has(charId)) charUnitsMap.set(charId, []);
-        charUnitsMap.get(charId)!.push(gcu.unit);
-    }
-
-    // Build cardId -> { attr, units, characterId, cardRarityType } map
-    const cardInfoMap = new Map<number, { attr: string; units: string[]; characterId: number; cardRarityType: string }>();
-    for (const card of masterCards) {
-        const units = charUnitsMap.get(card.characterId) || [];
-        cardInfoMap.set(card.id, {
-            attr: card.attr,
-            units,
-            characterId: card.characterId,
-            cardRarityType: card.cardRarityType,
-        });
-    }
-
-    // Build (cardRarityType, masterRank) -> bonusRate lookup for masterRank bonus
-    const masterRankBonusMap = new Map<string, number>();
-    for (const rate of eventRarityBonusRates) {
-        const key = `${rate.cardRarityType}_${rate.masterRank}`;
-        masterRankBonusMap.set(key, rate.bonusRate);
-    }
-
-    // Build cardId -> masterRank lookup from userCards
-    const userCardMasterRankMap = new Map<number, number>();
-    for (const uc of userCards) {
-        userCardMasterRankMap.set(uc.cardId, uc.masterRank || 0);
-    }
 
     sendProgress("calculating", 55, "使用自定义加成计算中...");
 
     const currentDuration = calcDuration();
 
-    // Use BaseDeckRecommend with live score function (no event dependency)
-    const baseRecommend = new BaseDeckRecommend(dataProvider);
+    // 构建 CustomBonusConfig，交由库的 CardCustomBonusCalculator 处理
+    const customBonuses = buildCustomBonusConfig(
+        customCharacterIds, customAttr, customCharacterBonus, customAttrBonus,
+        customCharacterUnits, customUnit
+    );
 
-    // Helper: calculate custom bonus for a deck's cards (including masterRank bonus)
-    const calcDeckCustomBonus = (cards: DeckCardLite[]): number => {
-        let totalCustomBonus = 0;
-        for (const card of cards) {
-            const info = cardInfoMap.get(card.cardId);
-            if (!info) continue;
-            // Unit bonus
-            if (customUnit && CUSTOM_UNIT_MAP[customUnit] && info.units.includes(CUSTOM_UNIT_MAP[customUnit])) {
-                totalCustomBonus += customUnitBonus;
-            }
-            // Attr bonus
-            if (customAttr && info.attr === customAttr) {
-                totalCustomBonus += customAttrBonus;
-            }
-            // MasterRank bonus (from eventRarityBonusRates)
-            const masterRank = card.masterRank ?? userCardMasterRankMap.get(card.cardId) ?? 0;
-            const mrKey = `${info.cardRarityType}_${masterRank}`;
-            const mrBonus = masterRankBonusMap.get(mrKey) ?? 0;
-            totalCustomBonus += mrBonus;
-        }
-        return totalCustomBonus;
-    };
-
-    // Inline event PT formula (from EventCalculator.getEventPoint)
-    // Produces proper PT values (~1k range) instead of raw live scores (millions)
-    const customScoreFunc = (meta: LiveScoreMetaInput, deckDetail: LiveScoreDeckInput) => {
-        // Get raw live score
-        const selfScore = LiveCalculator.getLiveScoreByDeck(deckDetail, meta, computedLiveType);
-        // Calculate custom bonus for this deck
-        const totalCustomBonus = calcDeckCustomBonus(deckDetail.cards || []);
-
+    // 自定义 scoreFunc：复用活动PT公式（EventCalculator.getEventPoint 逻辑）
+    // 安全处理 eventBonus 为 undefined 的情况（未匹配任何规则的卡牌）
+    const customScoreFunc = (meta: MusicMeta, deckDetail: DeckResultLite) => {
+        const selfScore = LiveCalculator.getLiveScoreByDeck(
+            deckDetail as unknown as Parameters<typeof LiveCalculator.getLiveScoreByDeck>[0],
+            meta, computedLiveType
+        );
+        const deckBonus = (deckDetail.eventBonus ?? 0) + (deckDetail.supportDeckBonus ?? 0);
         const musicRate0 = (meta.event_rate || 100) / 100;
-        const deckRate = totalCustomBonus / 100 + 1;
+        const deckRate = deckBonus / 100 + 1;
 
         let baseScore: number;
         if (computedLiveType === LiveType.SOLO || computedLiveType === LiveType.AUTO) {
-            // Solo/Auto: 100 + floor(selfScore / 20000)
             baseScore = 100 + Math.floor(selfScore / 20000);
         } else {
-            // Multi: 110 + floor(selfScore / 17000) + min(13, floor(4*selfScore / 340000))
             const otherScore = 4 * selfScore;
             baseScore = 110 + Math.floor(selfScore / 17000) + Math.min(13, Math.floor(otherScore / 340000));
         }
-
         return Math.floor(baseScore * musicRate0 * deckRate);
     };
 
-    // Build CustomBonusConfig from rules if provided
-    const customBonuses: CustomBonusConfig | undefined =
-        customBonusRules && customBonusRules.length > 0
-            ? { rules: customBonusRules }
-            : undefined;
-
+    const baseRecommend = new BaseDeckRecommend(dataProvider);
     const result = (await baseRecommend.recommendHighScoreDeck(
         userCards as unknown as UserCard[],
-        customScoreFunc,
+        customScoreFunc as any,
         {
             musicMeta,
             limit: 10,
@@ -690,42 +648,16 @@ async function runCustomMode(
             },
         },
         computedLiveType,
-        { customBonuses } // pass custom bonuses via eventConfig
+        // 通过 EventConfig.customBonuses 传递，库会在 CardCalculator.getCardDetail 中
+        // 调用 CardCustomBonusCalculator.applyCustomBonus 为每张卡计算自定义加成
+        { customBonuses }
     )) as unknown as DeckResultLite[];
 
-    // Enrich results with custom bonus info for display
+    // 结果中 eventBonus 已由库计算（来自 CustomBonusConfig 规则匹配），直接使用
     const enriched = result.map((deck) => {
-        let totalCustomBonus = 0;
-        const cards = deck.cards || [];
-        const enrichedCards = cards.map((card) => {
-            const info = cardInfoMap.get(card.cardId);
-            let cardBonus = 0;
-            if (info) {
-                // Unit bonus
-                if (customUnit && CUSTOM_UNIT_MAP[customUnit] && info.units.includes(CUSTOM_UNIT_MAP[customUnit])) {
-                    cardBonus += customUnitBonus;
-                }
-                // Attr bonus
-                if (customAttr && info.attr === customAttr) {
-                    cardBonus += customAttrBonus;
-                }
-                // MasterRank bonus
-                const masterRank = card.masterRank ?? userCardMasterRankMap.get(card.cardId) ?? 0;
-                const mrKey = `${info.cardRarityType}_${masterRank}`;
-                const mrBonus = masterRankBonusMap.get(mrKey) ?? 0;
-                cardBonus += mrBonus;
-            }
-            totalCustomBonus += cardBonus;
-            return {
-                ...card,
-                eventBonus: cardBonus > 0 ? `${cardBonus}%` : undefined,
-            };
-        });
-
+        const totalCustomBonus = deck.eventBonus ?? 0;
         return {
             ...deck,
-            cards: enrichedCards,
-            // deck.score is already the PT from EventCalculator.getEventPoint
             eventBonus: totalCustomBonus,
             customBonus: totalCustomBonus,
         };

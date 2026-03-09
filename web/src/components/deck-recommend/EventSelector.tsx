@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Image from "next/image";
 import { IEventInfo, IEventDeckBonus, EventType } from "@/types/events";
 import { fetchMasterData } from "@/lib/fetch";
@@ -24,10 +24,11 @@ function getBaseCharacterId(id: number): number {
 
 interface EventSelectorProps {
     selectedEventId: string;
-    onSelect: (eventId: string) => void;
+    onSelect: (eventId: string, eventType?: string) => void;
+    onEventTypeChange?: (eventType: string | null) => void;
 }
 
-export default function EventSelector({ selectedEventId, onSelect }: EventSelectorProps) {
+export default function EventSelector({ selectedEventId, onSelect, onEventTypeChange }: EventSelectorProps) {
     const { assetSource } = useTheme();
     const [events, setEvents] = useState<IEventInfo[]>([]);
     const [deckBonuses, setDeckBonuses] = useState<IEventDeckBonus[]>([]);
@@ -126,8 +127,13 @@ export default function EventSelector({ selectedEventId, onSelect }: EventSelect
         return events.find(e => e.id.toString() === selectedEventId) || null;
     }, [events, selectedEventId]);
 
+    // Notify parent of event type when selected event resolves (including initial load)
+    useEffect(() => {
+        onEventTypeChange?.(selectedEvent?.eventType ?? null);
+    }, [selectedEvent, onEventTypeChange]);
+
     const handleSelect = (event: IEventInfo) => {
-        onSelect(event.id.toString());
+        onSelect(event.id.toString(), event.eventType);
         setModalOpen(false);
     };
 
