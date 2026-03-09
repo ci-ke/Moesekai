@@ -112,10 +112,21 @@ interface DeckRecommendWorkerArgs {
     customAttr?: string;
     customUnitBonus?: number;
     customAttrBonus?: number;
+    customBonusRules?: CustomBonusRuleUI[];
+    leaderCharacter?: number;
+    strongestTarget?: StrongestTarget;
 }
 
-type DeckMode = "event" | "challenge" | "mysekai" | "custom";
+type DeckMode = "event" | "challenge" | "mysekai" | "custom" | "strongest";
 type ServerType = "jp" | "cn" | "tw";
+type StrongestTarget = "power" | "skill";
+
+interface CustomBonusRuleUI {
+    id: string;
+    unit: string;
+    attr: string;
+    bonusRate: number;
+}
 
 const SERVER_OPTIONS: { value: ServerType; label: string }[] = [
     { value: "cn", label: "简中服 (CN)" },
@@ -127,6 +138,7 @@ const MODE_OPTIONS: { value: DeckMode; label: string; desc: string }[] = [
     { value: "event", label: "活动", desc: "活动PT最高" },
     { value: "challenge", label: "挑战Live", desc: "分数最高" },
     { value: "mysekai", label: "烤森", desc: "烤森PT最高" },
+    { value: "strongest", label: "最强组卡", desc: "综合力/技能实效最高" },
     { value: "custom", label: "自定义", desc: "自定义团体/属性加成" },
 ];
 
@@ -304,6 +316,10 @@ export default function DeckRecommendClient() {
     const [customAttr, setCustomAttr] = useState("");
     const [customUnitBonus, setCustomUnitBonus] = useState(25);
     const [customAttrBonus, setCustomAttrBonus] = useState(25);
+    const [customBonusRules, setCustomBonusRules] = useState<CustomBonusRuleUI[]>([]);
+    const [leaderCharacterId, setLeaderCharacterId] = useState<number | null>(null);
+    const [showLeaderSelect, setShowLeaderSelect] = useState(false);
+    const [strongestTarget, setStrongestTarget] = useState<StrongestTarget>("power");
     const [isCalculating, setIsCalculating] = useState(false);
     const [results, setResults] = useState<DeckResult[] | null>(null);
     const [challengeHighScore, setChallengeHighScore] = useState<ChallengeHighScoreInfo | null>(null);
@@ -423,6 +439,16 @@ export default function DeckRecommendClient() {
             queuedUpdates.push(() => setCustomAttrBonus(customAttrBonusParam));
         }
 
+        const leaderCharacterParam = parsePositiveInt(searchParams.get("leaderCharacter"));
+        if (leaderCharacterParam !== null) {
+            queuedUpdates.push(() => { setShowLeaderSelect(true); setLeaderCharacterId(leaderCharacterParam); });
+        }
+
+        const strongestTargetParam = searchParams.get("strongestTarget");
+        if (strongestTargetParam === "power" || strongestTargetParam === "skill") {
+            queuedUpdates.push(() => setStrongestTarget(strongestTargetParam));
+        }
+
         const expandConfigParam = searchParams.get("expandConfig");
         if (expandConfigParam === "1" || expandConfigParam === "true") {
             queuedUpdates.push(() => setShowCardConfig(true));
@@ -441,7 +467,7 @@ export default function DeckRecommendClient() {
 
     const needsMusic = mode !== "mysekai";
     const needsEvent = mode === "event" || mode === "mysekai";
-    const scoreLabel = mode === "mysekai" ? "烤森PT" : mode === "challenge" ? "分数" : "PT";
+    const scoreLabel = mode === "mysekai" ? "烤森PT" : mode === "challenge" ? "分数" : mode === "strongest" ? (strongestTarget === "skill" ? "实效值" : "综合力") : "PT";
     const canAutoCalculateInScreenshot =
         isScreenshotMode &&
         !!userId.trim() &&
@@ -467,12 +493,19 @@ export default function DeckRecommendClient() {
             mode, userId: userId.trim(), server, musicId: musicId ? parseInt(musicId) : 0, difficulty,
             characterId: characterId || undefined, eventId: eventId ? parseInt(eventId) : undefined,
             liveType, supportCharacterId: supportCharacterId || undefined, cardConfig: configForCalc,
+            leaderCharacter: showLeaderSelect && leaderCharacterId ? leaderCharacterId : undefined,
         };
         if (mode === "custom") {
             workerArgs.customUnit = customUnit || undefined;
             workerArgs.customAttr = customAttr || undefined;
             workerArgs.customUnitBonus = customUnitBonus;
             workerArgs.customAttrBonus = customAttrBonus;
+            if (customBonusRules.length > 0) {
+                workerArgs.customBonusRules = customBonusRules;
+            }
+        }
+        if (mode === "strongest") {
+            workerArgs.strongestTarget = strongestTarget;
         }
 
         if (workerRef.current) workerRef.current.terminate();
@@ -500,7 +533,7 @@ export default function DeckRecommendClient() {
             worker.terminate(); workerRef.current = null;
         };
         worker.postMessage({ args: workerArgs });
-    }, [userId, server, mode, characterId, eventId, liveType, supportCharacterId, musicId, difficulty, cardConfig, needsMusic, needsEvent, customUnit, customAttr, customUnitBonus, customAttrBonus]);
+    }, [userId, server, mode, characterId, eventId, liveType, supportCharacterId, musicId, difficulty, cardConfig, needsMusic, needsEvent, customUnit, customAttr, customUnitBonus, customAttrBonus, customBonusRules, leaderCharacterId, showLeaderSelect, strongestTarget]);
 
     const handleCancel = useCallback(() => {
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null; }
@@ -528,6 +561,9 @@ export default function DeckRecommendClient() {
             customAttr,
             customUnitBonus,
             customAttrBonus,
+            leaderCharacterId ?? "",
+            showLeaderSelect,
+            strongestTarget,
         ].join("|");
 
         if (autoCalculateKeyRef.current === autoCalculateKey) return;
@@ -552,6 +588,9 @@ export default function DeckRecommendClient() {
         customAttr,
         customUnitBonus,
         customAttrBonus,
+        leaderCharacterId,
+        showLeaderSelect,
+        strongestTarget,
         handleCalculate,
     ]);
 
@@ -643,6 +682,49 @@ export default function DeckRecommendClient() {
                         </div>
                     )}
 
+                    {/* Strongest Mode */}
+                    {mode === "strongest" && (
+                        <div className="mb-5">
+                            <label className="block text-sm font-medium text-slate-700 mb-2">优化目标</label>
+                            <div className="flex gap-2 flex-wrap">
+                                <button onClick={() => setStrongestTarget("power")}
+                                    className={`px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-300 ${strongestTarget === "power" ? "bg-gradient-to-r from-miku to-miku-dark text-white shadow-lg shadow-miku/20" : "bg-white/60 text-slate-600 hover:bg-white/80 border border-slate-200/50"}`}>
+                                    💪 综合力最高
+                                </button>
+                                <button onClick={() => setStrongestTarget("skill")}
+                                    className={`px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-300 ${strongestTarget === "skill" ? "bg-gradient-to-r from-miku to-miku-dark text-white shadow-lg shadow-miku/20" : "bg-white/60 text-slate-600 hover:bg-white/80 border border-slate-200/50"}`}>
+                                    ✨ 技能实效最高
+                                </button>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1.5">
+                                {strongestTarget === "power" ? "以卡组总综合力为目标，不考虑活动加成" : "以多人Live技能实效为主、综合力为辅的复合评分"}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Leader Character (all modes except challenge which has its own) */}
+                    {mode !== "challenge" && (
+                        <div className="mb-5">
+                            <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/50">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm text-slate-700 font-medium">固定队长角色</span>
+                                        <span className="text-slate-400 text-xs text-left">指定某个角色必须作为队长（C位）</span>
+                                    </div>
+                                    <button onClick={() => { setShowLeaderSelect(!showLeaderSelect); if (showLeaderSelect) setLeaderCharacterId(null); }}
+                                        className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${showLeaderSelect ? 'bg-miku' : 'bg-slate-200'}`}>
+                                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${showLeaderSelect ? 'translate-x-5' : 'translate-x-0'}`} />
+                                    </button>
+                                </div>
+                                {showLeaderSelect && (
+                                    <div className="mt-4 pt-3 border-t border-slate-200/50">
+                                        <CharacterSelector selectedCharacterId={leaderCharacterId} onSelect={setLeaderCharacterId} />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Event / Mysekai Mode */}
                     {needsEvent && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
@@ -721,7 +803,7 @@ export default function DeckRecommendClient() {
                                         </div>
                                     )}
                                 </div>
-                                <div className="mb-2">
+                                <div className="mb-4">
                                     <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">属性加成</label>
                                     <div className="flex flex-wrap gap-2 mb-2">
                                         {ATTR_OPTIONS.map((a) => (
@@ -743,8 +825,47 @@ export default function DeckRecommendClient() {
                                         </div>
                                     )}
                                 </div>
-                                {!customUnit && !customAttr && (
-                                    <p className="text-xs text-slate-400 mt-2">请至少选择一个团体或属性加成</p>
+
+                                {/* Advanced: Custom Bonus Rules */}
+                                <div className="mt-3 pt-3 border-t border-indigo-200/50">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">高级加成规则</label>
+                                        <button onClick={() => setCustomBonusRules([...customBonusRules, { id: Date.now().toString(), unit: "any", attr: "any", bonusRate: 25 }])}
+                                            className="text-xs text-miku hover:text-miku-dark font-medium transition-colors flex items-center gap-1">
+                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                            添加规则
+                                        </button>
+                                    </div>
+                                    {customBonusRules.length > 0 && (
+                                        <div className="space-y-2">
+                                            {customBonusRules.map((rule, idx) => (
+                                                <div key={rule.id} className="flex items-center gap-2 bg-white/60 rounded-lg p-2">
+                                                    <select value={rule.unit} onChange={(e) => { const r = [...customBonusRules]; r[idx] = { ...r[idx], unit: e.target.value }; setCustomBonusRules(r); }}
+                                                        className="text-xs px-2 py-1 rounded border border-slate-200 bg-white">
+                                                        <option value="any">全部团体</option>
+                                                        {UNIT_OPTIONS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+                                                    </select>
+                                                    <select value={rule.attr} onChange={(e) => { const r = [...customBonusRules]; r[idx] = { ...r[idx], attr: e.target.value }; setCustomBonusRules(r); }}
+                                                        className="text-xs px-2 py-1 rounded border border-slate-200 bg-white">
+                                                        <option value="any">全部属性</option>
+                                                        {ATTR_OPTIONS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+                                                    </select>
+                                                    <input type="number" value={rule.bonusRate} onChange={(e) => { const r = [...customBonusRules]; r[idx] = { ...r[idx], bonusRate: Number(e.target.value) }; setCustomBonusRules(r); }}
+                                                        className="w-16 px-2 py-1 rounded border border-slate-200 text-xs text-center" min={0} max={200} />
+                                                    <span className="text-xs text-slate-400">%</span>
+                                                    <button onClick={() => setCustomBonusRules(customBonusRules.filter((_, i) => i !== idx))}
+                                                        className="text-red-400 hover:text-red-600 transition-colors p-0.5">
+                                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            <p className="text-[10px] text-slate-400">高级规则会通过计算库的 CustomBonusConfig 传递，与上方基础加成独立生效</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {!customUnit && !customAttr && customBonusRules.length === 0 && (
+                                    <p className="text-xs text-slate-400 mt-2">请至少选择一个团体或属性加成，或添加高级规则</p>
                                 )}
                             </div>
                         </div>
@@ -937,7 +1058,7 @@ function DeckResultRow({ deck, rank, getCardMaster, mode, userCards, scoreLabel,
                             <div className="text-xs text-slate-400">{scoreLabel}</div>
                             <div className="font-bold text-primary-text text-sm">{Math.floor(deck.score).toLocaleString()}</div>
                         </div>
-                        {effectiveSkill > 0 && mode !== "challenge" && mode !== "mysekai" && (
+                        {effectiveSkill > 0 && mode !== "challenge" && mode !== "mysekai" && mode !== "strongest" && (
                             <div className="flex-shrink-0 min-w-[60px]">
                                 <div className="text-xs text-slate-400">实效值</div>
                                 <div className="font-bold text-emerald-600 text-sm">{effectiveSkill.toFixed(1)}%</div>
