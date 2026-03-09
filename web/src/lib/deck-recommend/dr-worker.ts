@@ -10,11 +10,13 @@ import {
     type CardConfig,
     CachedDataProvider,
     ChallengeLiveDeckRecommend,
+    type CustomBonusConfig,
     DataProvider,
     EventDeckRecommend,
     LiveCalculator,
     LiveType,
     MusicMeta,
+    RecommendTarget,
     type UserCard,
 } from "sekai-calculator";
 
@@ -289,7 +291,7 @@ class SnowyDataProvider implements DataProvider {
 // Types
 
 export interface WorkerInput {
-    mode: "challenge" | "event" | "mysekai" | "custom";
+    mode: "challenge" | "event" | "mysekai" | "custom" | "strongest";
     userId: string;
     server: string;
     musicId: number;
@@ -307,6 +309,12 @@ export interface WorkerInput {
     customAttrBonus?: number;
     customUnit?: string;
     customAttr?: string;
+    // Custom bonus rules (used in custom mode with CustomBonusConfig)
+    customBonusRules?: Array<{ unit: string; attr?: string; bonusRate: number; characterId?: number; supportUnit?: string }>;
+    // Leader character (all modes)
+    leaderCharacter?: number;
+    // Strongest mode target
+    strongestTarget?: "power" | "skill";
 }
 
 export interface WorkerOutput {
@@ -327,12 +335,24 @@ function sendProgress(stage: string, percent: number, stageLabel: string) {
     postMessage({ type: "progress", stage, percent, stageLabel });
 }
 
+/** Map liveType string to LiveType enum */
+function parseLiveType(liveTypeStr?: string): LiveType {
+    switch (liveTypeStr) {
+        case "solo": return LiveType.SOLO;
+        case "auto": return LiveType.AUTO;
+        case "cheerful": return LiveType.CHEERFUL;
+        case "multi":
+        default: return LiveType.MULTI;
+    }
+}
+
 async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
     const {
         mode, userId, server, musicId, difficulty,
         characterId, cardConfig,
         eventId, liveType: liveTypeStr, supportCharacterId,
         customUnitBonus, customAttrBonus, customUnit, customAttr,
+        customBonusRules, leaderCharacter, strongestTarget,
     } = args;
 
     sendProgress("fetching", 5, "正在获取用户数据...");
@@ -363,6 +383,11 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
         return await runCustomMode(args, dataProvider, userCards, uploadTime);
     }
 
+    // Strongest mode: pure power or skill optimization, no event
+    if (mode === "strongest") {
+        return await runStrongestMode(args, dataProvider, userCards, uploadTime);
+    }
+
     const liveCalculator = new LiveCalculator(dataProvider);
     const musicMeta = await liveCalculator.getMusicMeta(musicId, difficulty);
 
@@ -388,6 +413,7 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
                 limit: 10,
                 member: 5,
                 cardConfig,
+                leaderCharacter: leaderCharacter || undefined,
                 debugLog: (str: string) => {
                     console.log("[Worker]", str);
                 },
@@ -408,23 +434,7 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
     // Event mode
     if (!eventId) throw new Error("eventId is required for event mode");
 
-    // Map liveType string to enum
-    let computedLiveType: LiveType;
-    switch (liveTypeStr) {
-        case "solo":
-            computedLiveType = LiveType.SOLO;
-            break;
-        case "auto":
-            computedLiveType = LiveType.AUTO;
-            break;
-        case "cheerful":
-            computedLiveType = LiveType.CHEERFUL;
-            break;
-        case "multi":
-        default:
-            computedLiveType = LiveType.MULTI;
-            break;
-    }
+    let computedLiveType = parseLiveType(liveTypeStr);
 
     // Check event type for cheerful carnival conversion
     const events = await dataProvider.getMasterData<EventInfoLite>("events");
@@ -445,6 +455,7 @@ async function deckRecommendRunner(args: WorkerInput): Promise<WorkerOutput> {
             musicMeta,
             limit: 10,
             cardConfig,
+            leaderCharacter: leaderCharacter || undefined,
             debugLog: (str: string) => {
                 console.log("[Worker]", str);
             },
@@ -470,7 +481,7 @@ async function runMysekaiMode(
     userCards: UserCardEntry[],
     uploadTime: number | undefined
 ): Promise<WorkerOutput> {
-    const { eventId, supportCharacterId, cardConfig } = args;
+    const { eventId, supportCharacterId, cardConfig, leaderCharacter } = args;
     if (!eventId) throw new Error("eventId is required for mysekai mode");
 
     sendProgress("calculating", 40, "烤森组卡计算中...");
@@ -497,6 +508,7 @@ async function runMysekaiMode(
             musicMeta: dummyMusicMeta,
             limit: 10,
             cardConfig,
+            leaderCharacter: leaderCharacter || undefined,
             debugLog: (str: string) => {
                 console.log("[Worker:Mysekai]", str);
             },
@@ -557,6 +569,7 @@ async function runCustomMode(
     const {
         musicId, difficulty, cardConfig, liveType: liveTypeStr,
         customUnitBonus = 0, customAttrBonus = 0, customUnit, customAttr,
+        customBonusRules, leaderCharacter,
     } = args;
 
     sendProgress("calculating", 40, "自定义组卡计算中...");
@@ -564,13 +577,7 @@ async function runCustomMode(
     const liveCalculator = new LiveCalculator(dataProvider);
     const musicMeta = await liveCalculator.getMusicMeta(musicId, difficulty);
 
-    let computedLiveType: LiveType;
-    switch (liveTypeStr) {
-        case "solo": computedLiveType = LiveType.SOLO; break;
-        case "auto": computedLiveType = LiveType.AUTO; break;
-        case "cheerful": computedLiveType = LiveType.CHEERFUL; break;
-        default: computedLiveType = LiveType.MULTI; break;
-    }
+    const computedLiveType = parseLiveType(liveTypeStr);
 
     // Build card info lookup: cardId -> { units: string[], attr: string, cardRarityType: string }
     const masterCards = await dataProvider.getMasterData<CardMasterLite>("cards");
@@ -664,6 +671,12 @@ async function runCustomMode(
         return Math.floor(baseScore * musicRate0 * deckRate);
     };
 
+    // Build CustomBonusConfig from rules if provided
+    const customBonuses: CustomBonusConfig | undefined =
+        customBonusRules && customBonusRules.length > 0
+            ? { rules: customBonusRules }
+            : undefined;
+
     const result = (await baseRecommend.recommendHighScoreDeck(
         userCards as unknown as UserCard[],
         customScoreFunc,
@@ -671,12 +684,13 @@ async function runCustomMode(
             musicMeta,
             limit: 10,
             cardConfig,
+            leaderCharacter: leaderCharacter || undefined,
             debugLog: (str: string) => {
                 console.log("[Worker:Custom]", str);
             },
         },
         computedLiveType,
-        {} // empty eventConfig - no event bonuses
+        { customBonuses } // pass custom bonuses via eventConfig
     )) as unknown as DeckResultLite[];
 
     // Enrich results with custom bonus info for display
@@ -721,6 +735,64 @@ async function runCustomMode(
     return {
         type: "result",
         result: enriched,
+        userCards,
+        duration: currentDuration.done(),
+        upload_time: uploadTime,
+    };
+}
+
+// ==================== STRONGEST MODE ====================
+
+async function runStrongestMode(
+    args: WorkerInput,
+    dataProvider: CachedDataProvider,
+    userCards: UserCardEntry[],
+    uploadTime: number | undefined
+): Promise<WorkerOutput> {
+    const {
+        musicId, difficulty, cardConfig, liveType: liveTypeStr,
+        leaderCharacter, strongestTarget = "power",
+    } = args;
+
+    sendProgress("calculating", 40, "最强组卡计算中...");
+
+    const liveCalculator = new LiveCalculator(dataProvider);
+    const musicMeta = await liveCalculator.getMusicMeta(musicId, difficulty);
+    const computedLiveType = parseLiveType(liveTypeStr);
+
+    const target = strongestTarget === "skill"
+        ? RecommendTarget.Skill
+        : RecommendTarget.Power;
+
+    sendProgress("calculating", 55, `${strongestTarget === "skill" ? "技能实效" : "综合力"}最优计算中...`);
+
+    const currentDuration = calcDuration();
+    const baseRecommend = new BaseDeckRecommend(dataProvider);
+
+    // Use a dummy scoreFunc — it will be overridden by target in recommendHighScoreDeck
+    const dummyScoreFunc = (_meta: MusicMeta, _deck: unknown) => 0;
+
+    const result = (await baseRecommend.recommendHighScoreDeck(
+        userCards as unknown as UserCard[],
+        dummyScoreFunc as any,
+        {
+            musicMeta,
+            limit: 10,
+            cardConfig,
+            leaderCharacter: leaderCharacter || undefined,
+            target,
+            debugLog: (str: string) => {
+                console.log("[Worker:Strongest]", str);
+            },
+        },
+        computedLiveType,
+        {} // no event config
+    )) as unknown as DeckResultLite[];
+
+    sendProgress("done", 100, "计算完成");
+    return {
+        type: "result",
+        result,
         userCards,
         duration: currentDuration.done(),
         upload_time: uploadTime,
