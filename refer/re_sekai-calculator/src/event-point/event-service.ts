@@ -11,6 +11,7 @@ import {
 } from '../master-data/event-mysekai-fixture-game-character-performance-bonus-limit'
 import type { GameCharacter } from '../master-data/game-character'
 import { type WorldBloom } from '../master-data/world-bloom'
+import type { CustomBonusConfig } from '../common/custom-bonus'
 
 export class EventService {
   public constructor (private readonly dataProvider: DataProvider) {
@@ -234,4 +235,10 @@ export interface EventConfig {
    * 支援角色组合，和specialCharacterId保持一致（用于World Link活动）
    */
   worldBloomSupportUnit?: string
+
+  /**
+   * 自定义加成配置
+   * 允许用户为不同组合/角色指定额外的活动加成
+   */
+  customBonuses?: CustomBonusConfig
 }

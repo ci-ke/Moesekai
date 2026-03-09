@@ -12,6 +12,7 @@ export * from './event-point/event-service'
 export * from './card-information/card-calculator'
 export * from './card-information/card-power-calculator'
 export * from './card-information/card-skill-calculator'
+export * from './card-information/card-custom-bonus-calculator'
 export * from './deck-information/deck-calculator'
 export * from './event-point/card-event-calculator'
 export * from './event-point/event-calculator'
@@ -34,6 +35,7 @@ export * from './mysekai-information/mysekai-event-calculator'
 
 // Common struct
 export * from './common/music-meta'
+export * from './common/custom-bonus'
 
 // Master data struct
 export * from './master-data/area'

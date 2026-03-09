@@ -15,6 +15,8 @@ import { type MysekaiGateBonus, MysekaiService } from '../mysekai-information/my
 import { type CardDetailMapPower } from './card-detail-map-power'
 import { type CardDetailMapSkill } from './card-detail-map-skill'
 import { type CardDetailMapEventBonus } from './card-detail-map-event-bonus'
+import { type CustomBonusConfig } from '../common/custom-bonus'
+import { CardCustomBonusCalculator } from './card-custom-bonus-calculator'
 
 export class CardCalculator {
   private readonly powerCalculator: CardPowerCalculator
@@ -74,9 +76,16 @@ export class CardCalculator {
     const power =
       await this.powerCalculator.getCardPower(
         userCard0, card, units, userAreaItemLevels, hasCanvasBonus, userGateBonuses, eventConfig.mysekaiFixtureLimit)
-    const eventBonus = eventId === 0
+    let eventBonus = eventId === 0
       ? undefined
       : await this.eventCalculator.getCardEventBonus(userCard0, eventId)
+
+    // 应用自定义加成
+    if (eventConfig.customBonuses !== undefined) {
+      eventBonus = CardCustomBonusCalculator.applyCustomBonus(
+        eventBonus, card, eventConfig.customBonuses)
+    }
+
     const supportDeckBonus =
       await this.bloomEventCalculator.getCardSupportDeckBonus(userCard0, card, units, eventConfig)
     return {

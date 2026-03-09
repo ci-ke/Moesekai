@@ -214,6 +214,15 @@ export class BaseDeckRecommend {
     eventConfig: EventConfig = {}
   ): Promise<RecommendDeck[]> {
     const { eventType = EventType.NONE, eventUnit, specialCharacterId, worldBloomType, worldBloomSupportUnit } = eventConfig
+
+    // 根据推荐目标覆盖 scoreFunc
+    let effectiveScoreFunc = scoreFunc
+    if (target === RecommendTarget.Power) {
+      effectiveScoreFunc = (_musicMeta, deckDetail) => deckDetail.power.total
+    } else if (target === RecommendTarget.Skill) {
+      effectiveScoreFunc = (_musicMeta, deckDetail) => deckDetail.multiLiveScoreUp * 10000 + deckDetail.power.total
+    }
+
     const honorBonus = await this.deckCalculator.getHonorBonusPower()
     const areaItemLevels = await this.areaItemService.getAreaItemLevels()
     let cards =
@@ -246,10 +255,11 @@ export class BaseDeckRecommend {
 
       // GA 不需要 filterCardPriority，直接用全部卡牌
       const gaResult = findBestCardsGA(
-        cards, cards, scoreFunc, musicMeta, limit,
+        cards, cards, effectiveScoreFunc, musicMeta, limit,
         liveType === LiveType.CHALLENGE, member, honorBonus, eventConfig,
         { ...gaConfig, timeoutMs: Math.max(1000, timeoutMs - (Date.now() - startTime)) },
-        skillReferenceChooseStrategy, keepAfterTrainingState, bestSkillAsLeader
+        skillReferenceChooseStrategy, keepAfterTrainingState, bestSkillAsLeader,
+        leaderCharacter
       )
 
       if (gaResult.length >= limit) {
@@ -275,7 +285,7 @@ export class BaseDeckRecommend {
 
         const dfsState = new DFSState(Math.max(1000, timeoutMs - (Date.now() - startTime)))
         const recommend = BaseDeckRecommend.findBestCardsDFS(cards0, cards,
-          deckDetail => scoreFunc(musicMeta, deckDetail), limit, liveType === LiveType.CHALLENGE, member,
+          deckDetail => effectiveScoreFunc(musicMeta, deckDetail), limit, liveType === LiveType.CHALLENGE, member,
           leaderCharacter, honorBonus, eventConfig,
           skillReferenceChooseStrategy, keepAfterTrainingState, bestSkillAsLeader,
           [], dfsState)
@@ -302,7 +312,7 @@ export class BaseDeckRecommend {
 
       const dfsState = new DFSState(Math.max(1000, timeoutMs - (Date.now() - startTime)))
       const recommend = BaseDeckRecommend.findBestCardsDFS(cards0, cards,
-        deckDetail => scoreFunc(musicMeta, deckDetail), limit, liveType === LiveType.CHALLENGE, member,
+        deckDetail => effectiveScoreFunc(musicMeta, deckDetail), limit, liveType === LiveType.CHALLENGE, member,
         leaderCharacter, honorBonus, eventConfig,
         skillReferenceChooseStrategy, keepAfterTrainingState, bestSkillAsLeader,
         [], dfsState)

@@ -121,7 +121,8 @@ export function findBestCardsGA (
   gaConfig: GAConfig = {},
   skillReferenceChooseStrategy: SkillReferenceChooseStrategy = SkillReferenceChooseStrategy.Average,
   keepAfterTrainingState: boolean = false,
-  bestSkillAsLeader: boolean = true
+  bestSkillAsLeader: boolean = true,
+  leaderCharacter: number = 0
 ): RecommendDeck[] {
   const cfg = { ...DEFAULT_GA_CONFIG, ...gaConfig }
 
@@ -170,6 +171,18 @@ export function findBestCardsGA (
 
   // 评估个体
   const evaluateIndividual = (individual: Individual): void => {
+    // 如果指定了队长角色，确保队长在第一位
+    if (leaderCharacter > 0) {
+      const leaderIdx = individual.deck.findIndex(c => c.characterId === leaderCharacter)
+      if (leaderIdx < 0) {
+        individual.fitness = -1
+        return
+      }
+      if (leaderIdx !== 0) {
+        swap(individual.deck, 0, leaderIdx)
+      }
+    }
+
     const hash = calcDeckHash(individual.deck)
     individual.deckHash = hash
 
@@ -178,15 +191,17 @@ export function findBestCardsGA (
       return
     }
 
-    // 找最佳C位（技能最高的放C位）
-    let bestSkillIdx = 0
-    for (let i = 1; i < individual.deck.length; i++) {
-      if (individual.deck[bestSkillIdx].skill.isCertainlyLessThen(individual.deck[i].skill)) {
-        bestSkillIdx = i
+    // 找最佳C位（技能最高的放C位），仅在未指定队长时执行
+    if (leaderCharacter <= 0) {
+      let bestSkillIdx = 0
+      for (let i = 1; i < individual.deck.length; i++) {
+        if (individual.deck[bestSkillIdx].skill.isCertainlyLessThen(individual.deck[i].skill)) {
+          bestSkillIdx = i
+        }
       }
-    }
-    if (bestSkillIdx !== 0) {
-      swap(individual.deck, 0, bestSkillIdx)
+      if (bestSkillIdx !== 0) {
+        swap(individual.deck, 0, bestSkillIdx)
+      }
     }
 
     const deckDetail = DeckCalculator.getDeckDetailByCards(
@@ -220,14 +235,28 @@ export function findBestCardsGA (
       }
       if (validCharas.length < member) return null
 
-      // 随机打乱并取前 member 个
+      // 如果指定了队长角色，先选入队长
+      if (leaderCharacter > 0) {
+        if (charaCards[leaderCharacter] === undefined || charaCards[leaderCharacter].length === 0) return null
+        const leaderCards = charaCards[leaderCharacter]
+        deck.push(leaderCards[rng.nextInt(leaderCards.length)])
+        usedCharas.add(leaderCharacter)
+        // 从可选角色中移除队长角色
+        const leaderIdx = validCharas.indexOf(leaderCharacter)
+        if (leaderIdx >= 0) validCharas.splice(leaderIdx, 1)
+      }
+
+      if (validCharas.length < member - deck.length) return null
+
+      // 随机打乱并取剩余位置
       for (let i = validCharas.length - 1; i > 0; i--) {
         const j = rng.nextInt(i + 1)
         const tmp = validCharas[i]
         validCharas[i] = validCharas[j]
         validCharas[j] = tmp
       }
-      const selectedCharas = validCharas.slice(0, member)
+      const remaining = member - deck.length
+      const selectedCharas = validCharas.slice(0, remaining)
 
       for (const chara of selectedCharas) {
         const cards = charaCards[chara]
@@ -315,6 +344,17 @@ export function findBestCardsGA (
   const mutate = (individual: Individual, mutationRate: number): void => {
     for (let pos = 0; pos < individual.deck.length; pos++) {
       if (rng.next() > mutationRate) continue
+
+      // 如果指定了队长角色，队长位只能在同角色内换卡
+      if (leaderCharacter > 0 && pos === 0) {
+        const cards = charaCards[leaderCharacter]
+        if (cards.length <= 1) continue
+        const newCard = cards[rng.nextInt(cards.length)]
+        if (newCard.cardId !== individual.deck[0].cardId) {
+          individual.deck[0] = newCard
+        }
+        continue
+      }
 
       // 尝试替换
       for (let attempt = 0; attempt < 10; attempt++) {
