@@ -17,6 +17,11 @@ interface SearchIndexItem {
     c?: number;   // characterId (cards only)
 }
 
+// Search result with matched alias info
+interface SearchResultItem extends SearchIndexItem {
+    matchedAlias?: string; // The alias that matched the search query
+}
+
 interface CommandPaletteProps {
     isOpen: boolean;
     onClose: () => void;
@@ -132,42 +137,48 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         if (!qStr || !searchIndex) return [];
         const q = qStr.toLowerCase();
 
-        const matched = searchIndex.filter((item) => {
+        const matched: SearchResultItem[] = searchIndex.map((item) => {
             const idStr = item.id.toString();
             if (searchRegex) {
-                if (searchRegex.test(idStr)) return true;
-                if (searchRegex.test(item.n)) return true;
-                if (item.cn && searchRegex.test(item.cn)) return true;
+                if (searchRegex.test(idStr)) return { ...item };
+                if (searchRegex.test(item.n)) return { ...item };
+                if (item.cn && searchRegex.test(item.cn)) return { ...item };
                 if (item.c) {
                     const charName = CHARACTER_NAMES[item.c];
-                    if (charName && searchRegex.test(charName)) return true;
+                    if (charName && searchRegex.test(charName)) return { ...item };
                 }
                 // Match music aliases
                 if (item.g === "music" && musicAliasesMap) {
                     const aliases = musicAliasesMap.get(item.id);
-                    if (aliases && aliases.some(alias => searchRegex!.test(alias))) return true;
+                    if (aliases) {
+                        const matchedAlias = aliases.find(alias => searchRegex!.test(alias));
+                        if (matchedAlias) return { ...item, matchedAlias };
+                    }
                 }
-                return false;
+                return null;
             } else {
-                if (idStr === qStr) return true; // Exact ID match
-                if (item.n.toLowerCase().includes(q)) return true;
-                if (item.cn && item.cn.toLowerCase().includes(q)) return true;
+                if (idStr === qStr) return { ...item }; // Exact ID match
+                if (item.n.toLowerCase().includes(q)) return { ...item };
+                if (item.cn && item.cn.toLowerCase().includes(q)) return { ...item };
                 // For cards, also search by character name
                 if (item.c) {
                     const charName = CHARACTER_NAMES[item.c];
-                    if (charName && charName.toLowerCase().includes(q)) return true;
+                    if (charName && charName.toLowerCase().includes(q)) return { ...item };
                 }
                 // Match music aliases
                 if (item.g === "music" && musicAliasesMap) {
                     const aliases = musicAliasesMap.get(item.id);
-                    if (aliases && aliases.some(alias => alias.toLowerCase().includes(q))) return true;
+                    if (aliases) {
+                        const matchedAlias = aliases.find(alias => alias.toLowerCase().includes(q));
+                        if (matchedAlias) return { ...item, matchedAlias };
+                    }
                 }
-                return false;
+                return null;
             }
-        });
+        }).filter((item): item is SearchResultItem => item !== null);
 
         // Group and limit results
-        const grouped: Record<string, SearchIndexItem[]> = {};
+        const grouped: Record<string, SearchResultItem[]> = {};
         for (const item of matched) {
             if (!grouped[item.g]) grouped[item.g] = [];
             if (grouped[item.g].length < MAX_DYNAMIC_PER_GROUP) {
@@ -200,8 +211,8 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
 
     // Group dynamic items
     const dynamicGrouped = useMemo(() => {
-        const groups: { title: string; items: SearchIndexItem[] }[] = [];
-        const groupMap = new Map<string, SearchIndexItem[]>();
+        const groups: { title: string; items: SearchResultItem[] }[] = [];
+        const groupMap = new Map<string, SearchResultItem[]>();
         for (const item of dynamicFiltered) {
             const groupLabel = SEARCH_GROUP_LABELS[item.g] || item.g;
             const existing = groupMap.get(groupLabel);
@@ -441,9 +452,13 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                                                 const idx = flatIndex;
                                                 const route = SEARCH_GROUP_ROUTES[item.g] || `/${item.g}`;
                                                 const href = `${route}/${item.id}`;
-                                                // For cards, show character name
+                                                // For cards, show character name; for music with matched alias, show the alias
                                                 const subtitle = item.c
                                                     ? CHARACTER_NAMES[item.c] || ""
+                                                    : "";
+                                                // For music, show CN title or matched alias
+                                                const musicSubtitle = item.g === "music"
+                                                    ? (item.matchedAlias || item.cn || "")
                                                     : "";
                                                 return (
                                                     <button
@@ -460,13 +475,13 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                                                             <span className="font-medium truncate max-w-[280px]">
                                                                 {item.n}
                                                             </span>
-                                                            {(item.cn || subtitle) && (
+                                                            {(musicSubtitle || subtitle) && (
                                                                 <span
                                                                     className={`text-xs truncate max-w-[280px] ${isActive ? "text-miku/50" : "text-slate-400"
                                                                         }`}
                                                                 >
-                                                                    {item.cn}
-                                                                    {item.cn && subtitle ? " · " : ""}
+                                                                    {musicSubtitle}
+                                                                    {musicSubtitle && subtitle ? " · " : ""}
                                                                     {subtitle}
                                                                 </span>
                                                             )}
