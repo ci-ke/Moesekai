@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { searchableNavItems, SEARCH_GROUP_LABELS, SEARCH_GROUP_ROUTES } from "@/lib/navigation";
 import { CHARACTER_NAMES } from "@/types/types";
 import { getPrimaryShortcutLabel, isKeyboardEventComposing } from "@/lib/shortcuts";
+import { fetchMusicAliases } from "@/lib/musicAliases";
 
 // Dynamic search index item from search-index.json
 interface SearchIndexItem {
@@ -40,6 +41,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
 
     // Dynamic search index state (loaded once per session)
     const [searchIndex, setSearchIndex] = useState<SearchIndexItem[] | null>(null);
+    const [musicAliasesMap, setMusicAliasesMap] = useState<Map<number, string[]> | null>(null);
     const [isLoadingIndex, setIsLoadingIndex] = useState(false);
     const indexLoadedRef = useRef(false);
     const wildcardShortcut = getPrimaryShortcutLabel("toggle-search-wildcard");
@@ -66,10 +68,16 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         if (isOpen && !indexLoadedRef.current && !isLoadingIndex) {
             indexLoadedRef.current = true;
             setIsLoadingIndex(true);
-            fetch("https://translation.exmeaning.com/data/search-index.json")
-                .then((res) => res.json())
-                .then((data: SearchIndexItem[]) => {
-                    setSearchIndex(data);
+
+            // Load search index and music aliases in parallel
+            Promise.all([
+                fetch("https://translation.exmeaning.com/data/search-index.json")
+                    .then((res) => res.json()) as Promise<SearchIndexItem[]>,
+                fetchMusicAliases().catch(() => new Map()) // Don't fail if aliases fail to load
+            ])
+                .then(([indexData, aliasesMap]) => {
+                    setSearchIndex(indexData);
+                    setMusicAliasesMap(aliasesMap);
                     setIsLoadingIndex(false);
                 })
                 .catch((err) => {
@@ -134,6 +142,11 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                     const charName = CHARACTER_NAMES[item.c];
                     if (charName && searchRegex.test(charName)) return true;
                 }
+                // Match music aliases
+                if (item.g === "music" && musicAliasesMap) {
+                    const aliases = musicAliasesMap.get(item.id);
+                    if (aliases && aliases.some(alias => searchRegex!.test(alias))) return true;
+                }
                 return false;
             } else {
                 if (idStr === qStr) return true; // Exact ID match
@@ -143,6 +156,11 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                 if (item.c) {
                     const charName = CHARACTER_NAMES[item.c];
                     if (charName && charName.toLowerCase().includes(q)) return true;
+                }
+                // Match music aliases
+                if (item.g === "music" && musicAliasesMap) {
+                    const aliases = musicAliasesMap.get(item.id);
+                    if (aliases && aliases.some(alias => alias.toLowerCase().includes(q))) return true;
                 }
                 return false;
             }
@@ -158,7 +176,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         }
 
         return Object.entries(grouped).flatMap(([, items]) => items);
-    }, [query, searchIndex, searchRegex]);
+    }, [query, searchIndex, searchRegex, musicAliasesMap]);
 
     // Combined flat list for keyboard navigation
     const totalItems = filtered.length + dynamicFiltered.length;
@@ -409,8 +427,13 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                                     {/* Dynamic search results */}
                                     {dynamicGrouped.map((group) => (
                                         <div key={`dyn-${group.title}`}>
-                                            <div className="px-4 pt-3 pb-1 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                            <div className="px-4 pt-3 pb-1 text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
                                                 {group.title}
+                                                {group.title === "歌曲" && (
+                                                    <span className="font-normal normal-case text-[10px] text-slate-400/70">
+                                                        (含别名 · <a href="https://github.com/Team-Haruki" target="_blank" rel="noopener noreferrer" className="hover:text-miku">haruki</a>)
+                                                    </span>
+                                                )}
                                             </div>
                                             {group.items.map((item) => {
                                                 flatIndex++;

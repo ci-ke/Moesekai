@@ -25,6 +25,7 @@ import { loadTranslations, TranslationData } from "@/lib/translations";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { fetchSongConstants, buildSongConstantsMap } from "@/lib/songConstants";
 import { useQuickFilter } from "@/contexts/QuickFilterContext";
+import { fetchMusicAliases } from "@/lib/musicAliases";
 
 // Level Separator Card Component
 function LevelSeparatorCard({ level, difficulty }: { level: number; difficulty: string }) {
@@ -67,6 +68,7 @@ function MusicContent() {
     const [error, setError] = useState<string | null>(null);
     const [filtersInitialized, setFiltersInitialized] = useState(false);
     const [songConstantsMap, setSongConstantsMap] = useState<Record<number, Record<string, number>>>({});
+    const [musicAliasesMap, setMusicAliasesMap] = useState<Map<number, string[]>>(new Map());
 
 
     // Filter states
@@ -199,6 +201,13 @@ function MusicContent() {
                     console.warn("Failed to load song constants:", err);
                 });
 
+                // Fetch music aliases (non-blocking)
+                fetchMusicAliases().then(aliasesMap => {
+                    setMusicAliasesMap(aliasesMap);
+                }).catch(err => {
+                    console.warn("Failed to load music aliases:", err);
+                });
+
             } catch (err) {
                 console.error("Error fetching music data:", err);
                 setError(err instanceof Error ? err.message : "Unknown error");
@@ -246,7 +255,7 @@ function MusicContent() {
             result = result.filter((m) => eventMusicIds.has(m.id));
         }
 
-        // Apply search query (supports both name, ID, and Chinese translations)
+        // Apply search query (supports both name, ID, Chinese translations, and aliases)
         if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase().trim();
             const queryAsNumber = parseInt(query, 10);
@@ -263,6 +272,9 @@ function MusicContent() {
                 if (m.composer.toLowerCase().includes(query)) return true;
                 if (m.lyricist.toLowerCase().includes(query)) return true;
                 if (m.arranger.toLowerCase().includes(query)) return true;
+                // Match by aliases
+                const aliases = musicAliasesMap.get(m.id);
+                if (aliases && aliases.some(alias => alias.toLowerCase().includes(query))) return true;
                 return false;
             });
         }
@@ -299,7 +311,7 @@ function MusicContent() {
         });
 
         return result;
-    }, [musics, musicTags, eventMusicIds, selectedTag, selectedCategories, hasEventOnly, searchQuery, sortBy, sortOrder, isShowSpoiler, translations, musicDifficultiesMap, selectedDifficulty, songConstantsMap]);
+    }, [musics, musicTags, eventMusicIds, selectedTag, selectedCategories, hasEventOnly, searchQuery, sortBy, sortOrder, isShowSpoiler, translations, musicDifficultiesMap, selectedDifficulty, songConstantsMap, musicAliasesMap]);
 
     // Displayed musics with level separators (only when sorting by level)
     const displayedMusicsWithSeparators = useMemo(() => {
@@ -412,6 +424,9 @@ function MusicContent() {
                 </h1>
                 <p className="text-slate-500 mt-2 max-w-2xl mx-auto">
                     浏览并探索世界计划中的所有乐曲
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                    音乐别名搜索支持 · 别名库来源：<a href="https://github.com/Team-Haruki" target="_blank" rel="noopener noreferrer" className="text-miku hover:underline">haruki</a>（别名由用户上传，与 Moesekai 无关）
                 </p>
             </div>
 
