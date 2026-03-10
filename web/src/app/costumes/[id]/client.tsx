@@ -7,7 +7,7 @@ import MainLayout from "@/components/MainLayout";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useTranslation } from "@/contexts/TranslationContext";
 import { getCostumeThumbnailUrl, getCharacterIconUrl } from "@/lib/assets";
-import { CHARACTER_NAMES, ICardInfo } from "@/types/types";
+import { CHARACTER_NAMES, ICardInfo, isTrainableCard } from "@/types/types";
 import SekaiCardThumbnail from "@/components/cards/SekaiCardThumbnail";
 import { TranslatedText } from "@/components/common/TranslatedText";
 import {
@@ -46,7 +46,7 @@ export default function CostumeDetailClient() {
     const params = useParams();
     const router = useRouter();
     const costumeNumber = Number(params.id);
-    const { assetSource } = useTheme();
+    const { assetSource, useTrainedThumbnail } = useTheme();
     const { t } = useTranslation();
 
     const [costumeGroup, setCostumeGroup] = useState<ICostumeInfo | null>(null);
@@ -548,7 +548,7 @@ export default function CostumeDetailClient() {
                                                 className="block"
                                                 title={`Card #${card.id} - ${card.prefix}`}
                                             >
-                                                <SekaiCardThumbnail card={card} trained={true} width={64} />
+                                                <SekaiCardThumbnail card={card} trained={[1167].includes(card.id) || (useTrainedThumbnail && isTrainableCard(card) && card.cardRarityType !== "rarity_birthday")} width={64} />
                                             </Link>
                                         ))}
                                     </div>

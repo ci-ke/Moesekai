@@ -20,6 +20,7 @@ import { getCardFullUrl, getCardThumbnailUrl, getEventBannerUrl, getGachaLogoUrl
 import { useRef } from "react";
 import { formatSkillDescription } from "@/lib/skill";
 import { useTheme, type AssetSourceType } from "@/contexts/ThemeContext";
+import { useTranslation } from "@/contexts/TranslationContext";
 import { fetchMasterData } from "@/lib/fetch";
 import { TranslatedText } from "@/components/common/TranslatedText";
 import ImagePreviewModal from "@/components/common/ImagePreviewModal";
@@ -68,6 +69,7 @@ export default function CardDetailPage() {
     const cardId = Number(params.id);
     const isScreenshotMode = searchParams.get('mode') === 'screenshot';
     const { assetSource } = useTheme();
+    const { t } = useTranslation();
 
     const [card, setCard] = useState<ICardInfo | null>(null);
     const [skillDescription, setSkillDescription] = useState<string | null>(null);
@@ -1097,6 +1099,7 @@ function CostumeGrid({ costumes, assetSource }: { costumes: ICostumeInfo[], asse
 
 function CostumeInlineDetail({ costume, assetSource }: { costume: ICostumeInfo, assetSource: AssetSourceType }) {
     const [selectedColorId, setSelectedColorId] = useState(1);
+    const { t } = useTranslation();
 
     // Build display items (same logic as /costumes/:ID)
     const displayItems = useMemo(() => {
@@ -1252,7 +1255,7 @@ function CostumeInlineDetail({ costume, assetSource }: { costume: ICostumeInfo, 
             {availableColors.length > 1 && (
                 <div className="px-3 py-2.5 border-t border-slate-100">
                     <p className="text-[10px] font-bold text-slate-500 mb-1.5">配色方案</p>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex gap-1.5 overflow-x-auto md:flex-wrap md:overflow-x-visible scrollbar-hide pb-1 md:pb-0">
                         {availableColors.map(variant => {
                             const isSelected = selectedColorId === variant.colorId;
                             return (
@@ -1273,7 +1276,7 @@ function CostumeInlineDetail({ costume, assetSource }: { costume: ICostumeInfo, 
                                             unoptimized
                                         />
                                     </div>
-                                    {variant.colorName}
+                                    {t("costumes", "colorName", variant.colorName) || variant.colorName}
                                 </button>
                             );
                         })}

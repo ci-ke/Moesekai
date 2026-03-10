@@ -51,6 +51,7 @@ function openDB(): Promise<IDBDatabase> {
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => {
             console.warn("[Cache] Failed to open IndexedDB:", request.error);
+            dbPromise = null; // Allow retry on next call
             reject(request.error);
         };
     });

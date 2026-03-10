@@ -336,3 +336,13 @@ button[data-shortcut-load-more="true"]::after {
     animation: none;
   }
 }
+
+/* Hide scrollbar for horizontal scroll containers */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

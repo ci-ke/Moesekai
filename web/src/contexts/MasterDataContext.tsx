@@ -9,32 +9,24 @@ const REFRESH_TS_KEY = "masterdata-refresh-ts";
 const MAX_REFRESHES = 2;          // max refreshes allowed within the time window
 const REFRESH_WINDOW_MS = 15_000; // 15 seconds
 
-function isRefreshAllowed(): boolean {
-    if (typeof window === "undefined") return false;
+/** Read current refresh state from sessionStorage, resetting if outside the time window */
+function getRefreshState(): { count: number } {
     const now = Date.now();
     const ts = parseInt(sessionStorage.getItem(REFRESH_TS_KEY) || "0", 10);
-    let count = parseInt(sessionStorage.getItem(REFRESH_COUNT_KEY) || "0", 10);
+    const count = parseInt(sessionStorage.getItem(REFRESH_COUNT_KEY) || "0", 10);
+    return { count: now - ts > REFRESH_WINDOW_MS ? 0 : count };
+}
 
-    // Reset counter if outside the time window
-    if (now - ts > REFRESH_WINDOW_MS) {
-        count = 0;
-    }
-
-    return count < MAX_REFRESHES;
+function isRefreshAllowed(): boolean {
+    if (typeof window === "undefined") return false;
+    return getRefreshState().count < MAX_REFRESHES;
 }
 
 function recordRefresh(): void {
     if (typeof window === "undefined") return;
-    const now = Date.now();
-    const ts = parseInt(sessionStorage.getItem(REFRESH_TS_KEY) || "0", 10);
-    let count = parseInt(sessionStorage.getItem(REFRESH_COUNT_KEY) || "0", 10);
-
-    if (now - ts > REFRESH_WINDOW_MS) {
-        count = 0;
-    }
-
+    const { count } = getRefreshState();
     sessionStorage.setItem(REFRESH_COUNT_KEY, String(count + 1));
-    sessionStorage.setItem(REFRESH_TS_KEY, String(now));
+    sessionStorage.setItem(REFRESH_TS_KEY, String(Date.now()));
 }
 
 interface MasterDataContextType {
@@ -55,6 +47,8 @@ export function MasterDataProvider({ children }: { children: React.ReactNode }) 
 
     // Check version on mount and handle refresh param
     useEffect(() => {
+        let aborted = false;
+
         async function init() {
             // Check if we just refreshed (via _refresh param)
             const url = new URL(window.location.href);
@@ -71,8 +65,10 @@ export function MasterDataProvider({ children }: { children: React.ReactNode }) 
                     clearCacheBypassFlag();
                     // Still try to load normally with whatever version we have
                     const storedVersion = localStorage.getItem(MASTERDATA_VERSION_KEY);
-                    if (storedVersion) setLocalVersion(storedVersion);
-                    setIsLoading(false);
+                    if (!aborted) {
+                        if (storedVersion) setLocalVersion(storedVersion);
+                        setIsLoading(false);
+                    }
                     return;
                 }
 
@@ -83,6 +79,8 @@ export function MasterDataProvider({ children }: { children: React.ReactNode }) 
             try {
                 // Fetch cloud version (no cache)
                 const versionInfo = await fetchVersionInfoNoCache();
+                if (aborted) return;
+
                 const cloud = versionInfo.dataVersion;
                 setCloudVersion(cloud);
 
@@ -90,6 +88,7 @@ export function MasterDataProvider({ children }: { children: React.ReactNode }) 
                 if (justRefreshed) {
                     // Clear all IndexedDB cache on force refresh
                     await clearAllCache();
+                    if (aborted) return;
                     localStorage.setItem(MASTERDATA_VERSION_KEY, cloud);
                     setLocalVersion(cloud);
                 } else {
@@ -98,6 +97,7 @@ export function MasterDataProvider({ children }: { children: React.ReactNode }) 
                     if (storedVersion && storedVersion !== cloud) {
                         console.log(`[MasterData] Version changed: ${storedVersion} → ${cloud}, clearing cache...`);
                         await clearAllCache();
+                        if (aborted) return;
                         localStorage.setItem(MASTERDATA_VERSION_KEY, cloud);
                         setLocalVersion(cloud);
                     } else if (!storedVersion) {
@@ -109,6 +109,7 @@ export function MasterDataProvider({ children }: { children: React.ReactNode }) 
                     }
                 }
             } catch (e) {
+                if (aborted) return;
                 console.warn("Failed to fetch cloud version:", e);
                 // On failure, clear the bypass flag so we don't leave stale state
                 clearCacheBypassFlag();
@@ -116,10 +117,11 @@ export function MasterDataProvider({ children }: { children: React.ReactNode }) 
                 const storedVersion = localStorage.getItem(MASTERDATA_VERSION_KEY);
                 if (storedVersion) setLocalVersion(storedVersion);
             } finally {
-                setIsLoading(false);
+                if (!aborted) setIsLoading(false);
             }
         }
         init();
+        return () => { aborted = true; };
     }, []);
 
     // Clear cache bypass flag after page has fully loaded (delayed cleanup)

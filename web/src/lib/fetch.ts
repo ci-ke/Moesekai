@@ -87,17 +87,13 @@ export interface VersionInfo {
 }
 
 /**
- * Fetch with explicit compression headers
+ * Fetch wrapper (compression is handled automatically by the browser)
  */
 export async function fetchWithCompression(
     url: string,
     options?: RequestInit
 ): Promise<Response> {
-    const headers = new Headers(options?.headers);
-    if (!headers.has("Accept-Encoding")) {
-        headers.set("Accept-Encoding", "gzip, deflate, br, zstd");
-    }
-    return fetch(url, { ...options, headers });
+    return fetch(url, options);
 }
 
 // Session storage key for cache bypass flag
@@ -230,7 +226,7 @@ export async function fetchVersionInfo(): Promise<VersionInfo> {
     try {
         const response = await fetchWithCompression(getVersionUrl());
         if (response.ok) {
-            return response.json();
+            return await response.json();
         }
         console.warn(`[VersionInfo] Primary server failed, trying fallback...`);
     } catch (error) {
@@ -243,7 +239,7 @@ export async function fetchVersionInfo(): Promise<VersionInfo> {
         throw new Error("Failed to fetch version info (both primary and fallback servers failed)");
     }
     console.log(`[VersionInfo] Successfully fetched from fallback server`);
-    return fallbackResponse.json();
+    return await fallbackResponse.json();
 }
 
 /**
@@ -263,7 +259,7 @@ export async function fetchVersionInfoNoCache(): Promise<VersionInfo> {
             cache: "no-store",
         });
         if (response.ok) {
-            return response.json();
+            return await response.json();
         }
         console.warn(`[VersionInfo] Primary server failed (no-cache), trying fallback...`);
     } catch (error) {
@@ -279,7 +275,7 @@ export async function fetchVersionInfoNoCache(): Promise<VersionInfo> {
         throw new Error("Failed to fetch version info (no-cache) (both primary and fallback servers failed)");
     }
     console.log(`[VersionInfo] Successfully fetched (no-cache) from fallback server`);
-    return fallbackResponse.json();
+    return await fallbackResponse.json();
 }
 
 // Local storage key for cached version
@@ -292,6 +288,9 @@ export const MASTERDATA_VERSION_KEY = "masterdata-version";
  * - cn → sekaimaster-cn
  * - jp → sekaimaster (jp)
  * - tw → sekaimaster-cn (same as cn)
+ *
+ * NOTE: Intentionally bypasses IndexedDB cache because this targets a specific server
+ * independent of the global version, so the version-keyed cache would be incorrect.
  */
 export async function fetchMasterDataForServer<T>(server: "cn" | "jp" | "tw", path: string): Promise<T> {
     const masterServer: "cn" | "jp" = (server === "cn" || server === "tw") ? "cn" : "jp";

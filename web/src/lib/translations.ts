@@ -8,6 +8,7 @@
  */
 
 import { getTranslationCache, setTranslationCache, isIndexedDBAvailable } from "./masterdata-cache";
+import { MASTERDATA_VERSION_KEY } from "./fetch";
 
 // Translation map type: original Japanese text -> Chinese translation
 export interface TranslationMap {
@@ -105,7 +106,7 @@ const TRANSLATION_DATA_VERSION_KEY = "translation-data-version";
  */
 function getTranslationVersionHash(): string {
     if (typeof window === "undefined") return "build";
-    const masterVersion = localStorage.getItem("masterdata-version") || "unknown";
+    const masterVersion = localStorage.getItem(MASTERDATA_VERSION_KEY) || "unknown";
     const translationVersion = localStorage.getItem(TRANSLATION_DATA_VERSION_KEY) || "0";
     return `${masterVersion}:${translationVersion}`;
 }
