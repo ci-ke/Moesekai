@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import MainLayout from "@/components/MainLayout";
 import {
+    IlimitedTimeMusicsInfo,
     IMusicInfo,
     IMusicTagInfo,
     IMusicDifficultyInfo,
@@ -112,6 +113,7 @@ export default function MusicDetailPage() {
     const [difficulties, setDifficulties] = useState<IMusicDifficultyInfo[]>([]);
     const [vocals, setVocals] = useState<IMusicVocalInfo[]>([]);
     const [relatedEvents, setRelatedEvents] = useState<EventLite[]>([]);
+    const [limitedTimeMusics, setLimitedTimeMusics] = useState<IlimitedTimeMusicsInfo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
@@ -136,13 +138,14 @@ export default function MusicDetailPage() {
         async function fetchData() {
             try {
                 setIsLoading(true);
-                const [musicsData, tagsData, diffisData, vocalsData, eventsData, eventMusicsData] = await Promise.all([
+                const [musicsData, tagsData, diffisData, vocalsData, eventsData, eventMusicsData, limitedTimeMusicsData] = await Promise.all([
                     fetchMasterData<IMusicInfo[]>("musics.json"),
                     fetchMasterData<IMusicTagInfo[]>("musicTags.json"),
                     fetchMasterData<IMusicDifficultyInfo[]>("musicDifficulties.json"),
                     fetchMasterData<IMusicVocalInfo[]>("musicVocals.json"),
                     fetchMasterData<EventLite[]>("events.json"),
                     fetchMasterData<EventMusicLink[]>("eventMusics.json"),
+                    fetchMasterData<IlimitedTimeMusicsInfo[]>("limitedTimeMusics.json"),
                 ]);
 
                 const foundMusic = musicsData.find(m => m.id === musicId);
@@ -157,6 +160,7 @@ export default function MusicDetailPage() {
                     return DIFFICULTY_ORDER.indexOf(a.musicDifficulty) - DIFFICULTY_ORDER.indexOf(b.musicDifficulty);
                 }));
                 setVocals(vocalsData.filter(v => v.musicId === musicId));
+                setLimitedTimeMusics(limitedTimeMusicsData);
 
                 // Process related events using client-side data
                 const musicEvents = eventMusicsData.filter(em => em.musicId === musicId);
@@ -267,6 +271,16 @@ export default function MusicDetailPage() {
     const tagNames = useMemo(() => {
         return musicTags.map(t => MUSIC_TAG_NAMES[t.musicTag as MusicTagType] || t.musicTag);
     }, [musicTags]);
+
+    // Create set of limited time music IDs
+    const limitedMusicIds = useMemo(() => {
+        return new Set(limitedTimeMusics.map(item => item.musicId));
+    }, [limitedTimeMusics]);
+
+    // Check if current music is limited time
+    const isLimitedMusic = useMemo(() => {
+        return music ? limitedMusicIds.has(music.id) : false;
+    }, [music, limitedMusicIds]);
 
     if (isLoading) {
         return (
@@ -471,7 +485,8 @@ export default function MusicDetailPage() {
                                                 10: "从礼物中领取"
                                             };
                                             const id = music.releaseConditionId;
-                                            return conditionMap[id] !== undefined ? conditionMap[id] : id;
+                                            const baseText = conditionMap[id] !== undefined ? conditionMap[id] : id;
+                                            return isLimitedMusic ? `${baseText}（期间限定）` : baseText;
                                         })()
                                     }
                                 />

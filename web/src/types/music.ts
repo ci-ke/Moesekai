@@ -13,6 +13,13 @@ export type MusicTagType =
     | "light_music_club"
     | "other";
 
+export interface IlimitedTimeMusicsInfo {
+    id: number;
+    musicId: number;
+    startAt: number;
+    endAt: number;
+}
+
 export interface IMusicInfo {
     id: number;
     seq: number;
