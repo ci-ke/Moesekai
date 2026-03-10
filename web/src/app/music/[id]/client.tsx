@@ -461,6 +461,21 @@ export default function MusicDetailPage() {
                                         : "..."}
                                 />
                                 <InfoRow
+                                    label="解锁条件"
+                                    value={
+                                        (() => {
+                                            const conditionMap: Record<number, string> = {
+                                                1: "初始拥有",
+                                                5: "从音乐商店购买",
+                                                6: "无",
+                                                10: "从礼物中领取"
+                                            };
+                                            const id = music.releaseConditionId;
+                                            return conditionMap[id] !== undefined ? conditionMap[id] : id;
+                                        })()
+                                    }
+                                />
+                                <InfoRow
                                     label="内部资源名称"
                                     value={<span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded">{music.assetbundleName}</span>}
                                 />
