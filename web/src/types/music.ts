@@ -71,6 +71,12 @@ export interface IMusicVocalCharacter {
     seq: number;
 }
 
+export interface IOutsideCharacter {
+    id: number;
+    seq: number;
+    name: string;
+}
+
 // Music tag display names (Chinese)
 export const MUSIC_TAG_NAMES: Record<MusicTagType, string> = {
     all: "全部",

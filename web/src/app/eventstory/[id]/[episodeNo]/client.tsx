@@ -28,7 +28,7 @@ export default function StoryReaderClient() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [translatedEpisodeTitle, setTranslatedEpisodeTitle] = useState<string | null>(null);
-    const [translationSource, setTranslationSource] = useState<'official_cn' | 'llm' | undefined>(undefined);
+    const [translationSource, setTranslationSource] = useState<'official_cn' | 'llm' | 'human' | undefined>(undefined);
 
     const { useLLMTranslation } = useTheme();
     // Load story data
@@ -159,9 +159,11 @@ export default function StoryReaderClient() {
                                         {useLLMTranslation && translationSource && (
                                             <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border ${translationSource === 'official_cn'
                                                 ? 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700/50'
-                                                : 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-slate-700'
+                                                : translationSource === 'human'
+                                                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700/50'
+                                                    : 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-slate-700'
                                                 }`}>
-                                                {translationSource === 'official_cn' ? '官方CN' : 'AI翻译'}
+                                                {translationSource === 'official_cn' ? '官方CN' : translationSource === 'human' ? 'AI翻译+人工精校' : 'AI翻译'}
                                             </span>
                                         )}
                                     </div>
@@ -230,9 +232,9 @@ export default function StoryReaderClient() {
                         {scenarioData.actions.length > 0 && (
                             <div className="text-center py-8 text-slate-400">
                                 <p>— 第 {episodeNo} 话 结束 —</p>
-                                {useLLMTranslation && translationSource === 'llm' && (
+                                {useLLMTranslation && (translationSource === 'llm' || translationSource === 'human') && (
                                     <p className="text-xs mt-2 italic">
-                                        翻译文本来源于moesekai的AI翻译，转载请表明出处。
+                                        翻译文本来源于moesekai的AI翻译{translationSource === 'human' ? '（经人工精校）' : ''}，转载请表明出处。
                                     </p>
                                 )}
                             </div>

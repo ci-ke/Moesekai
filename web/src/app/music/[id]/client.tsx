@@ -10,6 +10,7 @@ import {
     IMusicTagInfo,
     IMusicDifficultyInfo,
     IMusicVocalInfo,
+    IOutsideCharacter,
     MusicDifficultyType,
     getMusicJacketUrl,
     getChartSvgUrl,
@@ -114,6 +115,7 @@ export default function MusicDetailPage() {
     const [vocals, setVocals] = useState<IMusicVocalInfo[]>([]);
     const [relatedEvents, setRelatedEvents] = useState<EventLite[]>([]);
     const [limitedTimeMusics, setLimitedTimeMusics] = useState<IlimitedTimeMusicsInfo[]>([]);
+    const [outsideCharacters, setOutsideCharacters] = useState<Record<number, string>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
@@ -138,7 +140,7 @@ export default function MusicDetailPage() {
         async function fetchData() {
             try {
                 setIsLoading(true);
-                const [musicsData, tagsData, diffisData, vocalsData, eventsData, eventMusicsData, limitedTimeMusicsData] = await Promise.all([
+                const [musicsData, tagsData, diffisData, vocalsData, eventsData, eventMusicsData, limitedTimeMusicsData, outsideCharsData] = await Promise.all([
                     fetchMasterData<IMusicInfo[]>("musics.json"),
                     fetchMasterData<IMusicTagInfo[]>("musicTags.json"),
                     fetchMasterData<IMusicDifficultyInfo[]>("musicDifficulties.json"),
@@ -146,6 +148,7 @@ export default function MusicDetailPage() {
                     fetchMasterData<EventLite[]>("events.json"),
                     fetchMasterData<EventMusicLink[]>("eventMusics.json"),
                     fetchMasterData<IlimitedTimeMusicsInfo[]>("limitedTimeMusics.json"),
+                    fetchMasterData<IOutsideCharacter[]>("outsideCharacters.json").catch(() => [] as IOutsideCharacter[]),
                 ]);
 
                 const foundMusic = musicsData.find(m => m.id === musicId);
@@ -161,6 +164,13 @@ export default function MusicDetailPage() {
                 }));
                 setVocals(vocalsData.filter(v => v.musicId === musicId));
                 setLimitedTimeMusics(limitedTimeMusicsData);
+
+                // Build outside character name map
+                const outsideCharMap: Record<number, string> = {};
+                for (const oc of outsideCharsData) {
+                    outsideCharMap[oc.id] = oc.name;
+                }
+                setOutsideCharacters(outsideCharMap);
 
                 // Process related events using client-side data
                 const musicEvents = eventMusicsData.filter(em => em.musicId === musicId);
@@ -668,6 +678,7 @@ export default function MusicDetailPage() {
                                             vocal={vocal}
                                             fillerSec={music.fillerSec}
                                             assetSource={assetSource}
+                                            outsideCharacters={outsideCharacters}
                                         />
                                     ))}
                                 </div>
@@ -740,7 +751,7 @@ export default function MusicDetailPage() {
 }
 
 // Vocal Player Component
-function VocalPlayer({ vocal, fillerSec, assetSource }: { vocal: IMusicVocalInfo; fillerSec: number; assetSource: AssetSourceType }) {
+function VocalPlayer({ vocal, fillerSec, assetSource, outsideCharacters }: { vocal: IMusicVocalInfo; fillerSec: number; assetSource: AssetSourceType; outsideCharacters: Record<number, string> }) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -852,15 +863,19 @@ function VocalPlayer({ vocal, fillerSec, assetSource }: { vocal: IMusicVocalInfo
                     </div>
 
                     <div className="flex flex-wrap gap-1 mb-2">
-                        {vocal.characters?.map((chara) => (
-                            <div
-                                key={chara.id}
-                                className="w-6 h-6 rounded-full overflow-hidden bg-slate-100 ring-1 ring-white"
-                                title={chara.characterType === "game_character"
-                                    ? CHARACTER_NAMES[chara.characterId] || `Character ${chara.characterId}`
-                                    : `Guest ${chara.characterId}`}
-                            >
-                                {chara.characterType === "game_character" && chara.characterId <= 26 && (
+                        {vocal.characters?.map((chara) => {
+                            const isGameChar = chara.characterType === "game_character";
+                            const charName = isGameChar
+                                ? CHARACTER_NAMES[chara.characterId] || `Character ${chara.characterId}`
+                                : outsideCharacters[chara.characterId] || `Guest ${chara.characterId}`;
+                            const hasIcon = isGameChar && chara.characterId <= 26;
+
+                            return hasIcon ? (
+                                <div
+                                    key={chara.id}
+                                    className="w-6 h-6 rounded-full overflow-hidden bg-slate-100 ring-1 ring-white"
+                                    title={charName}
+                                >
                                     <Image
                                         src={getCharacterIconUrl(chara.characterId)}
                                         alt=""
@@ -869,9 +884,19 @@ function VocalPlayer({ vocal, fillerSec, assetSource }: { vocal: IMusicVocalInfo
                                         className="w-full h-full object-cover"
                                         unoptimized
                                     />
-                                )}
-                            </div>
-                        ))}
+                                </div>
+                            ) : (
+                                <div
+                                    key={chara.id}
+                                    className="h-6 px-2 rounded-full bg-slate-100 ring-1 ring-white flex items-center"
+                                    title={charName}
+                                >
+                                    <span className="text-[10px] text-slate-500 font-medium leading-none whitespace-nowrap">
+                                        {charName}
+                                    </span>
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {/* Progress Bar & Time */}

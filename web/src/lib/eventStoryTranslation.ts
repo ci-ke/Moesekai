@@ -15,7 +15,7 @@ export interface IEpisodeTranslation {
 
 export interface IEventStoryTranslation {
     meta?: {
-        source: 'official_cn' | 'llm';
+        source: 'official_cn' | 'llm' | 'human';
         version: string;
         last_updated: number;
     };

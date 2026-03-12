@@ -238,7 +238,7 @@ export interface IProcessedAction {
     // CN Translation (from event story translation files)
     cnBody?: string;
     cnDisplayName?: string;
-    translationSource?: 'official_cn' | 'llm';
+    translationSource?: 'official_cn' | 'llm' | 'human';
     // SpecialEffect specific
     seType?: string;
     resource?: string;

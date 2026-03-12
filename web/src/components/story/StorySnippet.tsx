@@ -11,7 +11,7 @@ interface TalkSnippetProps {
     voiceUrl?: string;
     cnText?: string;
     cnDisplayName?: string;
-    translationSource?: 'official_cn' | 'llm';
+    translationSource?: 'official_cn' | 'llm' | 'human';
 }
 
 export function TalkSnippet({ characterId, characterName, text, voiceUrl, cnText, cnDisplayName, translationSource }: TalkSnippetProps) {
